@@ -157,6 +157,8 @@ modules' VCC/GND to these rows.
 
 ## Step 8: Android app
 
+0. Unzip the project into a folder whose path has **English letters only**, for example `E:\Rayy-Project`
+   (not `E:\Ray ري\...`). Android Studio refuses to build in folders with Arabic letters in the path.
 1. Copy `google-services.json` (step 3.5) into **`android/Rayy/app/`**.
 2. Android Studio → **File → Open** → choose the **`android/Rayy`** folder (the project name shows as **Rayy**) → wait for "Gradle sync" to finish.
 3. Connect your phone (enable **Developer options → USB debugging**) or create an emulator → press **▶ Run**.

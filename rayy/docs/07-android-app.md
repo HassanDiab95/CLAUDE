@@ -21,10 +21,16 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 
 ## 7.2 Open, build and run
 
+> ⚠️ **Folder path: English letters only.** Put the project in a folder whose full path has **no Arabic letters**,
+> for example `E:\Rayy-Project\android\Rayy`. A path like `E:\Ray ري\...` gives the error
+> *"Your project path contains non-ASCII characters"*. The project includes `android.overridePathCheck=true`
+> in `gradle.properties` to skip this check, but other build tools can still fail on such paths, so moving the
+> folder is the safe fix.
+
 1. Copy **`google-services.json`** into **`android/Rayy/app/`**. Without it the build fails with
    *"File google-services.json is missing"*.
 2. Android Studio → **File → Open** → select the **`android/Rayy`** folder (Android Studio shows the project name **Rayy**) → wait for "Gradle sync" to finish
-   (the first time it downloads Gradle 8.9 and the libraries, so an internet connection is required).
+   (the first time it downloads Gradle 8.7 and the libraries, so an internet connection is required).
 3. Connect a phone with **USB debugging** enabled (Settings → About phone → tap "Build number" 7 times →
    Developer options → USB debugging), or create an emulator (Device Manager).
 4. Press **▶ Run**. Sign in with a user from Firebase Authentication.
@@ -39,9 +45,9 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 
 ```
 android/Rayy/                 ← open this folder in Android Studio (project "Rayy")
-├── settings.gradle.kts, build.gradle.kts, gradle.properties, gradlew   (Gradle 8.9, AGP 8.5, Kotlin 2.0)
+├── settings.gradle.kts, build.gradle.kts, gradle.properties, gradlew   (Gradle 8.7, AGP 8.5.0, Kotlin 2.0.21)
 └── app/
-    ├── build.gradle.kts                 dependencies: Firebase BoM 33, Compose BoM 2024.09
+    ├── build.gradle.kts                 dependencies: Firebase BoM 33.1.0, Compose BoM 2024.09.00
     ├── google-services.json             ← YOU add this file
     └── src/main/
         ├── AndroidManifest.xml          INTERNET permission
