@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Rayy</string>
+    <string name="login_hint">Sign in to see your plant</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_out">Sign out</string>
+    <string name="online">Online</string>
+    <string name="offline">Offline</string>
+    <string name="last_update">Last update</string>
+
+    <string name="tab_home">Plant</string>
+    <string name="tab_history">History</string>
+    <string name="tab_diary">Diary</string>
+
+    <string name="soil">Soil</string>
+    <string name="temperature">Temp</string>
+    <string name="humidity">Humidity</string>
+    <string name="light">Light</string>
+    <string name="wifi">Wi-Fi signal</string>
+    <string name="signal_good">excellent</string>
+    <string name="signal_ok">good</string>
+    <string name="signal_bad">weak</string>
+
+    <string name="speak_title">Play a sound on the plant</string>
+    <string name="speak_now">Play</string>
+    <string name="speak_sent">Sent! The plant will play it within 30 seconds.</string>
+    <string name="mute">Mute sound</string>
+
+    <string name="history_title">Last 24 hours</string>
+    <string name="min">Min</string>
+    <string name="avg">Avg</string>
+    <string name="max">Max</string>
+    <string name="no_events">No events yet</string>
+
+    <string name="mood_happy">Happy</string>
+    <string name="mood_thirsty">Thirsty</string>
+    <string name="mood_drowning">Too wet</string>
+    <string name="mood_hot">Too hot</string>
+    <string name="mood_cold">Cold</string>
+    <string name="mood_need_light">Needs light</string>
+    <string name="mood_sleepy">Sleeping</string>
+    <string name="mood_unknown">…</string>
+    <string name="msg_happy">Everything is perfect, thank you!</string>
+    <string name="msg_thirsty">I am thirsty! Please water me.</string>
+    <string name="msg_drowning">Too much water! The soil is soaked.</string>
+    <string name="msg_hot">It is too hot, move me somewhere cooler.</string>
+    <string name="msg_cold">I feel cold, I need a warmer place.</string>
+    <string name="msg_need_light">I need more sunlight.</string>
+    <string name="msg_sleepy">Good night… I am sleeping.</string>
+    <string name="msg_unknown">Waiting for data</string>
+
+    <string name="track_1">Thirsty</string>
+    <string name="track_2">Too wet</string>
+    <string name="track_3">Hot</string>
+    <string name="track_4">Cold</string>
+    <string name="track_5">Needs light</string>
+    <string name="track_6">Happy</string>
+    <string name="track_7">Thank you</string>
+    <string name="track_8">Good night</string>
+    <string name="track_9">Hello</string>
+</resources>

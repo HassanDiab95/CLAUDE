@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 760" font-family="Arial, Helvetica, sans-serif" font-size="13">
+  <title>Rayy: wiring diagram (ESP32)</title>
+  <rect width="1300" height="760" fill="#ffffff"/>
+  <text x="650" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#1d2b22">Rayy: Wiring Diagram (ESP32 DevKit V1)</text>
+  <text x="650" y="52" text-anchor="middle" fill="#5f6f64">Orange = 3.3 V · Black = GND · Coloured = signals · Every module's GND goes to the ESP32 GND</text>
+
+  <!-- ===================== POWER ===================== -->
+  <rect x="470" y="78" width="360" height="70" rx="10" fill="#e8f1fb" stroke="#2a7ab8" stroke-width="2"/>
+  <text x="650" y="104" text-anchor="middle" font-weight="bold">5 V USB power bank (or 5 V phone charger)</text>
+  <text x="650" y="126" text-anchor="middle" font-size="12">USB cable → ESP32 micro-USB / USB-C port</text>
+  <line x1="650" y1="148" x2="650" y2="290" stroke="#d62828" stroke-width="4"/>
+  <text x="660" y="195" fill="#d62828" font-weight="bold">USB 5 V</text>
+
+  <!-- Rails -->
+  <line x1="200" y1="250" x2="1110" y2="250" stroke="#f39c12" stroke-width="4"/>
+  <text x="760" y="243" font-size="12" font-weight="bold" fill="#f39c12">3.3 V rail (ESP32 3V3) → VCC of soil, DHT22, OLED, BH1750</text>
+  <line x1="200" y1="270" x2="1110" y2="270" stroke="#000" stroke-width="4"/>
+  <text x="210" y="288" font-weight="bold">GND rail (ESP32 GND pin) → GND of every module</text>
+
+  <!-- ===================== ESP32 ===================== -->
+  <rect x="500" y="290" width="300" height="400" rx="12" fill="#22313f" stroke="#111" stroke-width="2"/>
+  <text x="650" y="365" text-anchor="middle" fill="#fff" font-weight="bold" font-size="17">ESP32 DevKit V1</text>
+  <rect x="605" y="470" width="90" height="75" rx="4" fill="#9aa5b1"/>
+  <text x="650" y="512" text-anchor="middle" font-size="11">ESP-WROOM-32</text>
+  <rect x="628" y="290" width="44" height="20" rx="3" fill="#bbb"/>
+  <text x="650" y="330" text-anchor="middle" fill="#fff" font-size="11">USB port</text>
+  <g fill="#f1c40f"><circle cx="560" cy="290" r="5"/><circle cx="740" cy="290" r="5"/></g>
+  <g fill="#fff" font-size="12" text-anchor="middle"><text x="560" y="310">3V3</text><text x="740" y="310">GND</text></g>
+  <polyline points="560,290 560,250" fill="none" stroke="#f39c12" stroke-width="3"/>
+  <polyline points="740,290 740,270" fill="none" stroke="#000" stroke-width="3"/>
+  <circle cx="560" cy="250" r="5" fill="#f39c12"/><circle cx="740" cy="270" r="5" fill="#000"/>
+
+  <!-- left pins -->
+  <g fill="#fff" font-size="12">
+    <text x="512" y="419">GPIO34 (ADC)</text>
+    <text x="512" y="499">GPIO4</text>
+    <text x="512" y="579">GPIO25</text>
+    <text x="512" y="659">GPIO13</text>
+  </g>
+  <g fill="#f1c40f"><circle cx="500" cy="415" r="5"/><circle cx="500" cy="495" r="5"/><circle cx="500" cy="575" r="5"/><circle cx="500" cy="655" r="5"/></g>
+  <!-- right pins -->
+  <g fill="#fff" font-size="12" text-anchor="end">
+    <text x="788" y="429">GPIO21 (SDA)</text>
+    <text x="788" y="469">GPIO22 (SCL)</text>
+    <text x="788" y="669">GPIO2 = on-board LED</text>
+  </g>
+  <g fill="#f1c40f"><circle cx="800" cy="425" r="5"/><circle cx="800" cy="465" r="5"/></g>
+
+  <!-- ===================== LEFT MODULES ===================== -->
+  <rect x="30" y="380" width="250" height="70" rx="8" fill="#f3e9dc" stroke="#8a5a2b" stroke-width="2"/>
+  <text x="155" y="404" text-anchor="middle" font-weight="bold">Capacitive soil moisture v1.2</text>
+  <text x="155" y="424" text-anchor="middle" font-size="12">VCC → 3.3 V · GND → GND</text>
+  <text x="155" y="441" text-anchor="middle" font-size="12">AOUT → GPIO34</text>
+  <polyline points="280,415 500,415" fill="none" stroke="#8a5a2b" stroke-width="3"/>
+
+  <rect x="30" y="460" width="250" height="70" rx="8" fill="#f7f0ff" stroke="#7d3cbf" stroke-width="2"/>
+  <text x="155" y="484" text-anchor="middle" font-weight="bold">DHT22 temperature + humidity</text>
+  <text x="155" y="504" text-anchor="middle" font-size="12">+ → 3.3 V · − → GND</text>
+  <text x="155" y="521" text-anchor="middle" font-size="12">OUT → GPIO4</text>
+  <polyline points="280,495 500,495" fill="none" stroke="#7d3cbf" stroke-width="3"/>
+
+  <rect x="30" y="540" width="250" height="70" rx="8" fill="#fde8e8" stroke="#c0392b" stroke-width="2"/>
+  <text x="155" y="564" text-anchor="middle" font-weight="bold">Passive buzzer 🔊</text>
+  <text x="155" y="584" text-anchor="middle" font-size="12">(+) ← 100 Ω ← GPIO25</text>
+  <text x="155" y="601" text-anchor="middle" font-size="12">(−) → GND</text>
+  <polyline points="280,575 360,575" fill="none" stroke="#c0392b" stroke-width="3"/>
+  <rect x="360" y="566" width="50" height="18" fill="#fff" stroke="#c0392b" stroke-width="2"/>
+  <text x="385" y="579" text-anchor="middle" font-size="11">100 Ω</text>
+  <polyline points="410,575 500,575" fill="none" stroke="#c0392b" stroke-width="3"/>
+
+  <rect x="30" y="620" width="250" height="60" rx="8" fill="#f6f6f6" stroke="#444" stroke-width="2"/>
+  <text x="155" y="644" text-anchor="middle" font-weight="bold">Push button</text>
+  <text x="155" y="664" text-anchor="middle" font-size="12">leg 1 → GPIO13 · leg 2 → GND</text>
+  <polyline points="280,655 500,655" fill="none" stroke="#444" stroke-width="3"/>
+
+  <!-- ===================== RIGHT MODULES ===================== -->
+  <rect x="1000" y="380" width="250" height="80" rx="8" fill="#e9eef5" stroke="#22313f" stroke-width="2"/>
+  <rect x="1012" y="392" width="58" height="34" fill="#0b1a2a"/>
+  <text x="1041" y="416" text-anchor="middle" font-size="18">😊</text>
+  <text x="1160" y="403" text-anchor="middle" font-weight="bold">OLED 0.96" SSD1306</text>
+  <text x="1160" y="421" text-anchor="middle" font-size="11">I2C address 0x3C</text>
+  <text x="1125" y="447" text-anchor="middle" font-size="11">VCC → 3.3 V · GND · SDA · SCL</text>
+
+  <rect x="1000" y="490" width="250" height="70" rx="8" fill="#fffbe0" stroke="#b59a00" stroke-width="2"/>
+  <text x="1125" y="514" text-anchor="middle" font-weight="bold">BH1750 light sensor (GY-302)</text>
+  <text x="1125" y="532" text-anchor="middle" font-size="11">I2C 0x23 (ADDR → GND)</text>
+  <text x="1125" y="549" text-anchor="middle" font-size="11">VCC → 3.3 V · GND · SDA · SCL</text>
+
+  <g fill="none" stroke-width="3">
+    <polyline points="800,425 1000,425" stroke="#2f7d4f"/>
+    <polyline points="910,425 910,520 1000,520" stroke="#2f7d4f"/>
+    <polyline points="800,465 940,465 940,445 1000,445" stroke="#8e44ad"/>
+    <polyline points="940,465 940,540 1000,540" stroke="#8e44ad"/>
+  </g>
+  <circle cx="910" cy="425" r="4" fill="#2f7d4f"/><circle cx="940" cy="465" r="4" fill="#8e44ad"/>
+  <text x="830" y="417" font-size="11" fill="#2f7d4f">SDA</text>
+  <text x="830" y="482" font-size="11" fill="#8e44ad">SCL</text>
+
+  <text x="1000" y="600" font-size="12" fill="#5f6f64">The OLED and BH1750 share the same 2 wires</text>
+  <text x="1000" y="617" font-size="12" fill="#5f6f64">(I2C bus): connect SDA to SDA and SCL to SCL.</text>
+
+  <text x="30" y="725" font-size="12" fill="#5f6f64">Use only ADC1 pins (GPIO32–39) for analog sensors: ADC2 pins do not work while Wi-Fi is on.</text>
+  <text x="30" y="743" font-size="12" fill="#5f6f64">Choose a power bank without "auto power-off" at low current, or keep the project on a USB phone charger.</text>
+</svg>
