@@ -3,104 +3,172 @@
 Scope: TSD chapter 2 (Dynamic Z Configuration Table) and chapter 3 (VA01 applicability check + field locking).
 VA02 change detection, delivery block and workflow (chapters 4–6) are not part of this delivery.
 
-## 1. Z table `ZSD_SO_CON_CTRL`
+## 1. Filter concept
 
-Source: `src/ddic/zsd_so_con_ctrl.tabl.ddl`
+The filter table works like a select-option (similar to TVARVC). Each line holds **one single value or one from–to range**
+for one field. One field can have as many lines as needed. Example:
 
-| Field     | Key | Data element | Check table | Meaning              | Example |
-|-----------|-----|--------------|-------------|----------------------|---------|
-| MANDT     | X   | MANDT        |             | Client               |         |
-| VKORG     | X   | VKORG        | TVKO        | Sales Organization   | 2000    |
-| VTWEG     | X   | VTWEG        | TVTW        | Distribution Channel | 20      |
-| SPART     | X   | SPART        | TSPA        | Division             | 00      |
-| AUART_SO  | X   | AUART        | TVAK        | Sales Order Type     | ZOP     |
-| AUART_CON | X   | AUART        | TVAK        | Contract Type        | ZCPC    |
-| ACTIVE    |     | XFELD        |             | Active Rule          | X       |
+| Line | Field     | Sign | Option | Low  | High |
+|------|-----------|------|--------|------|------|
+| 1    | AUART_SO  | I    | EQ     | ZOP  |      |
+| 2    | AUART_SO  | I    | EQ     | ZICE |      |
+| 3    | AUART_SO  | I    | EQ     | ZICO |      |
+| 4    | VTWEG     | I    | EQ     | 20   |      |
+| 5    | VTWEG     | I    | EQ     | 60   |      |
+| 6    | VKORG     | I    | BT     | 2000 | 2999 |
 
-- Delivery class **C** (customizing, transported via customizing request).
-- One row per combination. "20/60" and "ZOP/ZICE/ZICO" in the TSD are separate rows, e.g.:
+How the lines are evaluated:
+- Lines of the **same field** are combined like a select-option. Order type ZOP **or** ZICE **or** ZICO.
+- **Different fields** are combined with AND. Order type in the list **and** channel in the list **and** sales org in the range, and so on.
+- Lines are grouped by **RULE_ID**. One rule is usually enough. A second rule is only needed for a combination that must not mix with
+  the first one (for example, ZOP only for sales org 2000 but ZICE only for sales org 3000). The order is locked if **any** active rule matches.
+- All 5 fields are mandatory per rule. A rule without at least one active line for each field is rejected on save, and it is ignored at runtime.
+  This matters because an empty range would match every order.
 
-  | VKORG | VTWEG | SPART | AUART_SO | AUART_CON | ACTIVE |
-  |-------|-------|-------|----------|-----------|--------|
-  | 2000  | 20    | 00    | ZOP      | ZCPC      | X      |
-  | 2000  | 20    | 00    | ZICE     | ZCPC      | X      |
-  | 2000  | 20    | 00    | ZICO     | ZCPC      | X      |
-  | 2000  | 60    | 00    | ZOP      | ZCPC      | X      |
-  | 2000  | 60    | 00    | ZICE     | ZCPC      | X      |
-  | 2000  | 60    | 00    | ZICO     | ZCPC      | X      |
+## 2. DDIC objects
 
-- A rule is switched off by clearing ACTIVE; no ABAP change is needed to add or remove a combination.
+### 2.1 Domains (SE11)
 
-### Table maintenance
-1. SE11 → Utilities → Table Maintenance Generator: authorization group (e.g. `ZSD`), function group `ZSD_SO_CON_CTRL`, one-step, standard recording routine.
-2. Event **01** (before save) → `FORM zsd_so_con_ctrl_before_save` (`src/ddic/zsd_so_con_ctrl_tmg_events.abap`), which:
-   - checks that all key fields are filled
-   - checks that AUART_SO is a sales order type (TVAK-VBTYP = `C`)
-   - checks that AUART_CON is a contract type (TVAK-VBTYP = `G`)
+| Domain           | Type | Len | Value table / fixed values | Description |
+|------------------|------|-----|----------------------------|-------------|
+| ZD_SD_VKORG      | CHAR | 4   | Value table TVKO           | Sales Organization |
+| ZD_SD_VTWEG      | CHAR | 2   | Value table TVTW           | Distribution Channel |
+| ZD_SD_SPART      | CHAR | 2   | Value table TSPA           | Division |
+| ZD_SD_AUART_SO   | CHAR | 4   | Value table TVAK           | Sales Order Type |
+| ZD_SD_AUART_CON  | CHAR | 4   | Value table TVAK           | Contract Type |
+| ZD_SD_ACTIVE     | CHAR | 1   | Fixed values: ` ` = Inactive, `X` = Active | Active Rule |
+| ZD_SD_FLT_FIELD  | CHAR | 10  | Fixed values: `VKORG` Sales Organization, `VTWEG` Distribution Channel, `SPART` Division, `AUART_SO` Sales Order Type, `AUART_CON` Contract Type | Filter field name |
+| ZD_SD_FLT_VALUE  | CHAR | 10  | –  (upper case)            | Filter value (Low/High) |
+| ZD_SD_RULE_ID    | CHAR | 10  | –  (upper case)            | Filter rule ID |
+| ZD_SD_FLT_SEQNO  | NUMC | 4   | –                          | Line number |
+
+Notes:
+- Do **not** set conversion routine AUART on ZD_SD_AUART_SO / ZD_SD_AUART_CON. The table stores internal order type keys (for example `TA`, not `OR`).
+  This keeps the values comparable with VBAK-AUART. Z order types such as ZOP are the same internally and externally.
+- Leave "Lower case" unchecked on all domains.
+
+### 2.2 Data elements
+
+| Data element     | Domain          | Field label (short / medium) |
+|------------------|-----------------|------------------------------|
+| ZE_SD_VKORG      | ZD_SD_VKORG     | SOrg / Sales Organization |
+| ZE_SD_VTWEG      | ZD_SD_VTWEG     | DChl / Distribution Channel |
+| ZE_SD_SPART      | ZD_SD_SPART     | Dv / Division |
+| ZE_SD_AUART_SO   | ZD_SD_AUART_SO  | SO Type / Sales Order Type |
+| ZE_SD_AUART_CON  | ZD_SD_AUART_CON | Con.Type / Contract Type |
+| ZE_SD_ACTIVE     | ZD_SD_ACTIVE    | Active / Active Rule |
+| ZE_SD_FLT_FIELD  | ZD_SD_FLT_FIELD | Field / Filter Field |
+| ZE_SD_FLT_LOW    | ZD_SD_FLT_VALUE | From / Value From |
+| ZE_SD_FLT_HIGH   | ZD_SD_FLT_VALUE | To / Value To |
+| ZE_SD_RULE_ID    | ZD_SD_RULE_ID   | Rule / Filter Rule |
+| ZE_SD_FLT_SEQNO  | ZD_SD_FLT_SEQNO | No. / Line Number |
+
+SIGN and OPTION use the standard data elements **DDSIGN** (I/E) and **DDOPTION** (EQ, NE, BT, NB, CP, NP, GT, GE, LT, LE).
+Their fixed values give F4 help in SM30.
+
+### 2.3 Filter table `ZSD_SO_CON_FLT` (`src/ddic/zsd_so_con_flt.tabl.ddl`)
+
+| Field     | Key | Data element    | Meaning |
+|-----------|-----|-----------------|---------|
+| MANDT     | X   | MANDT           | Client |
+| RULE_ID   | X   | ZE_SD_RULE_ID   | Rule (group of lines) |
+| FIELDNAME | X   | ZE_SD_FLT_FIELD | VKORG / VTWEG / SPART / AUART_SO / AUART_CON |
+| SEQNO     | X   | ZE_SD_FLT_SEQNO | Line number within the field |
+| SIGN      |     | DDSIGN          | I = include, E = exclude |
+| OPTI      |     | DDOPTION        | EQ, BT, CP, … |
+| LOW       |     | ZE_SD_FLT_LOW   | Single value / From |
+| HIGH      |     | ZE_SD_FLT_HIGH  | To (only with BT/NB) |
+| ACTIVE    |     | ZE_SD_ACTIVE    | X = line is used |
+
+Delivery class **C**, data maintenance allowed. It is transported through a customizing request.
+
+TSD example as table entries:
+
+| RULE_ID | FIELDNAME | SEQNO | SIGN | OPTI | LOW  | HIGH | ACTIVE |
+|---------|-----------|-------|------|------|------|------|--------|
+| 01      | VKORG     | 0001  | I    | EQ   | 2000 |      | X |
+| 01      | VTWEG     | 0001  | I    | EQ   | 20   |      | X |
+| 01      | VTWEG     | 0002  | I    | EQ   | 60   |      | X |
+| 01      | SPART     | 0001  | I    | EQ   | 00   |      | X |
+| 01      | AUART_SO  | 0001  | I    | EQ   | ZOP  |      | X |
+| 01      | AUART_SO  | 0002  | I    | EQ   | ZICE |      | X |
+| 01      | AUART_SO  | 0003  | I    | EQ   | ZICO |      | X |
+| 01      | AUART_CON | 0001  | I    | EQ   | ZCPC |      | X |
+
+### 2.4 Range table types and the filter table type
+
+| Object               | Kind                     | Definition |
+|----------------------|--------------------------|------------|
+| ZTT_SD_R_VKORG       | Table type – Ranges      | Data element ZE_SD_VKORG |
+| ZTT_SD_R_VTWEG       | Table type – Ranges      | Data element ZE_SD_VTWEG |
+| ZTT_SD_R_SPART       | Table type – Ranges      | Data element ZE_SD_SPART |
+| ZTT_SD_R_AUART_SO    | Table type – Ranges      | Data element ZE_SD_AUART_SO |
+| ZTT_SD_R_AUART_CON   | Table type – Ranges      | Data element ZE_SD_AUART_CON |
+| ZSSD_SO_CON_FILTER   | Structure                | RULE_ID + one range table per field (`src/ddic/zssd_so_con_filter.stru.ddl`) |
+| ZTT_SD_SO_CON_FILTER | Table type               | Line type ZSSD_SO_CON_FILTER, sorted, unique key RULE_ID |
+
+To create a range table type: SE11 → Data type → Table type → "Edit" → "Define as ranges table type".
+Enter the data element, and SE11 generates the row structure with SIGN/OPTION/LOW/HIGH (structure name e.g. `ZSD_S_R_VKORG`).
+
+At runtime, `ZCL_SD_SO_CONTRACT_CTRL=>GET_FILTERS` reads the active table lines and fills `ZTT_SD_SO_CON_FILTER`, one entry per rule.
+The values are then checked with `IN`.
+
+### 2.5 Table maintenance
+
+1. SE11 → Utilities → Table Maintenance Generator: authorization group (e.g. `ZSD`), function group `ZSD_SO_CON_FLT`, one-step, standard recording routine.
+2. Event **01** (before save) → `FORM zsd_so_con_flt_before_save` (`src/ddic/zsd_so_con_flt_tmg_events.abap`). It checks:
+   - Sign, Option and Low are mandatory.
+   - Low/High are not longer than the field (4 for VKORG/AUART, 2 for VTWEG/SPART).
+   - BT/NB need High ≥ Low. Other options must not have a High value.
+   - EQ/NE values must exist in TVKO/TVTW/TSPA/TVAK. AUART_SO must be a sales order type (VBTYP `C`) and AUART_CON a contract type (VBTYP `G`).
+   - Each rule with active lines has at least one active line for all 5 fields.
 3. Create a parameter transaction (e.g. `ZSD_SOCON`) on SM30 for business users.
 
-## 2. Filter logic – `ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT`
+## 3. Filter logic – `ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT`
 
 Source: `src/class/zcl_sd_so_contract_ctrl.clas.abap`
 
 ```
-VBAK-VGBEL is initial OR VBAK-VGTYP <> 'G'            -> not relevant
-No ACTIVE row in ZSD_SO_CON_CTRL for
-   VKORG + VTWEG + SPART + AUART_SO = VBAK-AUART       -> not relevant
+VBAK-VGBEL is initial OR VBAK-VGTYP <> 'G'                -> not relevant
+Candidate rules = active rules where
+   VBAK-VKORG IN vkorg AND VBAK-VTWEG IN vtweg AND
+   VBAK-SPART IN spart AND VBAK-AUART IN auart_so          (none -> not relevant)
 Contract type = VBAK-AUART of VBELN = VBAK-VGBEL
-AUART_CON of an active row = contract type            -> RELEVANT
-otherwise                                             -> not relevant
+Contract type IN auart_con of any candidate rule         -> RELEVANT
+otherwise                                                -> not relevant
 ```
 
-The steps run in the TSD order (3.1): sales order type and sales area first, then the contract type.
-`USEREXIT_FIELD_MODIFICATION` runs once per screen field on every PBO, so the result is buffered per
-VGBEL/VGTYP/AUART/sales area. The database is only read again when one of those values changes.
+- The filter table is read once per internal session.
+- The result is buffered per VGBEL/VGTYP/AUART/sales area, because `USEREXIT_FIELD_MODIFICATION` runs for every screen field.
 
-## 3. Field lock in VA01 – MV45AFZZ `USEREXIT_FIELD_MODIFICATION`
+## 4. Field lock in VA01 – MV45AFZZ `USEREXIT_FIELD_MODIFICATION`
 
 Source: `src/enhancement/mv45afzz_userexit_field_modification.abap`
 
-- Implicit enhancement in FORM `USEREXIT_FIELD_MODIFICATION`. It replaces the test coding with the hard-coded `COBL-PRCTR` check.
-- It runs in create mode only (`T180-TRTYP = 'H'`, which is VA01 and every other create path) and only when `VBAK-VGBEL` is filled, `VBAK-VGTYP = 'G'` and `IS_RELEVANT` returns true.
-- Fields closed (`SCREEN-INPUT = 0`):
+- The lock only applies in create mode (`T180-TRTYP = 'H'`), only when `VBAK-VGBEL` is filled and `VBAK-VGTYP = 'G'`, and only when `IS_RELEVANT` returns true.
+- Fields closed (`SCREEN-INPUT = 0`): `RV45A-MABNR`, `VBAP-MATNR`, `RV45A-KWMENG`, `VBAP-KWMENG`, `VBAP-VRKME`, `VBAP-NETWR`, `VBAP-NETPR`.
+  The list is in `IS_LOCKED_FIELD`. Confirm each name with F1 → Technical Information.
+- Optional: `src/enhancement/lv69afzz_userexit_field_modification.abap` locks the copied price (`KOMV-KBETR`) on the item condition screen.
+- Copy control is not changed.
 
-  | Screen field   | Meaning               |
-  |----------------|-----------------------|
-  | RV45A-MABNR    | Material (overview)   |
-  | VBAP-MATNR     | Material (item)       |
-  | RV45A-KWMENG   | Order quantity (overview) |
-  | VBAP-KWMENG    | Order quantity (item) |
-  | VBAP-VRKME     | Sales unit            |
-  | VBAP-NETWR     | Net value             |
-  | VBAP-NETPR     | Net price             |
-
-  The list is held in one place, `IS_LOCKED_FIELD`. Confirm each name on the real screens with F1 → Technical Information (TSD open item).
-
-- Optional: `src/enhancement/lv69afzz_userexit_field_modification.abap` also closes `KOMV-KBETR/KPEIN/KMEIN` on the item
-  condition screen (SAPLV69A). This protects the copied contract price. It reuses the buffered result because VBAK is not visible there.
-- Copy control (VTAA/VTLA) is not changed.
-
-## 4. Unit test scenarios
+## 5. Unit test scenarios
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 1 | VA01 ZOP / 2000-20-00 with reference to contract ZCPC, rule active | Material, quantity and net value are display-only |
-| 2 | Same as 1, rule ACTIVE = blank | Fields are editable |
-| 3 | VA01 ZOP / 2000-20-00 without reference | Fields are editable |
-| 4 | VA01 ZOP with reference to a quotation (VGTYP = B) | Fields are editable |
-| 5 | VA01 ZOP / 2000-20-00 with reference to a contract type not in the table | Fields are editable |
-| 6 | VA01 ZOP / 1000-10-00 (sales area not in the table) with reference to ZCPC | Fields are editable |
-| 7 | New row added in SM30 for another order type | Lock applies without any code change |
-| 8 | SM30 save with a contract type in AUART_SO or an empty key | Save is rejected |
-| 9 | VA02 on an order from scenario 1 | Fields are editable (VA02 is handled by change detection and workflow, TSD ch. 4) |
+| 1 | VA01 ZOP / 2000-20-00 with reference to contract ZCPC, rule 01 as above | Fields are locked |
+| 2 | Same as 1 with ZICE, and with channel 60 | Fields are locked (more than one value per field) |
+| 3 | VKORG entered as BT 2000–2999, order in 2500 | Fields are locked (range) |
+| 4 | Extra line `AUART_SO E EQ ZICO` | ZICO is no longer locked |
+| 5 | All lines of rule 01 ACTIVE = blank | Fields are editable |
+| 6 | VA01 without reference / with reference to a quotation (VGTYP B) | Fields are editable |
+| 7 | Reference to a contract type not in AUART_CON | Fields are editable |
+| 8 | SM30: rule without an AUART_CON line, BT without High, unknown VKORG, contract type in AUART_SO | Save is rejected |
+| 9 | VA02 on the order from scenario 1 | Fields are editable (handled by the TSD ch. 4 workflow) |
 
-## 5. Open points / decisions
+## 6. Open points / decisions
 
-- **Final table name**: `ZSD_SO_CON_CTRL` is proposed (TSD open item).
-- **New items in VA01**: the lock applies to all item rows of a matching order, so new rows cannot get a material either.
-  If new free items must be allowed, add a check on `VBAP-VGBEL IS NOT INITIAL` in the enhancement.
-- **Variant configuration characteristics**: these cannot be closed via `SCREEN-INPUT` because the configuration dialog is a separate
-  application (CU). This is still open and depends on the final list of characteristics in scope.
-  Candidates: set the configuration to display-only via the VC user exits, or block the configuration function code for relevant orders.
-- **VA02**: the screenshot test coding also ran for VA02. Following the TSD, fields stay open in VA02 and changes are controlled through
-  change detection, delivery block XX and workflow (next delivery).
+- **Object names**: all names (table, domains, data elements, types) are proposals (TSD open item).
+- **F4 on Low/High in SM30**: LOW/HIGH are generic CHAR 10, so they have no value help per field. Values are validated on save.
+  If F4 is required, add a `PROCESS ON VALUE-REQUEST` module in the generated maintenance screen that calls the search help for the current FIELDNAME.
+- **New items in VA01**: the lock applies to all item rows of a matching order. To allow free new items, add a check on `VBAP-VGBEL IS NOT INITIAL`.
+- **Variant configuration characteristics**: these cannot be closed via `SCREEN-INPUT`. This stays open until the characteristics in scope are confirmed.

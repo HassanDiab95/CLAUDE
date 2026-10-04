@@ -6,9 +6,9 @@
 *& Logic (TSD CH4323, 3.1 / 3.2):
 *&   - Sales order in create mode (VA01)
 *&   - VBAK-VGBEL is not initial and VBAK-VGTYP = 'G' (ref. to contract)
-*&   - Active rule in ZSD_SO_CON_CTRL for
-*&       VKORG + VTWEG + SPART + AUART_SO (= VBAK-AUART)
-*&       + AUART_CON (= VBAK-AUART of the referenced contract)
+*&   - Active rule in filter table ZSD_SO_CON_FLT whose ranges contain
+*&       VKORG / VTWEG / SPART / AUART_SO (= VBAK-AUART)
+*&       / AUART_CON (= VBAK-AUART of the referenced contract)
 *&   => close Material / Quantity / Net value fields for input
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_con_field_lock.
