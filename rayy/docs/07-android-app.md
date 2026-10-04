@@ -38,6 +38,11 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 **Make an APK to install on any phone:** **Build → Build App Bundle(s) / APK(s) → Build APK(s)** →
 `android/Rayy/app/build/outputs/apk/debug/app-debug.apk`. Send it to the phone and install it ("allow unknown sources").
 
+> **"Incompatible Gradle JVM version … Gradle 8.7 supports Java versions between 1.8 and 21"**: Android Studio is
+> using a too-new Java (e.g. Java 25) to run Gradle. Click **"Apply compatible Gradle JDK configuration and sync"**, or go to
+> **Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK** and choose **jbr-21** (JetBrains
+> Runtime 21, included with Android Studio) or Java 17, then **File → Sync Project with Gradle Files**.
+
 > If the app shows no data but the web does, your database is probably not in the US region. Put its URL in
 > `DATABASE_URL` in `app/src/main/java/com/rayy/app/Model.kt`.
 
