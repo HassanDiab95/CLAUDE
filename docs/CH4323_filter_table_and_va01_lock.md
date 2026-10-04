@@ -96,8 +96,8 @@ TSD example as table entries:
 
 ### 2.4 Range table types and the filter table type (optional)
 
-The class does not need these DDIC types. It types the filter itself as 
-( / ). Create them only if the filter is needed as a DDIC type elsewhere.
+The class does not need these DDIC types. It types the filter itself as `TYPE RANGE OF vbak-...`
+(`ZCL_SD_SO_CONTRACT_CTRL=>TY_FILTER` / `TT_FILTER`). Create them only if the filter is needed as a DDIC type elsewhere.
 
 
 | Object               | Kind                     | Definition |
@@ -113,7 +113,7 @@ The class does not need these DDIC types. It types the filter itself as
 To create a range table type: SE11 → Data type → Table type → "Edit" → "Define as ranges table type".
 Enter the data element, and SE11 generates the row structure with SIGN/OPTION/LOW/HIGH (structure name e.g. `ZSD_S_R_VKORG`).
 
-At runtime, `ZCL_SD_SO_CONTRACT_CTRL=>GET_FILTERS` reads the active table lines and fills `ZTT_SD_SO_CON_FILTER`, one entry per rule.
+At runtime, `ZCL_SD_SO_CONTRACT_CTRL=>GET_FILTERS` reads the active table lines and fills `ZCL_SD_SO_CONTRACT_CTRL=>TT_FILTER`, one entry per rule.
 The values are then checked with `IN`.
 
 ### 2.5 Table maintenance

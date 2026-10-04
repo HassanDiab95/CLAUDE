@@ -276,10 +276,10 @@ ENDFORM.
 ## Step 5 – Range table types (SE11 → Data type → Table type) – OPTIONAL
 
 > **Steps 5–7 are optional.** The class ZCL_SD_SO_CONTRACT_CTRL defines its own range types
-> (TY_R_VKORG … TY_R_AUART_CON, TY_FILTER, TT_FILTER with ). It does not use these DDIC types.
+> (TY_R_VKORG … TY_R_AUART_CON, TY_FILTER, TT_FILTER with `TYPE RANGE OF`). It does not use these DDIC types.
 > Create them only if other programs need the filter as a DDIC type.
 > A table type created **without** *Define as Ranges Table Type* has no SIGN/OPTION/LOW/HIGH columns,
-> so it cannot be used with . This causes errors such as *"does not have the structure of a selection table"*.
+> so it cannot be used with `IN`. This causes errors such as *"does not have the structure of a selection table"*.
 
 
 For each entry: create a table type, then choose *Edit → Define as Ranges Table Type*.
