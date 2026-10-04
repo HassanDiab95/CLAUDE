@@ -16,6 +16,8 @@
 👉 **[docs/00-step-by-step-guide.md](docs/00-step-by-step-guide.md)**: the complete guide from buying the parts
 to the final demo, step by step.
 
+🧭 **[docs/Rayy-Setup-Guide-by-Part.docx](docs/Rayy-Setup-Guide-by-Part.docx)**: for each part (Firebase, Web, ESP32, Android): files and paths, apps to install, what is downloaded, configuration and complete steps.
+
 📘 **[docs/Rayy-Build-Guide.docx](docs/Rayy-Build-Guide.docx)**: Word guide with every step in order (what comes after what) and what every file is for.
 
 📄 **[docs/Rayy-Documentation.docx](docs/Rayy-Documentation.docx)**: all the documentation in one Word file (for the report).
