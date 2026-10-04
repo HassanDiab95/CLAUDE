@@ -163,6 +163,15 @@ Source: `src/enhancement/mv45afzz_userexit_field_modification.abap`
 - The lock only applies in create mode (`T180-TRTYP = 'H'`), only when `VBAK-VGBEL` is filled and `VBAK-VGTYP = 'G'`, and only when `IS_RELEVANT` returns true.
 - Fields closed (`SCREEN-INPUT = 0`): `RV45A-MABNR`, `VBAP-MATNR`, `RV45A-KWMENG`, `VBAP-KWMENG`, `VBAP-VRKME`, `VBAP-NETWR`, `VBAP-NETPR`.
   The list is in `IS_LOCKED_FIELD`. Confirm each name with F1 → Technical Information.
+- **Insert / Delete item disabled (like VA03).** The item functions are function codes, so they cannot be closed with `SCREEN-INPUT`:
+
+  | Part | Object | Effect |
+  |------|--------|--------|
+  | FORM `CUA_SETZEN` (end), `mv45af0c_cua_setzen.abap` | Excludes POAN (Insert Row) and POLO (Delete Item) from the GUI status via `CUA_EXCLUDE` | Buttons greyed out, menu entries hidden |
+  | MV45AFZB `USEREXIT_CHECK_VBAP`, `mv45afzb_userexit_check_vbap.abap` | Error for an item without `VBAP-VGBEL` (not from the contract), except system sub-items | No new items by any route |
+  | MV45AFZB `USEREXIT_CHECK_XVBAP_FOR_DELET`, `mv45afzb_userexit_check_xvbap_for_delet.abap` | `US_ERROR = 'X'` | No deletion by any route |
+
+  The function codes are held in `ZCL_SD_SO_CONTRACT_CTRL=>GC_FCODE` / `GET_LOCKED_FCODES`.
 - Optional: `src/enhancement/lv69afzz_userexit_field_modification.abap` locks the copied price (`KOMV-KBETR`) on the item condition screen.
 - Copy control is not changed.
 
@@ -187,5 +196,6 @@ Source: `src/enhancement/mv45afzz_userexit_field_modification.abap`
 - **Object names**: all names (table, domains, data elements, types) are proposals (TSD open item).
 - **F4 on Low/High in SM30**: LOW/HIGH are generic CHAR 10, so they have no value help per field. Values are validated on save.
   If F4 is required, add a `PROCESS ON VALUE-REQUEST` module in the generated maintenance screen that calls the search help for the current FIELDNAME.
-- **New items in VA01**: the lock applies to all item rows of a matching order. To allow free new items, add a check on `VBAP-VGBEL IS NOT INITIAL`.
+- **New items in VA01**: blocked (Insert Row disabled, material locked on empty rows, and `USEREXIT_CHECK_VBAP` as a safety net).
+- **Function codes / exclusion table**: confirm POAN/POLO and `CUA_EXCLUDE` in your release (see creation guide, step 9a).
 - **Variant configuration characteristics**: these cannot be closed via `SCREEN-INPUT`. This stays open until the characteristics in scope are confirmed.

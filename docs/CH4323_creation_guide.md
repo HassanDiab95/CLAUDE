@@ -16,6 +16,9 @@ Use one package (e.g. `ZSD_CH4323`) and a workbench transport. SM30 entries go o
 | 7 | ZTT_SD_SO_CON_FILTER | Table type – optional | SE11 |
 | 8 | ZCL_SD_SO_CONTRACT_CTRL | Class | SE24 / ADT |
 | 9 | ZSD_SO_CON_FIELD_LOCK | Enhancement in MV45AFZZ | SE38 / SE80 |
+| 9a | ZSD_SO_CON_ITEM_FCODES | Enhancement in FORM CUA_SETZEN – disable Insert/Delete item | SE38 / SE80 |
+| 9b | ZSD_SO_CON_NO_NEW_ITEM | Enhancement in MV45AFZB – reject new items (safety net) | SE38 / SE80 |
+| 9c | ZSD_SO_CON_NO_DELETE_ITEM | Enhancement in MV45AFZB – reject item deletion (safety net) | SE38 / SE80 |
 | 10 | ZSD_SO_CON_PRICE_LOCK | Enhancement in LV69AFZZ (optional) | SE38 / SE80 |
 | 11 | ZSD_SOCON | Parameter transaction for SM30 | SE93 |
 | 12 | – | Maintain filter data + test | SM30 / VA01 |
@@ -370,6 +373,16 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
         both   TYPE ze_sd_process VALUE 'BOTH',   " line valid for VA01 and VA02
       END OF gc_process.
 
+    "! Item functions blocked in VA01 for relevant orders (as in VA03).
+    "! Confirm the codes in SE41 (program SAPMV45A) or with /h + SY-UCOMM.
+    CONSTANTS:
+      BEGIN OF gc_fcode,
+        insert_item TYPE sy-ucomm VALUE 'POAN',   " Insert row / new item
+        delete_item TYPE sy-ucomm VALUE 'POLO',   " Delete item
+      END OF gc_fcode.
+
+    TYPES tt_fcode TYPE STANDARD TABLE OF sy-ucomm WITH EMPTY KEY.
+
     CONSTANTS:
       BEGIN OF gc_field,
         vkorg     TYPE ze_sd_flt_field VALUE 'VKORG',
@@ -395,6 +408,10 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-METHODS is_locked_field
       IMPORTING iv_screen_name   TYPE csequence
       RETURNING VALUE(rv_locked) TYPE abap_bool.
+
+    "! Function codes to exclude from the GUI status (insert / delete item).
+    CLASS-METHODS get_locked_fcodes
+      RETURNING VALUE(rt_fcodes) TYPE tt_fcode.
 
     "! Result of the last IS_RELEVANT evaluation (used outside SAPMV45A,
     "! e.g. pricing screens in SAPLV69A where VBAK is not available).
@@ -550,6 +567,12 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD get_locked_fcodes.
+    rt_fcodes = VALUE #( ( gc_fcode-insert_item )
+                         ( gc_fcode-delete_item ) ).
+  ENDMETHOD.
+
+
   METHOD is_current_doc_relevant.
     rv_relevant = xsdbool( gv_evaluated = abap_true AND gv_last_relevant = abap_true ).
   ENDMETHOD.
@@ -593,6 +616,127 @@ ENHANCEMENT 1 zsd_so_con_field_lock.
      AND zcl_sd_so_contract_ctrl=>is_locked_field( screen-name ) = abap_true.
     screen-input = '0'.
     MODIFY SCREEN.
+  ENDIF.
+
+ENDENHANCEMENT.
+```
+
+## Step 9a – Disable "Insert Row" and "Delete Item" (like VA03)
+
+The buttons above the item table (Insert Row = **POAN**, Delete Item = **POLO**) are function codes, not input fields.
+`SCREEN-INPUT = 0` cannot close them. Instead they are removed from the GUI status, which is how VA03 does it.
+An excluded function code also greys out the matching pushbutton and removes the menu entry (Edit → Insert/Delete item).
+
+1. **Check the function codes.** Start VA01, enter `/h` in the command field, and press the Insert Row button. In the debugger, read `SY-UCOMM` (expected `POAN`).
+   Do the same for Delete Item (expected `POLO`). If your codes differ, change `GC_FCODE` in the class.
+2. **Check the exclusion table.** SE38 → `SAPMV45A` → search for `SET PF-STATUS`. The table after `EXCLUDING` should be `CUA_EXCLUDE`.
+   If your release uses another name, change it in the code below.
+3. SE38 → include `MV45AF0C_CUA_SETZEN` → FORM `CUA_SETZEN` → implicit enhancement option at the **end** of the FORM (before `ENDFORM`).
+   Create enhancement implementation `ZSD_SO_CON_ITEM_FCODES`, paste the code and activate.
+
+`src/enhancement/mv45af0c_cua_setzen.abap`:
+
+```abap
+*&---------------------------------------------------------------------*
+*& SAPMV45A - FORM CUA_SETZEN   (include MV45AF0C_CUA_SETZEN)
+*& Implicit enhancement at the END of the FORM.
+*&
+*& Removes the item functions "Insert Row" (POAN) and "Delete Item"
+*& (POLO) from the GUI status in VA01 for relevant orders, like VA03.
+*& Excluded function codes also make the matching pushbuttons above the
+*& item table inactive (greyed out) and remove the menu entries.
+*&
+*& CUA_EXCLUDE is the exclusion table that SAPMV45A passes to
+*& SET PF-STATUS ... EXCLUDING. Check the name in your release:
+*& in the debugger, set a breakpoint on statement SET PF-STATUS.
+*&---------------------------------------------------------------------*
+ENHANCEMENT 1 zsd_so_con_item_fcodes.
+
+  IF t180-trtyp = 'H'                                         " create (VA01)
+     AND vbak-vgbel IS NOT INITIAL
+     AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
+     AND zcl_sd_so_contract_ctrl=>is_relevant(
+           is_vbak    = vbak
+           iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true.
+
+    DATA(lt_zz_fcodes) = zcl_sd_so_contract_ctrl=>get_locked_fcodes( ).
+    LOOP AT lt_zz_fcodes INTO DATA(lv_zz_fcode).
+      cua_exclude = lv_zz_fcode.
+      COLLECT cua_exclude.
+    ENDLOOP.
+  ENDIF.
+
+ENDENHANCEMENT.
+```
+
+## Step 9b – Reject new items (safety net) – MV45AFZB USEREXIT_CHECK_VBAP
+
+This catches items added any other way, for example by typing into an empty row. Items copied from the contract have `VBAP-VGBEL`; a manually added item does not.
+Sub-items generated by the system (`VBAP-UEPOS` filled, e.g. free goods or BOM components) are allowed.
+
+SE38 → `MV45AFZB` → FORM `USEREXIT_CHECK_VBAP` → implicit enhancement at the start → `ZSD_SO_CON_NO_NEW_ITEM`.
+
+`src/enhancement/mv45afzb_userexit_check_vbap.abap`:
+
+```abap
+*&---------------------------------------------------------------------*
+*& Include MV45AFZB - FORM USEREXIT_CHECK_VBAP   (safety net)
+*& Implicit enhancement at the start of the FORM.
+*&
+*& Rejects a NEW item in VA01 for relevant orders. Items copied from the
+*& contract carry VBAP-VGBEL; an item entered manually does not.
+*& Covers every other way of adding items, e.g. typing into an empty
+*& row or another function code than POAN.
+*& Sub-items generated by the system (free goods, BOM components:
+*& VBAP-UEPOS filled) are allowed.
+*&---------------------------------------------------------------------*
+ENHANCEMENT 1 zsd_so_con_no_new_item.
+
+  IF t180-trtyp = 'H'                                         " create (VA01)
+     AND vbap-vgbel IS INITIAL
+     AND vbap-uepos IS INITIAL
+     AND vbak-vgbel IS NOT INITIAL
+     AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
+     AND zcl_sd_so_contract_ctrl=>is_relevant(
+           is_vbak    = vbak
+           iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true.
+    MESSAGE e398(00) WITH 'New items are not allowed for orders'
+                          'with reference to contract' vbak-vgbel ''.
+  ENDIF.
+
+ENDENHANCEMENT.
+```
+
+## Step 9c – Reject item deletion (safety net) – MV45AFZB USEREXIT_CHECK_XVBAP_FOR_DELET
+
+SE38 → `MV45AFZB` → FORM `USEREXIT_CHECK_XVBAP_FOR_DELET` → implicit enhancement at the start → `ZSD_SO_CON_NO_DELETE_ITEM`.
+Read the template comment of the FORM in your system first. It explains the meaning of `US_ERROR` / `US_EXIT` in your release.
+
+`src/enhancement/mv45afzb_userexit_check_xvbap_for_delet.abap`:
+
+```abap
+*&---------------------------------------------------------------------*
+*& Include MV45AFZB - FORM USEREXIT_CHECK_XVBAP_FOR_DELET   (safety net)
+*&   FORM userexit_check_xvbap_for_delet USING us_error LIKE ...
+*&                                             us_exit  LIKE ...
+*& Implicit enhancement at the start of the FORM.
+*&
+*& Prevents deleting an item in VA01 for relevant orders, in case the
+*& deletion is triggered by another function than POLO.
+*& US_ERROR = 'X' tells SAPMV45A that the item must not be deleted.
+*& Check the template comment of this FORM in your MV45AFZB before use.
+*&---------------------------------------------------------------------*
+ENHANCEMENT 1 zsd_so_con_no_delete_item.
+
+  IF t180-trtyp = 'H'                                         " create (VA01)
+     AND vbak-vgbel IS NOT INITIAL
+     AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
+     AND zcl_sd_so_contract_ctrl=>is_relevant(
+           is_vbak    = vbak
+           iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true.
+    us_error = 'X'.
+    MESSAGE s398(00) WITH 'Items of orders with reference to contract'
+                          vbak-vgbel 'cannot be deleted' '' DISPLAY LIKE 'E'.
   ENDIF.
 
 ENDENHANCEMENT.
@@ -674,6 +818,8 @@ Test cases:
 | 6 | VA01 without reference, or with reference to a quotation | Editable |
 | 7 | Reference to a contract type not in AUART_CON | Editable |
 | 8 | SM30: BT without To, unknown VKORG, contract type in AUART_SO, process not VA01/VA02/BOTH | Save rejected with message |
+| 9a | VA01 test 1: Insert Row / Delete Item buttons | Greyed out, menu entries hidden |
+| 9b | VA01 test 1: type a material into an empty row and press Enter | Error: new items not allowed |
 | 9 | VA02 on the order from test 1 | Editable (TSD ch. 4 handles VA02) |
 | 10 | Only line `VA01 VKORG I EQ 2000`; VA01 order with ref. to contract in 2000 | Locked |
 | 11 | Same line with process VA02 | VA01 fields editable |

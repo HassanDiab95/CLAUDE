@@ -43,6 +43,16 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
         both   TYPE ze_sd_process VALUE 'BOTH',   " line valid for VA01 and VA02
       END OF gc_process.
 
+    "! Item functions blocked in VA01 for relevant orders (as in VA03).
+    "! Confirm the codes in SE41 (program SAPMV45A) or with /h + SY-UCOMM.
+    CONSTANTS:
+      BEGIN OF gc_fcode,
+        insert_item TYPE sy-ucomm VALUE 'POAN',   " Insert row / new item
+        delete_item TYPE sy-ucomm VALUE 'POLO',   " Delete item
+      END OF gc_fcode.
+
+    TYPES tt_fcode TYPE STANDARD TABLE OF sy-ucomm WITH EMPTY KEY.
+
     CONSTANTS:
       BEGIN OF gc_field,
         vkorg     TYPE ze_sd_flt_field VALUE 'VKORG',
@@ -68,6 +78,10 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-METHODS is_locked_field
       IMPORTING iv_screen_name   TYPE csequence
       RETURNING VALUE(rv_locked) TYPE abap_bool.
+
+    "! Function codes to exclude from the GUI status (insert / delete item).
+    CLASS-METHODS get_locked_fcodes
+      RETURNING VALUE(rt_fcodes) TYPE tt_fcode.
 
     "! Result of the last IS_RELEVANT evaluation (used outside SAPMV45A,
     "! e.g. pricing screens in SAPLV69A where VBAK is not available).
@@ -220,6 +234,12 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
       WHEN OTHERS.
         rv_locked = abap_false.
     ENDCASE.
+  ENDMETHOD.
+
+
+  METHOD get_locked_fcodes.
+    rt_fcodes = VALUE #( ( gc_fcode-insert_item )
+                         ( gc_fcode-delete_item ) ).
   ENDMETHOD.
 
 
