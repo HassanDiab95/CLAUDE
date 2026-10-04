@@ -6,7 +6,7 @@
 define table zsd_so_con_flt {
 
   key mandt     : mandt not null;
-  key rule_id   : ze_sd_rule_id not null;
+  key process   : ze_sd_process not null;
   key fieldname : ze_sd_flt_field not null;
   key seqno     : ze_sd_flt_seqno not null;
   sign          : ddsign;

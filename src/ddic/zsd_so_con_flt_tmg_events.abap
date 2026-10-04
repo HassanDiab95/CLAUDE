@@ -7,54 +7,19 @@
 *&---------------------------------------------------------------------*
 FORM zsd_so_con_flt_before_save.
 
-  TYPES:
-    BEGIN OF ty_rule_field,
-      rule_id   TYPE ze_sd_rule_id,
-      fieldname TYPE ze_sd_flt_field,
-    END OF ty_rule_field.
-
-  DATA lt_active TYPE SORTED TABLE OF ty_rule_field WITH UNIQUE KEY rule_id fieldname.
-  DATA lt_rules  TYPE SORTED TABLE OF ze_sd_rule_id WITH UNIQUE KEY table_line.
-  DATA ls_line   TYPE zsd_so_con_flt.
-  DATA lv_error  TYPE abap_bool.
+  DATA ls_line  TYPE zsd_so_con_flt.
+  DATA lv_error TYPE abap_bool.
 
   LOOP AT total.
+    CHECK <action> = neuer_eintrag OR <action> = aendern.
+
     ls_line = <vim_total_struc>.
-
-*   Deleted lines: only the completeness of their rule is re-checked
-    IF <action> = geloescht OR <action> = neuer_geloescht OR <action> = update_geloescht.
-      INSERT ls_line-rule_id INTO TABLE lt_rules.
-      CONTINUE.
+    PERFORM zsd_so_con_flt_check_line USING ls_line CHANGING lv_error.
+    IF lv_error = abap_true.
+      vim_abort_saving = abap_true.
+      sy-subrc = 4.
+      RETURN.
     ENDIF.
-
-    IF <action> = neuer_eintrag OR <action> = aendern.
-      PERFORM zsd_so_con_flt_check_line USING ls_line CHANGING lv_error.
-      IF lv_error = abap_true.
-        vim_abort_saving = abap_true.
-        sy-subrc = 4.
-        RETURN.
-      ENDIF.
-      INSERT ls_line-rule_id INTO TABLE lt_rules.
-    ENDIF.
-
-    IF ls_line-active = abap_true.
-      INSERT VALUE #( rule_id = ls_line-rule_id fieldname = ls_line-fieldname ) INTO TABLE lt_active.
-    ENDIF.
-  ENDLOOP.
-
-* Every rule with active lines must restrict all 5 fields (all mandatory)
-  LOOP AT lt_rules INTO DATA(lv_rule_id).
-    CHECK line_exists( lt_active[ rule_id = lv_rule_id ] ).
-    LOOP AT VALUE string_table( ( `VKORG` ) ( `VTWEG` ) ( `SPART` ) ( `AUART_SO` ) ( `AUART_CON` ) )
-         INTO DATA(lv_field).
-      IF NOT line_exists( lt_active[ rule_id = lv_rule_id fieldname = CONV ze_sd_flt_field( lv_field ) ] ).
-        MESSAGE |Rule { lv_rule_id }: at least one active line for { lv_field } is required|
-          TYPE 'S' DISPLAY LIKE 'E'.
-        vim_abort_saving = abap_true.
-        sy-subrc = 4.
-        RETURN.
-      ENDIF.
-    ENDLOOP.
   ENDLOOP.
 
 ENDFORM.
@@ -70,6 +35,11 @@ FORM zsd_so_con_flt_check_line USING    is_line  TYPE zsd_so_con_flt
 
   cv_error = abap_true.
 
+  IF is_line-process <> 'VA01' AND is_line-process <> 'VA02' AND is_line-process <> 'BOTH'.
+    MESSAGE |Process { is_line-process } is not allowed (VA01, VA02 or BOTH)| TYPE 'S' DISPLAY LIKE 'E'.
+    RETURN.
+  ENDIF.
+
   CASE is_line-fieldname.
     WHEN 'VKORG' OR 'AUART_SO' OR 'AUART_CON'.
       lv_maxlen = 4.
@@ -81,7 +51,7 @@ FORM zsd_so_con_flt_check_line USING    is_line  TYPE zsd_so_con_flt
   ENDCASE.
 
   IF is_line-sign IS INITIAL OR is_line-opti IS INITIAL OR is_line-low IS INITIAL.
-    MESSAGE |Rule { is_line-rule_id } / { is_line-fieldname }: Sign, Option and Low are mandatory|
+    MESSAGE |{ is_line-process } / { is_line-fieldname }: Sign, Option and Low are mandatory|
       TYPE 'S' DISPLAY LIKE 'E'.
     RETURN.
   ENDIF.

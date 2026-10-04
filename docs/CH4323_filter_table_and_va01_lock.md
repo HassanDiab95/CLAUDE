@@ -20,10 +20,18 @@ for one field. One field can have as many lines as needed. Example:
 How the lines are evaluated:
 - Lines of the **same field** are combined like a select-option. Order type ZOP **or** ZICE **or** ZICO.
 - **Different fields** are combined with AND. Order type in the list **and** channel in the list **and** sales org in the range, and so on.
-- Lines are grouped by **RULE_ID**. One rule is usually enough. A second rule is only needed for a combination that must not mix with
-  the first one (for example, ZOP only for sales org 2000 but ZICE only for sales org 3000). The order is locked if **any** active rule matches.
-- All 5 fields are mandatory per rule. A rule without at least one active line for each field is rejected on save, and it is ignored at runtime.
-  This matters because an empty range would match every order.
+- **Fields are optional.** A field without active lines is not restricted. You can, for example, maintain only VKORG, only the
+  distribution channel, or only the order type. The check for a reference to a contract (`VGBEL` filled, `VGTYP = 'G'`) always applies.
+- Lines are grouped by **PROCESS**, which links them to the transaction:
+
+  | PROCESS | Used by | Effect |
+  |---------|---------|--------|
+  | VA01 | Create sales order | Field lock (this delivery) |
+  | VA02 | Change sales order | Change detection, delivery block and approval workflow (TSD ch. 4–6) |
+  | BOTH | VA01 **and** VA02 | The line is added to the VA01 filter and to the VA02 filter |
+
+  A process with no active lines (including BOTH lines) is switched off. For example, with no VA01 or BOTH lines there is no field lock.
+  BOTH lines are combined with the process's own lines in the same way as other lines (same field = OR, different fields = AND).
 
 ## 2. DDIC objects
 
@@ -38,7 +46,7 @@ How the lines are evaluated:
 | ZD_SD_AUART_CON  | CHAR | 4   | Value table TVAK           | Contract Type |
 | ZD_SD_FLT_FIELD  | CHAR | 10  | Fixed values: `VKORG` Sales Organization, `VTWEG` Distribution Channel, `SPART` Division, `AUART_SO` Sales Order Type, `AUART_CON` Contract Type | Filter field name |
 | ZD_SD_FLT_VALUE  | CHAR | 10  | –  (upper case)            | Filter value (Low/High) |
-| ZD_SD_RULE_ID    | CHAR | 10  | –  (upper case)            | Filter rule ID |
+| ZD_SD_PROCESS    | CHAR | 4   | Fixed values: `VA01` Create sales order, `VA02` Change sales order, `BOTH` VA01 and VA02 | Process |
 | ZD_SD_FLT_SEQNO  | NUMC | 4   | –                          | Line number |
 
 Notes:
@@ -58,7 +66,7 @@ Notes:
 | ZE_SD_FLT_FIELD  | ZD_SD_FLT_FIELD | Field / Filter Field |
 | ZE_SD_FLT_LOW    | ZD_SD_FLT_VALUE | From / Value From |
 | ZE_SD_FLT_HIGH   | ZD_SD_FLT_VALUE | To / Value To |
-| ZE_SD_RULE_ID    | ZD_SD_RULE_ID   | Rule / Filter Rule |
+| ZE_SD_PROCESS    | ZD_SD_PROCESS   | Process / Process |
 | ZE_SD_FLT_SEQNO  | ZD_SD_FLT_SEQNO | No. / Line Number |
 
 SIGN and OPTION use the standard data elements **DDSIGN** (I/E) and **DDOPTION** (EQ, NE, BT, NB, CP, NP, GT, GE, LT, LE).
@@ -70,7 +78,7 @@ ACTIVE uses the standard data element **XFELD** and is shown as a checkbox in SM
 | Field     | Key | Data element    | Meaning |
 |-----------|-----|-----------------|---------|
 | MANDT     | X   | MANDT           | Client |
-| RULE_ID   | X   | ZE_SD_RULE_ID   | Rule (group of lines) |
+| PROCESS   | X   | ZE_SD_PROCESS   | VA01 / VA02 / BOTH |
 | FIELDNAME | X   | ZE_SD_FLT_FIELD | VKORG / VTWEG / SPART / AUART_SO / AUART_CON |
 | SEQNO     | X   | ZE_SD_FLT_SEQNO | Line number within the field |
 | SIGN      |     | DDSIGN          | I = include, E = exclude |
@@ -83,16 +91,18 @@ Delivery class **C**, data maintenance allowed. It is transported through a cust
 
 TSD example as table entries:
 
-| RULE_ID | FIELDNAME | SEQNO | SIGN | OPTI | LOW  | HIGH | ACTIVE |
+| PROCESS | FIELDNAME | SEQNO | SIGN | OPTI | LOW  | HIGH | ACTIVE |
 |---------|-----------|-------|------|------|------|------|--------|
-| 01      | VKORG     | 0001  | I    | EQ   | 2000 |      | X |
-| 01      | VTWEG     | 0001  | I    | EQ   | 20   |      | X |
-| 01      | VTWEG     | 0002  | I    | EQ   | 60   |      | X |
-| 01      | SPART     | 0001  | I    | EQ   | 00   |      | X |
-| 01      | AUART_SO  | 0001  | I    | EQ   | ZOP  |      | X |
-| 01      | AUART_SO  | 0002  | I    | EQ   | ZICE |      | X |
-| 01      | AUART_SO  | 0003  | I    | EQ   | ZICO |      | X |
-| 01      | AUART_CON | 0001  | I    | EQ   | ZCPC |      | X |
+| BOTH    | VKORG     | 0001  | I    | EQ   | 2000 |      | X |
+| BOTH    | VTWEG     | 0001  | I    | EQ   | 20   |      | X |
+| BOTH    | VTWEG     | 0002  | I    | EQ   | 60   |      | X |
+| BOTH    | SPART     | 0001  | I    | EQ   | 00   |      | X |
+| BOTH    | AUART_SO  | 0001  | I    | EQ   | ZOP  |      | X |
+| BOTH    | AUART_SO  | 0002  | I    | EQ   | ZICE |      | X |
+| BOTH    | AUART_SO  | 0003  | I    | EQ   | ZICO |      | X |
+| BOTH    | AUART_CON | 0001  | I    | EQ   | ZCPC |      | X |
+
+Minimal example: only one line, `VA01 VKORG I EQ 2000`. This locks every VA01 order with reference to a contract in sales org 2000.
 
 ### 2.4 Range table types and the filter table type (optional)
 
@@ -107,24 +117,23 @@ The class does not need these DDIC types. It types the filter itself as `TYPE RA
 | ZTT_SD_R_SPART       | Table type – Ranges      | Data element ZE_SD_SPART |
 | ZTT_SD_R_AUART_SO    | Table type – Ranges      | Data element ZE_SD_AUART_SO |
 | ZTT_SD_R_AUART_CON   | Table type – Ranges      | Data element ZE_SD_AUART_CON |
-| ZSSD_SO_CON_FILTER   | Structure                | RULE_ID + one range table per field (`src/ddic/zssd_so_con_filter.stru.ddl`) |
-| ZTT_SD_SO_CON_FILTER | Table type               | Line type ZSSD_SO_CON_FILTER, sorted, unique key RULE_ID |
+| ZSSD_SO_CON_FILTER   | Structure                | PROCESS + one range table per field (`src/ddic/zssd_so_con_filter.stru.ddl`) |
+| ZTT_SD_SO_CON_FILTER | Table type               | Line type ZSSD_SO_CON_FILTER, sorted, unique key PROCESS |
 
 To create a range table type: SE11 → Data type → Table type → "Edit" → "Define as ranges table type".
 Enter the data element, and SE11 generates the row structure with SIGN/OPTION/LOW/HIGH (structure name e.g. `ZSD_S_R_VKORG`).
 
-At runtime, `ZCL_SD_SO_CONTRACT_CTRL=>GET_FILTERS` reads the active table lines and fills `ZCL_SD_SO_CONTRACT_CTRL=>TT_FILTER`, one entry per rule.
+At runtime, `ZCL_SD_SO_CONTRACT_CTRL=>GET_FILTERS` reads the active table lines and fills `ZCL_SD_SO_CONTRACT_CTRL=>TT_FILTER`, one entry per process (VA01, VA02). BOTH lines go into both entries.
 The values are then checked with `IN`.
 
 ### 2.5 Table maintenance
 
 1. SE11 → Utilities → Table Maintenance Generator: authorization group (e.g. `ZSD`), function group `ZSD_SO_CON_FLT`, one-step, standard recording routine.
 2. Event **01** (before save) → `FORM zsd_so_con_flt_before_save` (`src/ddic/zsd_so_con_flt_tmg_events.abap`). It checks:
-   - Sign, Option and Low are mandatory.
+   - PROCESS is VA01, VA02 or BOTH. Sign, Option and Low are mandatory.
    - Low/High are not longer than the field (4 for VKORG/AUART, 2 for VTWEG/SPART).
    - BT/NB need High ≥ Low. Other options must not have a High value.
    - EQ/NE values must exist in TVKO/TVTW/TSPA/TVAK. AUART_SO must be a sales order type (VBTYP `C`) and AUART_CON a contract type (VBTYP `G`).
-   - Each rule with active lines has at least one active line for all 5 fields.
 3. Create a parameter transaction (e.g. `ZSD_SOCON`) on SM30 for business users.
 
 ## 3. Filter logic – `ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT`
@@ -132,17 +141,20 @@ The values are then checked with `IN`.
 Source: `src/class/zcl_sd_so_contract_ctrl.clas.abap`
 
 ```
+IS_RELEVANT( is_vbak, iv_process )   iv_process = 'VA01' (create) / 'VA02' (change)
+
 VBAK-VGBEL is initial OR VBAK-VGTYP <> 'G'                -> not relevant
-Candidate rules = active rules where
-   VBAK-VKORG IN vkorg AND VBAK-VTWEG IN vtweg AND
-   VBAK-SPART IN spart AND VBAK-AUART IN auart_so          (none -> not relevant)
-Contract type = VBAK-AUART of VBELN = VBAK-VGBEL
-Contract type IN auart_con of any candidate rule         -> RELEVANT
-otherwise                                                -> not relevant
+No active lines for the process (own + BOTH)             -> not relevant
+VBAK-VKORG NOT IN vkorg OR VBAK-VTWEG NOT IN vtweg OR
+VBAK-SPART NOT IN spart OR VBAK-AUART NOT IN auart_so      -> not relevant
+   (a field without lines = empty range = all values)
+AUART_CON lines exist:
+   contract type (VBAK-AUART of VGBEL) NOT IN auart_con   -> not relevant
+otherwise                                                -> RELEVANT
 ```
 
 - The filter table is read once per internal session.
-- The result is buffered per VGBEL/VGTYP/AUART/sales area, because `USEREXIT_FIELD_MODIFICATION` runs for every screen field.
+- The result is buffered per process/VGBEL/VGTYP/AUART/sales area, because `USEREXIT_FIELD_MODIFICATION` runs for every screen field.
 
 ## 4. Field lock in VA01 – MV45AFZZ `USEREXIT_FIELD_MODIFICATION`
 
@@ -158,15 +170,17 @@ Source: `src/enhancement/mv45afzz_userexit_field_modification.abap`
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 1 | VA01 ZOP / 2000-20-00 with reference to contract ZCPC, rule 01 as above | Fields are locked |
+| 1 | VA01 ZOP / 2000-20-00 with reference to contract ZCPC, BOTH lines as above | Fields are locked |
 | 2 | Same as 1 with ZICE, and with channel 60 | Fields are locked (more than one value per field) |
 | 3 | VKORG entered as BT 2000–2999, order in 2500 | Fields are locked (range) |
 | 4 | Extra line `AUART_SO E EQ ZICO` | ZICO is no longer locked |
-| 5 | All lines of rule 01 ACTIVE = blank | Fields are editable |
+| 5 | All VA01 and BOTH lines ACTIVE = blank | Fields are editable |
 | 6 | VA01 without reference / with reference to a quotation (VGTYP B) | Fields are editable |
 | 7 | Reference to a contract type not in AUART_CON | Fields are editable |
-| 8 | SM30: rule without an AUART_CON line, BT without High, unknown VKORG, contract type in AUART_SO | Save is rejected |
+| 8 | SM30: BT without High, unknown VKORG, contract type in AUART_SO, process not VA01/VA02/BOTH | Save is rejected |
 | 9 | VA02 on the order from scenario 1 | Fields are editable (handled by the TSD ch. 4 workflow) |
+| 10 | Only line `VA01 VKORG I EQ 2000`, VA01 order with ref. to contract in 2000, any type/channel | Fields are locked |
+| 11 | Same lines but with PROCESS = VA02 only | VA01 fields are editable |
 
 ## 6. Open points / decisions
 

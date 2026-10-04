@@ -1,8 +1,11 @@
 "! <p>SD: Control of Sales Orders created with reference to a Contract.</p>
 "! Filter logic against the range table ZSD_SO_CON_FLT (TSD CH4323, chapter 2/3).
-"! Each RULE_ID holds select-option style lines (SIGN/OPTION/LOW/HIGH) per
-"! field. Lines of the same field are combined like a select-option (OR),
-"! different fields are combined with AND.
+"! Each PROCESS (VA01 = create / field lock, VA02 = change / approval,
+"! BOTH = VA01 and VA02) holds select-option style lines
+"! (SIGN/OPTION/LOW/HIGH) per field. BOTH lines are added to VA01 and VA02.
+"! - Lines of the same field are combined like a select-option (OR).
+"! - Different fields are combined with AND.
+"! - A field without lines is not restricted (all values).
 "! The result is buffered per document because USEREXIT_FIELD_MODIFICATION
 "! is called once per screen field on every PBO.
 CLASS zcl_sd_so_contract_ctrl DEFINITION
@@ -19,19 +22,26 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     TYPES ty_r_auart_so  TYPE RANGE OF vbak-auart.
     TYPES ty_r_auart_con TYPE RANGE OF vbak-auart.
 
-    "! Filter of one rule: one range table per field
+    "! Filter of one process: one range table per field
     TYPES:
       BEGIN OF ty_filter,
-        rule_id   TYPE ze_sd_rule_id,
+        process   TYPE ze_sd_process,
         vkorg     TYPE ty_r_vkorg,
         vtweg     TYPE ty_r_vtweg,
         spart     TYPE ty_r_spart,
         auart_so  TYPE ty_r_auart_so,
         auart_con TYPE ty_r_auart_con,
       END OF ty_filter.
-    TYPES tt_filter TYPE SORTED TABLE OF ty_filter WITH UNIQUE KEY rule_id.
+    TYPES tt_filter TYPE SORTED TABLE OF ty_filter WITH UNIQUE KEY process.
 
     CONSTANTS gc_vgtyp_contract TYPE vbak-vgtyp VALUE 'G'.
+
+    CONSTANTS:
+      BEGIN OF gc_process,
+        create TYPE ze_sd_process VALUE 'VA01',   " field lock
+        change TYPE ze_sd_process VALUE 'VA02',   " change detection / approval
+        both   TYPE ze_sd_process VALUE 'BOTH',   " line valid for VA01 and VA02
+      END OF gc_process.
 
     CONSTANTS:
       BEGIN OF gc_field,
@@ -42,13 +52,15 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
         auart_con TYPE ze_sd_flt_field VALUE 'AUART_CON',
       END OF gc_field.
 
-    "! Returns abap_true when the sales order header matches an active rule:
-    "! VGBEL filled + VGTYP = 'G' + Sales Area + SO Type + Contract Type.
+    "! Returns abap_true when the sales order header matches the active
+    "! filter of the process: VGBEL filled + VGTYP = 'G' + Sales Area +
+    "! SO Type + Contract Type.
     CLASS-METHODS is_relevant
       IMPORTING is_vbak            TYPE vbak
+                iv_process         TYPE ze_sd_process
       RETURNING VALUE(rv_relevant) TYPE abap_bool.
 
-    "! Active filter rules from ZSD_SO_CON_FLT as range tables (buffered).
+    "! Active filters from ZSD_SO_CON_FLT as range tables (buffered).
     CLASS-METHODS get_filters
       RETURNING VALUE(rt_filters) TYPE tt_filter.
 
@@ -65,12 +77,13 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
   PRIVATE SECTION.
     TYPES:
       BEGIN OF ty_key,
-        vgbel TYPE vbak-vgbel,
-        vgtyp TYPE vbak-vgtyp,
-        auart TYPE vbak-auart,
-        vkorg TYPE vbak-vkorg,
-        vtweg TYPE vbak-vtweg,
-        spart TYPE vbak-spart,
+        process TYPE ze_sd_process,
+        vgbel   TYPE vbak-vgbel,
+        vgtyp   TYPE vbak-vgtyp,
+        auart   TYPE vbak-auart,
+        vkorg   TYPE vbak-vkorg,
+        vtweg   TYPE vbak-vtweg,
+        spart   TYPE vbak-spart,
       END OF ty_key.
 
     CLASS-DATA gs_last_key      TYPE ty_key.
@@ -88,12 +101,13 @@ ENDCLASS.
 CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
   METHOD is_relevant.
-    DATA(ls_key) = VALUE ty_key( vgbel = is_vbak-vgbel
-                                 vgtyp = is_vbak-vgtyp
-                                 auart = is_vbak-auart
-                                 vkorg = is_vbak-vkorg
-                                 vtweg = is_vbak-vtweg
-                                 spart = is_vbak-spart ).
+    DATA(ls_key) = VALUE ty_key( process = iv_process
+                                 vgbel   = is_vbak-vgbel
+                                 vgtyp   = is_vbak-vgtyp
+                                 auart   = is_vbak-auart
+                                 vkorg   = is_vbak-vkorg
+                                 vtweg   = is_vbak-vtweg
+                                 spart   = is_vbak-spart ).
 
     IF gv_evaluated = abap_false OR ls_key <> gs_last_key.
       gs_last_key      = ls_key.
@@ -106,48 +120,45 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
 
   METHOD get_filters.
-    DATA ls_filter TYPE ty_filter.
+    DATA lt_targets TYPE STANDARD TABLE OF ze_sd_process WITH EMPTY KEY.
 
     IF gv_filters_read = abap_false.
-      SELECT rule_id, fieldname, sign, opti, low, high
+      SELECT process, fieldname, sign, opti, low, high
         FROM zsd_so_con_flt
         WHERE active = @abap_true
-        ORDER BY rule_id, fieldname, seqno
+        ORDER BY process, fieldname, seqno
         INTO TABLE @DATA(lt_lines).
 
-      LOOP AT lt_lines INTO DATA(ls_line) GROUP BY ls_line-rule_id INTO DATA(lv_rule_id).
-        CLEAR ls_filter.
-        ls_filter-rule_id = lv_rule_id.
+      LOOP AT lt_lines INTO DATA(ls_line).
+*       BOTH = line applies to VA01 and VA02
+        lt_targets = COND #( WHEN ls_line-process = gc_process-both
+                             THEN VALUE #( ( gc_process-create ) ( gc_process-change ) )
+                             ELSE VALUE #( ( ls_line-process ) ) ).
 
-        LOOP AT GROUP lv_rule_id INTO DATA(ls_member).
-          CASE ls_member-fieldname.
+        LOOP AT lt_targets INTO DATA(lv_process).
+          IF NOT line_exists( gt_filters[ process = lv_process ] ).
+            INSERT VALUE #( process = lv_process ) INTO TABLE gt_filters.
+          ENDIF.
+          ASSIGN gt_filters[ process = lv_process ] TO FIELD-SYMBOL(<ls_filter>).
+
+          CASE ls_line-fieldname.
             WHEN gc_field-vkorg.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-vkorg.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-vkorg.
             WHEN gc_field-vtweg.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-vtweg.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-vtweg.
             WHEN gc_field-spart.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-spart.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-spart.
             WHEN gc_field-auart_so.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-auart_so.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-auart_so.
             WHEN gc_field-auart_con.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-auart_con.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-auart_con.
           ENDCASE.
         ENDLOOP.
-
-*       All fields are mandatory: an empty range would match everything,
-*       so incomplete rules are ignored.
-        IF ls_filter-vkorg     IS NOT INITIAL
-       AND ls_filter-vtweg     IS NOT INITIAL
-       AND ls_filter-spart     IS NOT INITIAL
-       AND ls_filter-auart_so  IS NOT INITIAL
-       AND ls_filter-auart_con IS NOT INITIAL.
-          INSERT ls_filter INTO TABLE gt_filters.
-        ENDIF.
       ENDLOOP.
 
       gv_filters_read = abap_true.
@@ -158,8 +169,6 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
 
   METHOD evaluate.
-    DATA lt_candidates TYPE tt_filter.
-
     rv_relevant = abap_false.
 
 *   1. Sales order must be created with reference to a contract
@@ -167,34 +176,32 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   2. Rules whose Sales Area + Sales Order Type ranges match the order
+*   2. The process needs at least one active filter line
     DATA(lt_filters) = get_filters( ).
-    LOOP AT lt_filters INTO DATA(ls_filter).
-      IF  is_key-vkorg IN ls_filter-vkorg
-      AND is_key-vtweg IN ls_filter-vtweg
-      AND is_key-spart IN ls_filter-spart
-      AND is_key-auart IN ls_filter-auart_so.
-        INSERT ls_filter INTO TABLE lt_candidates.
-      ENDIF.
-    ENDLOOP.
-    IF lt_candidates IS INITIAL.
-      RETURN.
-    ENDIF.
-
-*   3. Contract type of the referenced contract must be in the rule's range
-    SELECT SINGLE auart FROM vbak
-      WHERE vbeln = @is_key-vgbel
-      INTO @DATA(lv_auart_con).
+    READ TABLE lt_filters WITH TABLE KEY process = is_key-process INTO DATA(ls_filter).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    LOOP AT lt_candidates INTO ls_filter.
-      IF lv_auart_con IN ls_filter-auart_con.
-        rv_relevant = abap_true.
+*   3. Sales Area + Sales Order Type (a field without lines = all values)
+    IF  is_key-vkorg NOT IN ls_filter-vkorg
+     OR is_key-vtweg NOT IN ls_filter-vtweg
+     OR is_key-spart NOT IN ls_filter-spart
+     OR is_key-auart NOT IN ls_filter-auart_so.
+      RETURN.
+    ENDIF.
+
+*   4. Contract type of the referenced contract (only read if restricted)
+    IF ls_filter-auart_con IS NOT INITIAL.
+      SELECT SINGLE auart FROM vbak
+        WHERE vbeln = @is_key-vgbel
+        INTO @DATA(lv_auart_con).
+      IF sy-subrc <> 0 OR lv_auart_con NOT IN ls_filter-auart_con.
         RETURN.
       ENDIF.
-    ENDLOOP.
+    ENDIF.
+
+    rv_relevant = abap_true.
   ENDMETHOD.
 
 

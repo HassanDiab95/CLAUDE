@@ -35,7 +35,7 @@ For every domain: Definition tab → data type and length. Leave **Lower case** 
 | ZD_SD_AUART_CON | Contract Type | CHAR | 4 | Value table: TVAK |
 | ZD_SD_FLT_FIELD | Filter Field Name | CHAR | 10 | Fixed values (see below) |
 | ZD_SD_FLT_VALUE | Filter Value (Low/High) | CHAR | 10 | – |
-| ZD_SD_RULE_ID | Filter Rule ID | CHAR | 10 | – |
+| ZD_SD_PROCESS | Process (VA01 / VA02 / BOTH) | CHAR | 4 | Fixed values (see below) |
 | ZD_SD_FLT_SEQNO | Filter Line Number | NUMC | 4 | – |
 
 Fixed values for **ZD_SD_FLT_FIELD**:
@@ -47,6 +47,14 @@ Fixed values for **ZD_SD_FLT_FIELD**:
 | SPART | Division |
 | AUART_SO | Sales Order Type |
 | AUART_CON | Contract Type |
+
+Fixed values for **ZD_SD_PROCESS**:
+
+| Fixed value | Short description |
+|-------------|-------------------|
+| VA01 | Create sales order (field lock) |
+| VA02 | Change sales order (approval) |
+| BOTH | VA01 and VA02 |
 
 Do not set conversion routine AUART on the order type domains. The table stores the internal key (e.g. `TA`, not `OR`), so it can be compared directly with VBAK-AUART.
 
@@ -66,7 +74,7 @@ Activate all domains.
 | ZE_SD_FLT_FIELD | ZD_SD_FLT_FIELD | Field / Filter Field / Filter Field |
 | ZE_SD_FLT_LOW | ZD_SD_FLT_VALUE | From / Value From / Value From |
 | ZE_SD_FLT_HIGH | ZD_SD_FLT_VALUE | To / Value To / Value To |
-| ZE_SD_RULE_ID | ZD_SD_RULE_ID | Rule / Filter Rule / Filter Rule |
+| ZE_SD_PROCESS | ZD_SD_PROCESS | Process / Process / Process |
 | ZE_SD_FLT_SEQNO | ZD_SD_FLT_SEQNO | No. / Line Number / Line Number |
 
 Standard data elements reused in the table (do not create them):
@@ -85,7 +93,7 @@ Activate all data elements.
 | Field | Key | Initial values | Data element | Description |
 |-------|-----|----------------|--------------|-------------|
 | MANDT | X | X | MANDT | Client |
-| RULE_ID | X | X | ZE_SD_RULE_ID | Filter rule |
+| PROCESS | X | X | ZE_SD_PROCESS | VA01 / VA02 / BOTH |
 | FIELDNAME | X | X | ZE_SD_FLT_FIELD | VKORG / VTWEG / SPART / AUART_SO / AUART_CON |
 | SEQNO | X | X | ZE_SD_FLT_SEQNO | Line number |
 | SIGN | | | DDSIGN | I / E |
@@ -108,7 +116,7 @@ The same table in ADT source form (`src/ddic/zsd_so_con_flt.tabl.ddl`):
 define table zsd_so_con_flt {
 
   key mandt     : mandt not null;
-  key rule_id   : ze_sd_rule_id not null;
+  key process   : ze_sd_process not null;
   key fieldname : ze_sd_flt_field not null;
   key seqno     : ze_sd_flt_seqno not null;
   sign          : ddsign;
@@ -147,54 +155,19 @@ define table zsd_so_con_flt {
 *&---------------------------------------------------------------------*
 FORM zsd_so_con_flt_before_save.
 
-  TYPES:
-    BEGIN OF ty_rule_field,
-      rule_id   TYPE ze_sd_rule_id,
-      fieldname TYPE ze_sd_flt_field,
-    END OF ty_rule_field.
-
-  DATA lt_active TYPE SORTED TABLE OF ty_rule_field WITH UNIQUE KEY rule_id fieldname.
-  DATA lt_rules  TYPE SORTED TABLE OF ze_sd_rule_id WITH UNIQUE KEY table_line.
-  DATA ls_line   TYPE zsd_so_con_flt.
-  DATA lv_error  TYPE abap_bool.
+  DATA ls_line  TYPE zsd_so_con_flt.
+  DATA lv_error TYPE abap_bool.
 
   LOOP AT total.
+    CHECK <action> = neuer_eintrag OR <action> = aendern.
+
     ls_line = <vim_total_struc>.
-
-*   Deleted lines: only the completeness of their rule is re-checked
-    IF <action> = geloescht OR <action> = neuer_geloescht OR <action> = update_geloescht.
-      INSERT ls_line-rule_id INTO TABLE lt_rules.
-      CONTINUE.
+    PERFORM zsd_so_con_flt_check_line USING ls_line CHANGING lv_error.
+    IF lv_error = abap_true.
+      vim_abort_saving = abap_true.
+      sy-subrc = 4.
+      RETURN.
     ENDIF.
-
-    IF <action> = neuer_eintrag OR <action> = aendern.
-      PERFORM zsd_so_con_flt_check_line USING ls_line CHANGING lv_error.
-      IF lv_error = abap_true.
-        vim_abort_saving = abap_true.
-        sy-subrc = 4.
-        RETURN.
-      ENDIF.
-      INSERT ls_line-rule_id INTO TABLE lt_rules.
-    ENDIF.
-
-    IF ls_line-active = abap_true.
-      INSERT VALUE #( rule_id = ls_line-rule_id fieldname = ls_line-fieldname ) INTO TABLE lt_active.
-    ENDIF.
-  ENDLOOP.
-
-* Every rule with active lines must restrict all 5 fields (all mandatory)
-  LOOP AT lt_rules INTO DATA(lv_rule_id).
-    CHECK line_exists( lt_active[ rule_id = lv_rule_id ] ).
-    LOOP AT VALUE string_table( ( `VKORG` ) ( `VTWEG` ) ( `SPART` ) ( `AUART_SO` ) ( `AUART_CON` ) )
-         INTO DATA(lv_field).
-      IF NOT line_exists( lt_active[ rule_id = lv_rule_id fieldname = CONV ze_sd_flt_field( lv_field ) ] ).
-        MESSAGE |Rule { lv_rule_id }: at least one active line for { lv_field } is required|
-          TYPE 'S' DISPLAY LIKE 'E'.
-        vim_abort_saving = abap_true.
-        sy-subrc = 4.
-        RETURN.
-      ENDIF.
-    ENDLOOP.
   ENDLOOP.
 
 ENDFORM.
@@ -210,6 +183,11 @@ FORM zsd_so_con_flt_check_line USING    is_line  TYPE zsd_so_con_flt
 
   cv_error = abap_true.
 
+  IF is_line-process <> 'VA01' AND is_line-process <> 'VA02' AND is_line-process <> 'BOTH'.
+    MESSAGE |Process { is_line-process } is not allowed (VA01, VA02 or BOTH)| TYPE 'S' DISPLAY LIKE 'E'.
+    RETURN.
+  ENDIF.
+
   CASE is_line-fieldname.
     WHEN 'VKORG' OR 'AUART_SO' OR 'AUART_CON'.
       lv_maxlen = 4.
@@ -221,7 +199,7 @@ FORM zsd_so_con_flt_check_line USING    is_line  TYPE zsd_so_con_flt
   ENDCASE.
 
   IF is_line-sign IS INITIAL OR is_line-opti IS INITIAL OR is_line-low IS INITIAL.
-    MESSAGE |Rule { is_line-rule_id } / { is_line-fieldname }: Sign, Option and Low are mandatory|
+    MESSAGE |{ is_line-process } / { is_line-fieldname }: Sign, Option and Low are mandatory|
       TYPE 'S' DISPLAY LIKE 'E'.
     RETURN.
   ENDIF.
@@ -297,11 +275,11 @@ Each generated row type has the components SIGN / OPTION / LOW / HIGH.
 
 ## Step 6 – Filter structure ZSSD_SO_CON_FILTER
 
-SE11 → Data type → Structure → `ZSSD_SO_CON_FILTER` (`SD: SO with Ref. to Contract - Filter per Rule`)
+SE11 → Data type → Structure → `ZSSD_SO_CON_FILTER` (`SD: SO with Ref. to Contract - Filter per Process`)
 
 | Component | Typing method | Component type |
 |-----------|---------------|----------------|
-| RULE_ID | Types | ZE_SD_RULE_ID |
+| PROCESS | Types | ZE_SD_PROCESS |
 | VKORG | Types | ZTT_SD_R_VKORG |
 | VTWEG | Types | ZTT_SD_R_VTWEG |
 | SPART | Types | ZTT_SD_R_SPART |
@@ -311,11 +289,11 @@ SE11 → Data type → Structure → `ZSSD_SO_CON_FILTER` (`SD: SO with Ref. to 
 Enhancement category: *Can't be enhanced*. ADT source form:
 
 ```
-@EndUserText.label : 'SD: SO with Ref. to Contract - Filter per Rule'
+@EndUserText.label : 'SD: SO with Ref. to Contract - Filter per Process'
 @AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
 define structure zssd_so_con_filter {
 
-  rule_id   : ze_sd_rule_id;
+  process   : ze_sd_process;
   vkorg     : ztt_sd_r_vkorg;
   vtweg     : ztt_sd_r_vtweg;
   spart     : ztt_sd_r_spart;
@@ -327,10 +305,10 @@ define structure zssd_so_con_filter {
 
 ## Step 7 – Filter table type ZTT_SD_SO_CON_FILTER
 
-SE11 → Data type → Table type → `ZTT_SD_SO_CON_FILTER` (`SD: SO with Ref. to Contract - Filter Rules`)
+SE11 → Data type → Table type → `ZTT_SD_SO_CON_FILTER` (`SD: SO with Ref. to Contract - Filter per Process`)
 - Line type: **ZSSD_SO_CON_FILTER**
 - Initialization and access: Access **Sorted table**
-- Primary key: Key definition **Key components**, Key category **Unique**, component **RULE_ID**
+- Primary key: Key definition **Key components**, Key category **Unique**, component **PROCESS**
 
 ## Step 8 – Class ZCL_SD_SO_CONTRACT_CTRL
 
@@ -339,8 +317,8 @@ Replace the complete source with the code below and activate it.
 
 | Method | Purpose |
 |--------|---------|
-| IS_RELEVANT | VGBEL/VGTYP check + filter check for an order header (buffered) |
-| GET_FILTERS | Reads ZSD_SO_CON_FLT (active lines only) into ZTT_SD_SO_CON_FILTER |
+| IS_RELEVANT | VGBEL/VGTYP check + filter check of a process (VA01/VA02) for an order header (buffered) |
+| GET_FILTERS | Reads ZSD_SO_CON_FLT (active lines only) into one filter per process; BOTH lines go to VA01 and VA02 |
 | IS_LOCKED_FIELD | List of screen fields to close |
 | IS_CURRENT_DOC_RELEVANT | Last result, used in the pricing screen |
 
@@ -349,9 +327,12 @@ Replace the complete source with the code below and activate it.
 ```abap
 "! <p>SD: Control of Sales Orders created with reference to a Contract.</p>
 "! Filter logic against the range table ZSD_SO_CON_FLT (TSD CH4323, chapter 2/3).
-"! Each RULE_ID holds select-option style lines (SIGN/OPTION/LOW/HIGH) per
-"! field. Lines of the same field are combined like a select-option (OR),
-"! different fields are combined with AND.
+"! Each PROCESS (VA01 = create / field lock, VA02 = change / approval,
+"! BOTH = VA01 and VA02) holds select-option style lines
+"! (SIGN/OPTION/LOW/HIGH) per field. BOTH lines are added to VA01 and VA02.
+"! - Lines of the same field are combined like a select-option (OR).
+"! - Different fields are combined with AND.
+"! - A field without lines is not restricted (all values).
 "! The result is buffered per document because USEREXIT_FIELD_MODIFICATION
 "! is called once per screen field on every PBO.
 CLASS zcl_sd_so_contract_ctrl DEFINITION
@@ -368,19 +349,26 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     TYPES ty_r_auart_so  TYPE RANGE OF vbak-auart.
     TYPES ty_r_auart_con TYPE RANGE OF vbak-auart.
 
-    "! Filter of one rule: one range table per field
+    "! Filter of one process: one range table per field
     TYPES:
       BEGIN OF ty_filter,
-        rule_id   TYPE ze_sd_rule_id,
+        process   TYPE ze_sd_process,
         vkorg     TYPE ty_r_vkorg,
         vtweg     TYPE ty_r_vtweg,
         spart     TYPE ty_r_spart,
         auart_so  TYPE ty_r_auart_so,
         auart_con TYPE ty_r_auart_con,
       END OF ty_filter.
-    TYPES tt_filter TYPE SORTED TABLE OF ty_filter WITH UNIQUE KEY rule_id.
+    TYPES tt_filter TYPE SORTED TABLE OF ty_filter WITH UNIQUE KEY process.
 
     CONSTANTS gc_vgtyp_contract TYPE vbak-vgtyp VALUE 'G'.
+
+    CONSTANTS:
+      BEGIN OF gc_process,
+        create TYPE ze_sd_process VALUE 'VA01',   " field lock
+        change TYPE ze_sd_process VALUE 'VA02',   " change detection / approval
+        both   TYPE ze_sd_process VALUE 'BOTH',   " line valid for VA01 and VA02
+      END OF gc_process.
 
     CONSTANTS:
       BEGIN OF gc_field,
@@ -391,13 +379,15 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
         auart_con TYPE ze_sd_flt_field VALUE 'AUART_CON',
       END OF gc_field.
 
-    "! Returns abap_true when the sales order header matches an active rule:
-    "! VGBEL filled + VGTYP = 'G' + Sales Area + SO Type + Contract Type.
+    "! Returns abap_true when the sales order header matches the active
+    "! filter of the process: VGBEL filled + VGTYP = 'G' + Sales Area +
+    "! SO Type + Contract Type.
     CLASS-METHODS is_relevant
       IMPORTING is_vbak            TYPE vbak
+                iv_process         TYPE ze_sd_process
       RETURNING VALUE(rv_relevant) TYPE abap_bool.
 
-    "! Active filter rules from ZSD_SO_CON_FLT as range tables (buffered).
+    "! Active filters from ZSD_SO_CON_FLT as range tables (buffered).
     CLASS-METHODS get_filters
       RETURNING VALUE(rt_filters) TYPE tt_filter.
 
@@ -414,12 +404,13 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
   PRIVATE SECTION.
     TYPES:
       BEGIN OF ty_key,
-        vgbel TYPE vbak-vgbel,
-        vgtyp TYPE vbak-vgtyp,
-        auart TYPE vbak-auart,
-        vkorg TYPE vbak-vkorg,
-        vtweg TYPE vbak-vtweg,
-        spart TYPE vbak-spart,
+        process TYPE ze_sd_process,
+        vgbel   TYPE vbak-vgbel,
+        vgtyp   TYPE vbak-vgtyp,
+        auart   TYPE vbak-auart,
+        vkorg   TYPE vbak-vkorg,
+        vtweg   TYPE vbak-vtweg,
+        spart   TYPE vbak-spart,
       END OF ty_key.
 
     CLASS-DATA gs_last_key      TYPE ty_key.
@@ -437,12 +428,13 @@ ENDCLASS.
 CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
   METHOD is_relevant.
-    DATA(ls_key) = VALUE ty_key( vgbel = is_vbak-vgbel
-                                 vgtyp = is_vbak-vgtyp
-                                 auart = is_vbak-auart
-                                 vkorg = is_vbak-vkorg
-                                 vtweg = is_vbak-vtweg
-                                 spart = is_vbak-spart ).
+    DATA(ls_key) = VALUE ty_key( process = iv_process
+                                 vgbel   = is_vbak-vgbel
+                                 vgtyp   = is_vbak-vgtyp
+                                 auart   = is_vbak-auart
+                                 vkorg   = is_vbak-vkorg
+                                 vtweg   = is_vbak-vtweg
+                                 spart   = is_vbak-spart ).
 
     IF gv_evaluated = abap_false OR ls_key <> gs_last_key.
       gs_last_key      = ls_key.
@@ -455,48 +447,45 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
 
   METHOD get_filters.
-    DATA ls_filter TYPE ty_filter.
+    DATA lt_targets TYPE STANDARD TABLE OF ze_sd_process WITH EMPTY KEY.
 
     IF gv_filters_read = abap_false.
-      SELECT rule_id, fieldname, sign, opti, low, high
+      SELECT process, fieldname, sign, opti, low, high
         FROM zsd_so_con_flt
         WHERE active = @abap_true
-        ORDER BY rule_id, fieldname, seqno
+        ORDER BY process, fieldname, seqno
         INTO TABLE @DATA(lt_lines).
 
-      LOOP AT lt_lines INTO DATA(ls_line) GROUP BY ls_line-rule_id INTO DATA(lv_rule_id).
-        CLEAR ls_filter.
-        ls_filter-rule_id = lv_rule_id.
+      LOOP AT lt_lines INTO DATA(ls_line).
+*       BOTH = line applies to VA01 and VA02
+        lt_targets = COND #( WHEN ls_line-process = gc_process-both
+                             THEN VALUE #( ( gc_process-create ) ( gc_process-change ) )
+                             ELSE VALUE #( ( ls_line-process ) ) ).
 
-        LOOP AT GROUP lv_rule_id INTO DATA(ls_member).
-          CASE ls_member-fieldname.
+        LOOP AT lt_targets INTO DATA(lv_process).
+          IF NOT line_exists( gt_filters[ process = lv_process ] ).
+            INSERT VALUE #( process = lv_process ) INTO TABLE gt_filters.
+          ENDIF.
+          ASSIGN gt_filters[ process = lv_process ] TO FIELD-SYMBOL(<ls_filter>).
+
+          CASE ls_line-fieldname.
             WHEN gc_field-vkorg.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-vkorg.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-vkorg.
             WHEN gc_field-vtweg.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-vtweg.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-vtweg.
             WHEN gc_field-spart.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-spart.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-spart.
             WHEN gc_field-auart_so.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-auart_so.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-auart_so.
             WHEN gc_field-auart_con.
-              APPEND VALUE #( sign = ls_member-sign option = ls_member-opti
-                              low  = ls_member-low  high   = ls_member-high ) TO ls_filter-auart_con.
+              APPEND VALUE #( sign = ls_line-sign option = ls_line-opti
+                              low  = ls_line-low  high   = ls_line-high ) TO <ls_filter>-auart_con.
           ENDCASE.
         ENDLOOP.
-
-*       All fields are mandatory: an empty range would match everything,
-*       so incomplete rules are ignored.
-        IF ls_filter-vkorg     IS NOT INITIAL
-       AND ls_filter-vtweg     IS NOT INITIAL
-       AND ls_filter-spart     IS NOT INITIAL
-       AND ls_filter-auart_so  IS NOT INITIAL
-       AND ls_filter-auart_con IS NOT INITIAL.
-          INSERT ls_filter INTO TABLE gt_filters.
-        ENDIF.
       ENDLOOP.
 
       gv_filters_read = abap_true.
@@ -507,8 +496,6 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
 
   METHOD evaluate.
-    DATA lt_candidates TYPE tt_filter.
-
     rv_relevant = abap_false.
 
 *   1. Sales order must be created with reference to a contract
@@ -516,34 +503,32 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   2. Rules whose Sales Area + Sales Order Type ranges match the order
+*   2. The process needs at least one active filter line
     DATA(lt_filters) = get_filters( ).
-    LOOP AT lt_filters INTO DATA(ls_filter).
-      IF  is_key-vkorg IN ls_filter-vkorg
-      AND is_key-vtweg IN ls_filter-vtweg
-      AND is_key-spart IN ls_filter-spart
-      AND is_key-auart IN ls_filter-auart_so.
-        INSERT ls_filter INTO TABLE lt_candidates.
-      ENDIF.
-    ENDLOOP.
-    IF lt_candidates IS INITIAL.
-      RETURN.
-    ENDIF.
-
-*   3. Contract type of the referenced contract must be in the rule's range
-    SELECT SINGLE auart FROM vbak
-      WHERE vbeln = @is_key-vgbel
-      INTO @DATA(lv_auart_con).
+    READ TABLE lt_filters WITH TABLE KEY process = is_key-process INTO DATA(ls_filter).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    LOOP AT lt_candidates INTO ls_filter.
-      IF lv_auart_con IN ls_filter-auart_con.
-        rv_relevant = abap_true.
+*   3. Sales Area + Sales Order Type (a field without lines = all values)
+    IF  is_key-vkorg NOT IN ls_filter-vkorg
+     OR is_key-vtweg NOT IN ls_filter-vtweg
+     OR is_key-spart NOT IN ls_filter-spart
+     OR is_key-auart NOT IN ls_filter-auart_so.
+      RETURN.
+    ENDIF.
+
+*   4. Contract type of the referenced contract (only read if restricted)
+    IF ls_filter-auart_con IS NOT INITIAL.
+      SELECT SINGLE auart FROM vbak
+        WHERE vbeln = @is_key-vgbel
+        INTO @DATA(lv_auart_con).
+      IF sy-subrc <> 0 OR lv_auart_con NOT IN ls_filter-auart_con.
         RETURN.
       ENDIF.
-    ENDLOOP.
+    ENDIF.
+
+    rv_relevant = abap_true.
   ENDMETHOD.
 
 
@@ -591,9 +576,10 @@ ENDCLASS.
 *& Logic (TSD CH4323, 3.1 / 3.2):
 *&   - Sales order in create mode (VA01)
 *&   - VBAK-VGBEL is not initial and VBAK-VGTYP = 'G' (ref. to contract)
-*&   - Active rule in filter table ZSD_SO_CON_FLT whose ranges contain
-*&       VKORG / VTWEG / SPART / AUART_SO (= VBAK-AUART)
+*&   - Active filter lines of process VA01 in ZSD_SO_CON_FLT whose ranges
+*&       contain VKORG / VTWEG / SPART / AUART_SO (= VBAK-AUART)
 *&       / AUART_CON (= VBAK-AUART of the referenced contract)
+*&       (a field without lines is not restricted)
 *&   => close Material / Quantity / Net value fields for input
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_con_field_lock.
@@ -601,7 +587,9 @@ ENHANCEMENT 1 zsd_so_con_field_lock.
   IF t180-trtyp = 'H'                                         " create (VA01)
      AND vbak-vgbel IS NOT INITIAL
      AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
-     AND zcl_sd_so_contract_ctrl=>is_relevant( vbak ) = abap_true
+     AND zcl_sd_so_contract_ctrl=>is_relevant(
+           is_vbak    = vbak
+           iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true
      AND zcl_sd_so_contract_ctrl=>is_locked_field( screen-name ) = abap_true.
     screen-input = '0'.
     MODIFY SCREEN.
@@ -651,23 +639,28 @@ ENDENHANCEMENT.
 
 ZSD_SOCON / SM30 → ZSD_SO_CON_FLT → New entries (TSD example):
 
-| Rule | Field | No. | Sign | Option | From | To | Active |
-|------|-------|-----|------|--------|------|----|--------|
-| 01 | VKORG | 0001 | I | EQ | 2000 | | ☑ |
-| 01 | VTWEG | 0001 | I | EQ | 20 | | ☑ |
-| 01 | VTWEG | 0002 | I | EQ | 60 | | ☑ |
-| 01 | SPART | 0001 | I | EQ | 00 | | ☑ |
-| 01 | AUART_SO | 0001 | I | EQ | ZOP | | ☑ |
-| 01 | AUART_SO | 0002 | I | EQ | ZICE | | ☑ |
-| 01 | AUART_SO | 0003 | I | EQ | ZICO | | ☑ |
-| 01 | AUART_CON | 0001 | I | EQ | ZCPC | | ☑ |
+| Process | Field | No. | Sign | Option | From | To | Active |
+|---------|-------|-----|------|--------|------|----|--------|
+| BOTH | VKORG | 0001 | I | EQ | 2000 | | ☑ |
+| BOTH | VTWEG | 0001 | I | EQ | 20 | | ☑ |
+| BOTH | VTWEG | 0002 | I | EQ | 60 | | ☑ |
+| BOTH | SPART | 0001 | I | EQ | 00 | | ☑ |
+| BOTH | AUART_SO | 0001 | I | EQ | ZOP | | ☑ |
+| BOTH | AUART_SO | 0002 | I | EQ | ZICE | | ☑ |
+| BOTH | AUART_SO | 0003 | I | EQ | ZICO | | ☑ |
+| BOTH | AUART_CON | 0001 | I | EQ | ZCPC | | ☑ |
 
 Rules:
+- **Process**:
+  - `VA01`: the line is used only when creating the order (field lock).
+  - `VA02`: the line is used only when changing the order (approval).
+  - `BOTH`: the line is used for VA01 and VA02.
 - The same field in several lines means OR (ZOP or ZICE or ZICO). Different fields mean AND.
+- **Fields are optional.** A field without lines is not restricted. For example, the single line `VA01 VKORG I EQ 2000` locks
+  every VA01 order with reference to a contract in sales org 2000, whatever the channel, division or order type.
 - A from–to range is one line with option **BT**, e.g. `VKORG I BT 2000 2999`.
 - An exclusion is one line with sign **E**, e.g. `AUART_SO E EQ ZICO`.
-- Untick **Active** to switch a line off. If all lines of a rule are unticked, the rule is off.
-- Every active rule needs at least one active line for each of the 5 fields. The save is rejected otherwise.
+- Untick **Active** to switch a line off. If a process has no active lines (its own or BOTH), the control is off for that process.
 
 Test cases:
 
@@ -677,11 +670,13 @@ Test cases:
 | 2 | Same with ZICE and channel 60 | Locked |
 | 3 | VKORG line changed to BT 2000–2999, order in 2500 | Locked |
 | 4 | Extra line AUART_SO E EQ ZICO, order ZICO | Editable |
-| 5 | Active unticked on all lines of rule 01 | Editable |
+| 5 | Active unticked on all VA01 and BOTH lines | Editable |
 | 6 | VA01 without reference, or with reference to a quotation | Editable |
 | 7 | Reference to a contract type not in AUART_CON | Editable |
-| 8 | SM30: rule without an AUART_CON line, BT without To, unknown VKORG, contract type in AUART_SO | Save rejected with message |
+| 8 | SM30: BT without To, unknown VKORG, contract type in AUART_SO, process not VA01/VA02/BOTH | Save rejected with message |
 | 9 | VA02 on the order from test 1 | Editable (TSD ch. 4 handles VA02) |
+| 10 | Only line `VA01 VKORG I EQ 2000`; VA01 order with ref. to contract in 2000 | Locked |
+| 11 | Same line with process VA02 | VA01 fields editable |
 
 Note: the filter table is read once per session. After changing SM30 entries, start a new VA01 session (/nVA01) to test.
 
