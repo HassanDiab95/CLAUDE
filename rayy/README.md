@@ -25,7 +25,7 @@ to the final demo, step by step.
 | [`docs/`](docs) | **Full project documentation** (chapters 00 → 10 + Word file + diagrams) |
 | [`firmware/Rayy/`](firmware/Rayy) | ESP32 program (Arduino IDE): sensors, emoji faces, buzzer melodies, Firebase |
 | [`web/`](web) | Web dashboard (HTML + CSS + JavaScript, Arabic / English) |
-| [`android/`](android) | Android application (Kotlin + Jetpack Compose, Arabic / English) |
+| [`android/Rayy/`](android/Rayy) | Android Studio project **Rayy** (Kotlin + Jetpack Compose, Arabic / English) |
 | [`firebase/database.rules.json`](firebase/database.rules.json) | Security rules for the Realtime Database |
 | [`firebase.json`](firebase.json) | Firebase Hosting + rules deploy configuration |
 | [`tests/`](tests) | Unit tests of the plant "mood" logic (run on a PC) |
@@ -74,7 +74,7 @@ flowchart LR
 2. Create the Firebase project ([docs/04](docs/04-firebase-setup.md)).
 3. Edit `firmware/Rayy/config.h` (Wi-Fi + Firebase) and upload it with the Arduino IDE ([docs/05](docs/05-firmware.md)).
 4. Paste your Firebase web config into `web/firebase-config.js` and run `firebase deploy` ([docs/06](docs/06-web-app.md)).
-5. Put `google-services.json` in `android/app/`, open `android/` in Android Studio and press ▶ ([docs/07](docs/07-android-app.md)).
+5. Put `google-services.json` in `android/Rayy/app/`, open `android/Rayy/` in Android Studio and press ▶ ([docs/07](docs/07-android-app.md)).
 6. Calibrate the soil sensor and run the tests ([docs/08](docs/08-testing-calibration.md)).
 
 > 💡 **Try the web dashboard without any hardware:** run `python -m http.server 8000` inside `web/` and open

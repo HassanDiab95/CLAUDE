@@ -1,6 +1,6 @@
 # 07 · Android Application
 
-Code: [`android/`](../android), a **native Android app** in **Kotlin + Jetpack Compose (Material 3)**
+Code: [`android/Rayy/`](../android/Rayy), a **native Android app** in **Kotlin + Jetpack Compose (Material 3)**
 using the official **Firebase Android SDK** (Authentication + Realtime Database).
 It shows the same data as the web dashboard in a simple, phone-friendly design. It is in **Arabic or English**
 automatically, following the phone language.
@@ -21,16 +21,16 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 
 ## 7.2 Open, build and run
 
-1. Copy **`google-services.json`** into **`android/app/`**. Without it the build fails with
+1. Copy **`google-services.json`** into **`android/Rayy/app/`**. Without it the build fails with
    *"File google-services.json is missing"*.
-2. Android Studio → **File → Open** → select the **`android`** folder → wait for "Gradle sync" to finish
+2. Android Studio → **File → Open** → select the **`android/Rayy`** folder (Android Studio shows the project name **Rayy**) → wait for "Gradle sync" to finish
    (the first time it downloads Gradle 8.9 and the libraries, so an internet connection is required).
 3. Connect a phone with **USB debugging** enabled (Settings → About phone → tap "Build number" 7 times →
    Developer options → USB debugging), or create an emulator (Device Manager).
 4. Press **▶ Run**. Sign in with a user from Firebase Authentication.
 
 **Make an APK to install on any phone:** **Build → Build App Bundle(s) / APK(s) → Build APK(s)** →
-`android/app/build/outputs/apk/debug/app-debug.apk`. Send it to the phone and install it ("allow unknown sources").
+`android/Rayy/app/build/outputs/apk/debug/app-debug.apk`. Send it to the phone and install it ("allow unknown sources").
 
 > If the app shows no data but the web does, your database is probably not in the US region. Put its URL in
 > `DATABASE_URL` in `app/src/main/java/com/rayy/app/Model.kt`.
@@ -38,7 +38,7 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 ## 7.3 Code structure
 
 ```
-android/
+android/Rayy/                 ← open this folder in Android Studio (project "Rayy")
 ├── settings.gradle.kts, build.gradle.kts, gradle.properties, gradlew   (Gradle 8.9, AGP 8.5, Kotlin 2.0)
 └── app/
     ├── build.gradle.kts                 dependencies: Firebase BoM 33, Compose BoM 2024.09

@@ -71,7 +71,9 @@ plants/
 
 ### Step 1: Create the project
 1. Go to <https://console.firebase.google.com> and sign in with a Google account (use a team account).
-2. **Add project** → name it `rayy` → you can **disable Google Analytics** → **Create project**.
+2. **Add project** → project name **`Rayy`** → you can **disable Google Analytics** → **Create project**.
+   Firebase builds a unique **project ID** from the name (for example `rayy-1a2b3`, shown under the name field).
+   The ID appears in your database URL and web address; the project name shown everywhere stays **Rayy**.
 
 ### Step 2: Authentication
 1. Left menu **Build → Authentication → Get started**.
@@ -92,7 +94,7 @@ plants/
 
 ### Step 4: Web app keys
 1. ⚙️ **Project settings → General** → under "Your apps" click the **`</>` (Web)** icon.
-2. Nickname `rayy-web` → **Register app**.
+2. Nickname **`Rayy Web`** → **Register app**.
 3. Copy the `firebaseConfig = { apiKey: ..., ... }` values into [`web/firebase-config.js`](../web/firebase-config.js).
    Check that `databaseURL` is your URL from step 3.
 4. The same **Web API Key** (`apiKey`) goes into `FIREBASE_API_KEY` in `firmware/Rayy/config.h`.
@@ -102,8 +104,8 @@ plants/
 
 ### Step 5: Android app
 1. **Project settings → General → Add app → Android**.
-2. Android package name: **`com.rayy.app`** → Register.
-3. Download **`google-services.json`** and copy it to **`android/app/google-services.json`**.
+2. Android package name: **`com.rayy.app`** (it must be exactly this; it is set in `android/Rayy/app/build.gradle.kts`), app nickname **`Rayy`** → Register.
+3. Download **`google-services.json`** and copy it to **`android/Rayy/app/google-services.json`**.
    (Download it **after** creating the Realtime Database, so it contains the database URL.)
 4. Next → Next → Continue to console. The Gradle steps are already done in this project.
 

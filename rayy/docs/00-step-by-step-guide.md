@@ -64,14 +64,14 @@ On a Windows / macOS / Linux computer:
 
 Detailed with screenshots-style instructions: [04-firebase-setup.md](04-firebase-setup.md). In short:
 
-1. <https://console.firebase.google.com> → **Add project** → `rayy`.
+1. <https://console.firebase.google.com> → **Add project** → project name **`Rayy`**. Firebase makes a unique project ID from it (for example `rayy-1a2b3`); that is normal.
 2. **Authentication → Get started → Email/Password → Enable**. In **Users**, add:
    * `device@rayy.app` + password (used by the ESP32)
    * `team@rayy.app` + password (used to log in to the web and Android apps)
 3. **Realtime Database → Create database** → location Belgium (europe-west1) → **locked mode**.
    Copy the database URL. In the **Rules** tab, paste the content of `firebase/database.rules.json` → **Publish**.
 4. **Project settings → Your apps → Web (`</>`)** → register → copy the `firebaseConfig` values.
-5. **Project settings → Your apps → Android** → package name `com.rayy.app` → download `google-services.json`.
+5. **Project settings → Your apps → Android** → package name **`com.rayy.app`**, app nickname **`Rayy`** → download `google-services.json`.
 
 ✅ **Check:** the Realtime Database page shows your URL, and Authentication → Users shows 2 users.
 
@@ -157,11 +157,11 @@ modules' VCC/GND to these rows.
 
 ## Step 8: Android app
 
-1. Copy `google-services.json` (step 3.5) into **`android/app/`**.
-2. Android Studio → **File → Open** → choose the **`android`** folder → wait for "Gradle sync" to finish.
+1. Copy `google-services.json` (step 3.5) into **`android/Rayy/app/`**.
+2. Android Studio → **File → Open** → choose the **`android/Rayy`** folder (the project name shows as **Rayy**) → wait for "Gradle sync" to finish.
 3. Connect your phone (enable **Developer options → USB debugging**) or create an emulator → press **▶ Run**.
 4. To get an installable file: **Build → Build App Bundle(s) / APK(s) → Build APK(s)**. The file is at
-   `android/app/build/outputs/apk/debug/app-debug.apk`.
+   `android/Rayy/app/build/outputs/apk/debug/app-debug.apk`.
 
 ✅ **Check:** after login, the app shows the live emoji and values. "Play" makes the buzzer play.
 
