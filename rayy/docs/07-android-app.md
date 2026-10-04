@@ -16,7 +16,9 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 
 ## 7.1 Requirements
 
-* **Android Studio** (Koala 2024.1 or newer): <https://developer.android.com/studio>. It includes the JDK and Android SDK.
+* **Android Studio Panda (2025.3.1) or newer**: <https://developer.android.com/studio>. It includes the JDK and Android SDK.
+  The project uses **Gradle 9.1.0 + Android Gradle Plugin 9.0.1 + Kotlin 2.2.21**, which run on **Java 17 up to Java 25**,
+  so the Java that comes with a recent Android Studio works without changing any setting.
 * The `google-services.json` file from your Firebase project ([04](04-firebase-setup.md), step 5).
 
 ## 7.2 Open, build and run
@@ -30,7 +32,7 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 1. Copy **`google-services.json`** into **`android/Rayy/app/`**. Without it the build fails with
    *"File google-services.json is missing"*.
 2. Android Studio → **File → Open** → select the **`android/Rayy`** folder (Android Studio shows the project name **Rayy**) → wait for "Gradle sync" to finish
-   (the first time it downloads Gradle 8.7 and the libraries, so an internet connection is required).
+   (the first time it downloads Gradle 9.1.0 and the libraries, so an internet connection is required).
 3. Connect a phone with **USB debugging** enabled (Settings → About phone → tap "Build number" 7 times →
    Developer options → USB debugging), or create an emulator (Device Manager).
 4. Press **▶ Run**. Sign in with a user from Firebase Authentication.
@@ -38,10 +40,8 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 **Make an APK to install on any phone:** **Build → Build App Bundle(s) / APK(s) → Build APK(s)** →
 `android/Rayy/app/build/outputs/apk/debug/app-debug.apk`. Send it to the phone and install it ("allow unknown sources").
 
-> **"Incompatible Gradle JVM version … Gradle 8.7 supports Java versions between 1.8 and 21"**: Android Studio is
-> using a too-new Java (e.g. Java 25) to run Gradle. Click **"Apply compatible Gradle JDK configuration and sync"**, or go to
-> **Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK** and choose **jbr-21** (JetBrains
-> Runtime 21, included with Android Studio) or Java 17, then **File → Sync Project with Gradle Files**.
+> **"The project is using an incompatible version of the Android Gradle plugin"**: your Android Studio is older than
+> Panda (2025.3.1). Update Android Studio (**Help → Check for Updates**).
 
 > If the app shows no data but the web does, your database is probably not in the US region. Put its URL in
 > `DATABASE_URL` in `app/src/main/java/com/rayy/app/Model.kt`.
@@ -50,7 +50,7 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
 
 ```
 android/Rayy/                 ← open this folder in Android Studio (project "Rayy")
-├── settings.gradle.kts, build.gradle.kts, gradle.properties, gradlew   (Gradle 8.7, AGP 8.5.0, Kotlin 2.0.21)
+├── settings.gradle.kts, build.gradle.kts, gradle.properties, gradlew   (Gradle 9.1.0, AGP 9.0.1, Kotlin 2.2.21, Google Services 4.4.4)
 └── app/
     ├── build.gradle.kts                 dependencies: Firebase BoM 33.1.0, Compose BoM 2024.09.00
     ├── google-services.json             ← YOU add this file

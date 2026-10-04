@@ -1,7 +1,6 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
+    id("com.android.application")             // also compiles Kotlin (AGP 9 built-in Kotlin)
+    id("org.jetbrains.kotlin.plugin.compose")  // Jetpack Compose compiler
     // Reads app/google-services.json (download it from your Firebase project)
     id("com.google.gms.google-services")
 }
@@ -26,9 +25,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
     }
     buildFeatures {
         compose = true

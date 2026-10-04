@@ -52,7 +52,7 @@ On a Windows / macOS / Linux computer:
    * **DHT sensor library** by Adafruit (click "Install all")
    * **BH1750** by Christopher Laws
    * **ArduinoJson** by Benoit Blanchon (version 7)
-5. **Android Studio**: <https://developer.android.com/studio> (for the Android app)
+5. **Android Studio Panda (2025.3.1) or newer**: <https://developer.android.com/studio> (for the Android app; the project uses Gradle 9.1.0 + AGP 9.0.1 and runs on Java 17–25)
 6. **Node.js LTS**: <https://nodejs.org>, then in a terminal: `npm install -g firebase-tools` (to publish the website)
 7. **Python 3** (optional, to run the website on your computer) or the VS Code **Live Server** extension.
 
@@ -160,7 +160,7 @@ modules' VCC/GND to these rows.
 0. Unzip the project into a folder whose path has **English letters only**, for example `E:\Rayy-Project`
    (not `E:\Ray ري\...`). Android Studio refuses to build in folders with Arabic letters in the path.
 1. Copy `google-services.json` (step 3.5) into **`android/Rayy/app/`**.
-2. Android Studio → **File → Open** → choose the **`android/Rayy`** folder (the project name shows as **Rayy**) → wait for "Gradle sync" to finish.
+2. Android Studio → **File → Open** → choose the **`android/Rayy`** folder (the project name shows as **Rayy**) → wait for "Gradle sync" to finish (the first time it downloads Gradle 9.1.0).
 3. Connect your phone (enable **Developer options → USB debugging**) or create an emulator → press **▶ Run**.
 4. To get an installable file: **Build → Build App Bundle(s) / APK(s) → Build APK(s)**. The file is at
    `android/Rayy/app/build/outputs/apk/debug/app-debug.apk`.
