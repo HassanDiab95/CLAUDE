@@ -11,6 +11,26 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
   CREATE PUBLIC.
 
   PUBLIC SECTION.
+*   Range tables are typed here (RANGE OF), so the class does not depend
+*   on DDIC ranges table types.
+    TYPES ty_r_vkorg     TYPE RANGE OF vbak-vkorg.
+    TYPES ty_r_vtweg     TYPE RANGE OF vbak-vtweg.
+    TYPES ty_r_spart     TYPE RANGE OF vbak-spart.
+    TYPES ty_r_auart_so  TYPE RANGE OF vbak-auart.
+    TYPES ty_r_auart_con TYPE RANGE OF vbak-auart.
+
+    "! Filter of one rule: one range table per field
+    TYPES:
+      BEGIN OF ty_filter,
+        rule_id   TYPE ze_sd_rule_id,
+        vkorg     TYPE ty_r_vkorg,
+        vtweg     TYPE ty_r_vtweg,
+        spart     TYPE ty_r_spart,
+        auart_so  TYPE ty_r_auart_so,
+        auart_con TYPE ty_r_auart_con,
+      END OF ty_filter.
+    TYPES tt_filter TYPE SORTED TABLE OF ty_filter WITH UNIQUE KEY rule_id.
+
     CONSTANTS gc_vgtyp_contract TYPE vbak-vgtyp VALUE 'G'.
 
     CONSTANTS:
@@ -30,7 +50,7 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
 
     "! Active filter rules from ZSD_SO_CON_FLT as range tables (buffered).
     CLASS-METHODS get_filters
-      RETURNING VALUE(rt_filters) TYPE ztt_sd_so_con_filter.
+      RETURNING VALUE(rt_filters) TYPE tt_filter.
 
     "! Returns abap_true when the screen field has to be closed for input.
     CLASS-METHODS is_locked_field
@@ -56,7 +76,7 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-DATA gs_last_key      TYPE ty_key.
     CLASS-DATA gv_last_relevant TYPE abap_bool.
     CLASS-DATA gv_evaluated     TYPE abap_bool.
-    CLASS-DATA gt_filters       TYPE ztt_sd_so_con_filter.
+    CLASS-DATA gt_filters       TYPE tt_filter.
     CLASS-DATA gv_filters_read  TYPE abap_bool.
 
     CLASS-METHODS evaluate
@@ -86,7 +106,7 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
 
   METHOD get_filters.
-    DATA ls_filter TYPE zssd_so_con_filter.
+    DATA ls_filter TYPE ty_filter.
 
     IF gv_filters_read = abap_false.
       SELECT rule_id, fieldname, sign, opti, low, high
@@ -138,7 +158,7 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
 
   METHOD evaluate.
-    DATA lt_candidates TYPE ztt_sd_so_con_filter.
+    DATA lt_candidates TYPE tt_filter.
 
     rv_relevant = abap_false.
 

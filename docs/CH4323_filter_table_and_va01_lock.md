@@ -94,7 +94,11 @@ TSD example as table entries:
 | 01      | AUART_SO  | 0003  | I    | EQ   | ZICO |      | X |
 | 01      | AUART_CON | 0001  | I    | EQ   | ZCPC |      | X |
 
-### 2.4 Range table types and the filter table type
+### 2.4 Range table types and the filter table type (optional)
+
+The class does not need these DDIC types. It types the filter itself as 
+( / ). Create them only if the filter is needed as a DDIC type elsewhere.
+
 
 | Object               | Kind                     | Definition |
 |----------------------|--------------------------|------------|
