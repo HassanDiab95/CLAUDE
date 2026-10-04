@@ -13,6 +13,6 @@ define table zsd_so_con_flt {
   opti          : ddoption;
   low           : ze_sd_flt_low;
   high          : ze_sd_flt_high;
-  active        : ze_sd_active;
+  active        : xfeld;
 
 }

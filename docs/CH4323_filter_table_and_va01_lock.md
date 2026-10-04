@@ -36,7 +36,6 @@ How the lines are evaluated:
 | ZD_SD_SPART      | CHAR | 2   | Value table TSPA           | Division |
 | ZD_SD_AUART_SO   | CHAR | 4   | Value table TVAK           | Sales Order Type |
 | ZD_SD_AUART_CON  | CHAR | 4   | Value table TVAK           | Contract Type |
-| ZD_SD_ACTIVE     | CHAR | 1   | Fixed values: ` ` = Inactive, `X` = Active | Active Rule |
 | ZD_SD_FLT_FIELD  | CHAR | 10  | Fixed values: `VKORG` Sales Organization, `VTWEG` Distribution Channel, `SPART` Division, `AUART_SO` Sales Order Type, `AUART_CON` Contract Type | Filter field name |
 | ZD_SD_FLT_VALUE  | CHAR | 10  | –  (upper case)            | Filter value (Low/High) |
 | ZD_SD_RULE_ID    | CHAR | 10  | –  (upper case)            | Filter rule ID |
@@ -56,7 +55,6 @@ Notes:
 | ZE_SD_SPART      | ZD_SD_SPART     | Dv / Division |
 | ZE_SD_AUART_SO   | ZD_SD_AUART_SO  | SO Type / Sales Order Type |
 | ZE_SD_AUART_CON  | ZD_SD_AUART_CON | Con.Type / Contract Type |
-| ZE_SD_ACTIVE     | ZD_SD_ACTIVE    | Active / Active Rule |
 | ZE_SD_FLT_FIELD  | ZD_SD_FLT_FIELD | Field / Filter Field |
 | ZE_SD_FLT_LOW    | ZD_SD_FLT_VALUE | From / Value From |
 | ZE_SD_FLT_HIGH   | ZD_SD_FLT_VALUE | To / Value To |
@@ -65,6 +63,7 @@ Notes:
 
 SIGN and OPTION use the standard data elements **DDSIGN** (I/E) and **DDOPTION** (EQ, NE, BT, NB, CP, NP, GT, GE, LT, LE).
 Their fixed values give F4 help in SM30.
+ACTIVE uses the standard data element **XFELD** and is shown as a checkbox in SM30.
 
 ### 2.3 Filter table `ZSD_SO_CON_FLT` (`src/ddic/zsd_so_con_flt.tabl.ddl`)
 
@@ -78,7 +77,7 @@ Their fixed values give F4 help in SM30.
 | OPTI      |     | DDOPTION        | EQ, BT, CP, … |
 | LOW       |     | ZE_SD_FLT_LOW   | Single value / From |
 | HIGH      |     | ZE_SD_FLT_HIGH  | To (only with BT/NB) |
-| ACTIVE    |     | ZE_SD_ACTIVE    | X = line is used |
+| ACTIVE    |     | XFELD           | Checkbox: X = line is active |
 
 Delivery class **C**, data maintenance allowed. It is transported through a customizing request.
 
