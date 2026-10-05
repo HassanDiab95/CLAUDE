@@ -14,6 +14,10 @@
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_con_field_lock.
 
+* Restore the transaction type if the configuration was opened in
+* display mode (ZSD_SO_CON_CONFIG_DISPLAY) and not yet restored
+  zcl_sd_so_contract_ctrl=>config_display_off( CHANGING cv_trtyp = t180-trtyp ).
+
   IF t180-trtyp = 'H'                                         " create (VA01)
      AND vbak-vgbel IS NOT INITIAL
      AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract

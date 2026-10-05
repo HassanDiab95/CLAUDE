@@ -19,7 +19,7 @@ Use one package (e.g. `ZSD_CH4323`) and a workbench transport. SM30 entries go o
 | 9a | ZSD_SO_CON_ITEM_FCODES | Enhancement in FORM CUA_SETZEN – disable Insert/Delete item | SE38 / SE80 |
 | 9b | ZSD_SO_CON_NO_NEW_ITEM | Enhancement in MV45AFZB – reject new items (safety net) | SE38 / SE80 |
 | 9c | ZSD_SO_CON_NO_DELETE_ITEM | Enhancement in MV45AFZB – reject item deletion (safety net) | SE38 / SE80 |
-| 9d | ZSD_SO_CON_CONFIG_CHECK | Enhancement in MV45AFZZ save – configuration must equal contract | SE38 / SE80 |
+| 9d | ZSD_SO_CON_CONFIG_DISPLAY | Enhancement in SAPMV45A configuration FORM – characteristic values display-only | SE38 / SE80 |
 | 10 | ZSD_SO_CON_PRICE_LOCK | Enhancement in LV69AFZZ (optional) | SE38 / SE80 |
 | 11 | ZSD_SOCON | Parameter transaction for SM30 | SE93 |
 | 12 | – | Maintain filter data + test | SM30 / VA01 |
@@ -380,7 +380,6 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
       BEGIN OF gc_fcode,
         insert_item TYPE sy-ucomm VALUE 'POAN',   " Insert row / new item
         delete_item TYPE sy-ucomm VALUE 'POLO',   " Delete item
-        config_item TYPE sy-ucomm VALUE 'POKO',   " Item configuration (VC) - verify with /h
       END OF gc_fcode.
 
     TYPES tt_fcode TYPE STANDARD TABLE OF sy-ucomm WITH EMPTY KEY.
@@ -415,13 +414,17 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-METHODS get_locked_fcodes
       RETURNING VALUE(rt_fcodes) TYPE tt_fcode.
 
-    "! Returns abap_true when the characteristic values of the order item
-    "! configuration differ from the referenced contract item configuration.
-    CLASS-METHODS is_config_changed
-      IMPORTING iv_cuobj          TYPE vbap-cuobj
-                iv_vgbel          TYPE vbap-vgbel
-                iv_vgpos          TYPE vbap-vgpos
-      RETURNING VALUE(rv_changed) TYPE abap_bool.
+    "! Characteristic value assignment in display mode (like VA03):
+    "! switches the transaction type to display ('A') for a relevant VA01
+    "! order and remembers the original value.
+    CLASS-METHODS config_display_on
+      IMPORTING is_vbak  TYPE vbak
+      CHANGING  cv_trtyp TYPE t180-trtyp.
+
+    "! Restores the transaction type changed by CONFIG_DISPLAY_ON.
+    "! Safe to call any time (does nothing if nothing was switched).
+    CLASS-METHODS config_display_off
+      CHANGING cv_trtyp TYPE t180-trtyp.
 
     "! Result of the last IS_RELEVANT evaluation (used outside SAPMV45A,
     "! e.g. pricing screens in SAPLV69A where VBAK is not available).
@@ -445,6 +448,7 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-DATA gv_evaluated     TYPE abap_bool.
     CLASS-DATA gt_filters       TYPE tt_filter.
     CLASS-DATA gv_filters_read  TYPE abap_bool.
+    CLASS-DATA gv_saved_trtyp   TYPE t180-trtyp.
 
     CLASS-METHODS evaluate
       IMPORTING is_key             TYPE ty_key
@@ -579,72 +583,25 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
   METHOD get_locked_fcodes.
     rt_fcodes = VALUE #( ( gc_fcode-insert_item )
-                         ( gc_fcode-delete_item )
-                         ( gc_fcode-config_item ) ).
+                         ( gc_fcode-delete_item ) ).
   ENDMETHOD.
 
 
-  METHOD is_config_changed.
-    TYPES:
-      BEGIN OF ty_value,
-        atnam TYPE conf_out-atnam,
-        atwrt TYPE conf_out-atwrt,
-      END OF ty_value.
-    TYPES tt_value TYPE SORTED TABLE OF ty_value WITH NON-UNIQUE KEY atnam atwrt.
-
-    DATA lt_conf_order    TYPE STANDARD TABLE OF conf_out.
-    DATA lt_conf_contract TYPE STANDARD TABLE OF conf_out.
-
-    rv_changed = abap_false.
-
-    IF iv_cuobj IS INITIAL OR iv_vgbel IS INITIAL.
-      RETURN.
+  METHOD config_display_on.
+    IF  cv_trtyp = 'H'                                    " create (VA01)
+    AND is_vbak-vgbel IS NOT INITIAL
+    AND is_vbak-vgtyp = gc_vgtyp_contract
+    AND is_relevant( is_vbak = is_vbak iv_process = gc_process-create ) = abap_true.
+      gv_saved_trtyp = cv_trtyp.
+      cv_trtyp       = 'A'.                               " display (as VA03)
     ENDIF.
+  ENDMETHOD.
 
-*   Configuration instance of the contract item
-    SELECT SINGLE cuobj FROM vbap
-      WHERE vbeln = @iv_vgbel
-        AND posnr = @iv_vgpos
-      INTO @DATA(lv_cuobj_contract).
-    IF sy-subrc <> 0 OR lv_cuobj_contract IS INITIAL.
-      RETURN.
-    ENDIF.
 
-*   Order item: read from the configuration buffer (not yet saved)
-    CALL FUNCTION 'VC_I_GET_CONFIGURATION'
-      EXPORTING
-        instance           = iv_cuobj
-        language           = sy-langu
-      TABLES
-        configuration      = lt_conf_order
-      EXCEPTIONS
-        instance_not_found = 1
-        internal_error     = 2
-        OTHERS             = 3.
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-*   Contract item: read from the database
-    CALL FUNCTION 'VC_I_GET_CONFIGURATION'
-      EXPORTING
-        instance           = lv_cuobj_contract
-        language           = sy-langu
-      TABLES
-        configuration      = lt_conf_contract
-      EXCEPTIONS
-        instance_not_found = 1
-        internal_error     = 2
-        OTHERS             = 3.
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    DATA(lt_values_order)    = CORRESPONDING tt_value( lt_conf_order ).
-    DATA(lt_values_contract) = CORRESPONDING tt_value( lt_conf_contract ).
-
-    IF lt_values_order <> lt_values_contract.
-      rv_changed = abap_true.
+  METHOD config_display_off.
+    IF gv_saved_trtyp IS NOT INITIAL.
+      cv_trtyp = gv_saved_trtyp.
+      CLEAR gv_saved_trtyp.
     ENDIF.
   ENDMETHOD.
 
@@ -683,6 +640,10 @@ ENDCLASS.
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_con_field_lock.
 
+* Restore the transaction type if the configuration was opened in
+* display mode (ZSD_SO_CON_CONFIG_DISPLAY) and not yet restored
+  zcl_sd_so_contract_ctrl=>config_display_off( CHANGING cv_trtyp = t180-trtyp ).
+
   IF t180-trtyp = 'H'                                         " create (VA01)
      AND vbak-vgbel IS NOT INITIAL
      AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
@@ -697,7 +658,7 @@ ENHANCEMENT 1 zsd_so_con_field_lock.
 ENDENHANCEMENT.
 ```
 
-## Step 9a – Disable "Insert Row", "Delete Item" and "Configuration" (like VA03)
+## Step 9a – Disable "Insert Row" and "Delete Item" (like VA03)
 
 The buttons above the item table (Insert Row = **POAN**, Delete Item = **POLO**) are function codes, not input fields.
 `SCREEN-INPUT = 0` cannot close them. Instead they are removed from the GUI status, which is how VA03 does it.
@@ -705,8 +666,7 @@ An excluded function code also greys out the matching pushbutton and removes the
 
 1. **Check the function codes.** Start VA01, enter `/h` in the command field, and press the Insert Row button. In the debugger, read `SY-UCOMM` (expected `POAN`).
    Do the same for Delete Item (expected `POLO`).
-   Then select an item and choose the item configuration (Item → Configuration, or the configuration button). `POKO` in the class is a placeholder: replace it with the code you see.
-   If any of your codes differ, change `GC_FCODE` in the class. If a function can be reached with more than one code, add each one to `GET_LOCKED_FCODES`.
+   If your codes differ, change `GC_FCODE` in the class.
 2. **Check the exclusion table.** SE38 → `SAPMV45A` → search for `SET PF-STATUS`. The table after `EXCLUDING` should be `CUA_EXCLUDE`.
    If your release uses another name, change it in the code below.
 3. SE38 → include `MV45AF0C_CUA_SETZEN` → FORM `CUA_SETZEN` → implicit enhancement option at the **end** of the FORM (before `ENDFORM`).
@@ -719,9 +679,9 @@ An excluded function code also greys out the matching pushbutton and removes the
 *& SAPMV45A - FORM CUA_SETZEN   (include MV45AF0C_CUA_SETZEN)
 *& Implicit enhancement at the END of the FORM.
 *&
-*& Removes the item functions "Insert Row" (POAN), "Delete Item" (POLO)
-*& and "Item configuration" (POKO) from the GUI status in VA01 for
-*& relevant orders, like VA03 (codes in ZCL_SD_SO_CONTRACT_CTRL=>GC_FCODE).
+*& Removes the item functions "Insert Row" (POAN) and "Delete Item"
+*& (POLO) from the GUI status in VA01 for relevant orders, like VA03
+*& (codes in ZCL_SD_SO_CONTRACT_CTRL=>GC_FCODE).
 *& Excluded function codes also make the matching pushbuttons above the
 *& item table inactive (greyed out) and remove the menu entries.
 *&
@@ -821,64 +781,66 @@ ENHANCEMENT 1 zsd_so_con_no_delete_item.
 ENDENHANCEMENT.
 ```
 
-## Step 9d – Configuration must equal the contract (safety net) – MV45AFZZ USEREXIT_SAVE_DOCUMENT_PREPARE
+## Step 9d – Characteristic values display-only (like VA03)
 
-The characteristic value screen (Create …: Characteristic Value Assignment) belongs to Variant Configuration (function group CEI0), not to SAPMV45A.
-`USEREXIT_FIELD_MODIFICATION` is not called there. Closing single characteristic values on that screen would need a modification of SAP standard, so it is not done.
-The control works in two layers instead:
+The characteristic value assignment screen belongs to Variant Configuration, not to SAPMV45A, so `USEREXIT_FIELD_MODIFICATION` does not reach its fields.
+The same effect as VA03 is achieved by opening the configuration in **display mode**. SAPMV45A decides between change and display mode from
+the transaction type `T180-TRTYP` (`A` = display). Two implicit enhancements in the SAPMV45A FORM that calls the configuration switch it to `A`
+for the call (same filter as the field lock: VA01, reference to a contract, VA01 filter matches) and then restore it.
+The user can open the configuration and see every characteristic value, but cannot change any of them. There is no save check or error message.
 
-1. Step 9a removes the item configuration function, so the screen cannot be opened in VA01.
-2. This step compares, on save, the characteristic values of each item with the contract item (`VBAP-VGBEL` / `VGPOS` → contract `VBAP-CUOBJ`).
-   It uses FM `VC_I_GET_CONFIGURATION`. If any value differs, the save is cancelled and the user stays in the order.
+1. **Find the FORM.** VA01 → select an item → `/h` → open the item configuration.
+   In the debugger choose *Breakpoints → Breakpoint at → Function module* `CE_C_PROCESSING`, then press F8.
+   When it stops, the **call stack** shows the SAPMV45A FORM one level above the function module. That is the FORM to enhance.
+2. **Check the display decision.** In that FORM (or the code just before the CALL FUNCTION), confirm that display mode is derived from `T180-TRTYP`.
+   You can also compare with VA03, where the same call runs in display mode.
+   If your release uses another indicator, set that indicator in enhancement 1 instead of `T180-TRTYP`.
+3. Create **enhancement 1** at the **start** of the FORM and **enhancement 2** at the **end** of the same FORM, in implementation `ZSD_SO_CON_CONFIG_DISPLAY`.
+4. The field-lock enhancement (step 9) also restores `T180-TRTYP` as a safety net, in case the FORM is left early with EXIT/RETURN.
 
-SE38 → `MV45AFZZ` → FORM `USEREXIT_SAVE_DOCUMENT_PREPARE` → implicit enhancement at the start → `ZSD_SO_CON_CONFIG_CHECK`.
-
-`src/enhancement/mv45afzz_userexit_save_document_prepare.abap`:
+`src/enhancement/sapmv45a_configuration_display.abap`:
 
 ```abap
 *&---------------------------------------------------------------------*
-*& Include MV45AFZZ - FORM USEREXIT_SAVE_DOCUMENT_PREPARE   (safety net)
-*& Implicit enhancement at the start of the FORM.
+*& SAPMV45A - FORM that calls the item configuration (characteristic
+*& value assignment). Two implicit enhancements in the SAME FORM:
+*&   Enhancement 1 at the START of the FORM
+*&   Enhancement 2 at the END of the FORM
 *&
-*& VA01, relevant orders only: the characteristic values of every item
-*& configuration must be the same as in the referenced contract item.
-*& If not, the save is cancelled and the user returns to the order.
-*& This covers every way of changing the configuration (configuration
-*& screen, item detail, BAPI/IDoc using the dialog).
+*& Opens the characteristic value assignment in DISPLAY mode in VA01 for
+*& orders with reference to a contract that match the VA01 filter, like
+*& VA03: all characteristic values are closed for input.
+*&
+*& How it works: SAPMV45A decides between change and display mode of
+*& the configuration from the transaction type T180-TRTYP ('A' =
+*& display). It is set to 'A' only while the configuration is called and
+*& restored afterwards. USEREXIT_FIELD_MODIFICATION restores it as well
+*& (safety net if the FORM is left early with EXIT/RETURN).
+*&
+*& Find the FORM: VA01 > select item > /h > open the item configuration.
+*& In the debugger set a breakpoint on function module CE_C_PROCESSING,
+*& continue (F8), then look at the call stack: the SAPMV45A FORM one
+*& level above the function module is the FORM to enhance.
 *&---------------------------------------------------------------------*
-ENHANCEMENT 1 zsd_so_con_config_check.
 
-  IF t180-trtyp = 'H'                                         " create (VA01)
-     AND vbak-vgbel IS NOT INITIAL
-     AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
-     AND zcl_sd_so_contract_ctrl=>is_relevant(
-           is_vbak    = vbak
-           iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true.
+*--- Enhancement 1: START of the FORM ---------------------------------*
+ENHANCEMENT 1 zsd_so_con_config_display.
 
-    LOOP AT xvbap WHERE updkz <> 'D'
-                    AND cuobj IS NOT INITIAL
-                    AND vgbel IS NOT INITIAL.
-      IF zcl_sd_so_contract_ctrl=>is_config_changed( iv_cuobj = xvbap-cuobj
-                                                     iv_vgbel = xvbap-vgbel
-                                                     iv_vgpos = xvbap-vgpos ) = abap_true.
-        MESSAGE s398(00) WITH 'Item' xvbap-posnr
-                              ': configuration must not differ from contract'
-                              xvbap-vgbel DISPLAY LIKE 'E'.
-*       Cancel the save and return to the order (standard SAPMV45A pattern)
-        PERFORM folge_gleichsetzen(sapfv45k).
-        fcode = 'ENT1'.
-        SET SCREEN syst-dynnr.
-        LEAVE SCREEN.
-      ENDIF.
-    ENDLOOP.
-  ENDIF.
+  zcl_sd_so_contract_ctrl=>config_display_on(
+    EXPORTING is_vbak  = vbak
+    CHANGING  cv_trtyp = t180-trtyp ).
+
+ENDENHANCEMENT.
+
+
+*--- Enhancement 2: END of the same FORM ------------------------------*
+ENHANCEMENT 2 zsd_so_con_config_display.
+
+  zcl_sd_so_contract_ctrl=>config_display_off(
+    CHANGING cv_trtyp = t180-trtyp ).
 
 ENDENHANCEMENT.
 ```
-
-Notes:
-- If object dependencies (procedures) recalculate values in the order, for example dates or prices, the values can differ legitimately.
-  In that case, restrict the comparison in `IS_CONFIG_CHANGED` to the characteristics in scope (TSD open item).
 
 ## Step 10 – Enhancement in LV69AFZZ (optional – lock copied price)
 
@@ -958,8 +920,9 @@ Test cases:
 | 8 | SM30: BT without To, unknown VKORG, contract type in AUART_SO, process not VA01/VA02/BOTH | Save rejected with message |
 | 9a | VA01 test 1: Insert Row / Delete Item buttons | Greyed out, menu entries hidden |
 | 9b | VA01 test 1: type a material into an empty row and press Enter | Error: new items not allowed |
-| 9c | VA01 test 1: item configuration function | Not available (greyed out / hidden) |
-| 9d | VA01 test 1: change a characteristic value by another route and save | Save cancelled: configuration must not differ from contract |
+| 9c | VA01 test 1: open item configuration | Opens, all characteristic values display-only |
+| 9d | VA01 test 1: after leaving the configuration, item fields and order still behave as create (save works) | OK |
+| 9e | VA01 order not matching the filter: open item configuration | Values can be changed |
 | 9 | VA02 on the order from test 1 | Editable (TSD ch. 4 handles VA02) |
 | 10 | Only line `VA01 VKORG I EQ 2000`; VA01 order with ref. to contract in 2000 | Locked |
 | 11 | Same line with process VA02 | VA01 fields editable |
@@ -970,5 +933,5 @@ Note: the filter table is read once per session. After changing SM30 entries, st
 
 - All object names are proposals (TSD open item).
 - Confirm the screen field names in IS_LOCKED_FIELD on your screens with F1 → Technical Information.
-- Variant configuration: the configuration function is disabled (step 9a) and checked on save against the contract (step 9d). Confirm the configuration function code and the characteristics in scope.
+- Variant configuration: the characteristic values are opened display-only (step 9d). Confirm the configuration FORM and display indicator in your release.
 - VA02 change detection, delivery block XX and the approval workflow come in the next delivery.
