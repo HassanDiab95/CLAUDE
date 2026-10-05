@@ -170,7 +170,7 @@ Source: `src/enhancement/mv45afzz_userexit_field_modification.abap`
   | FORM `CUA_SETZEN` (end), `mv45af0c_cua_setzen.abap` | Excludes POAN (Insert Row) and POLO (Delete Item) from the GUI status via `CUA_EXCLUDE` | Buttons greyed out, menu entries hidden |
   | MV45AFZB `USEREXIT_CHECK_VBAP`, `mv45afzb_userexit_check_vbap.abap` | Error for an item without `VBAP-VGBEL` (not from the contract), except system sub-items | No new items by any route |
   | MV45AFZB `USEREXIT_CHECK_XVBAP_FOR_DELET`, `mv45afzb_userexit_check_xvbap_for_delet.abap` | `US_ERROR = 'X'` | No deletion by any route |
-  | SAPMV45A configuration FORM (start + end), `sapmv45a_configuration_display.abap` | `CONFIG_DISPLAY_ON` sets `T180-TRTYP = 'A'` for the configuration call, `CONFIG_DISPLAY_OFF` restores it | Characteristic values display-only, like VA03 |
+  | FM `CE_C_PROCESSING` (start), `ce_c_processing_display.abap` | Sets `DISPLAY = 'X'` when called from a relevant VA01 order (`(SAPMV45A)VBAK`, `(SAPMV45A)T180-TRTYP`) | Characteristic values display-only, like VA03 |
 
   The characteristic value screen belongs to Variant Configuration, not SAPMV45A, so its fields are not reached by `USEREXIT_FIELD_MODIFICATION`.
   It is opened in display mode instead. There is no save check.
@@ -202,4 +202,4 @@ Source: `src/enhancement/mv45afzz_userexit_field_modification.abap`
   If F4 is required, add a `PROCESS ON VALUE-REQUEST` module in the generated maintenance screen that calls the search help for the current FIELDNAME.
 - **New items in VA01**: blocked (Insert Row disabled, material locked on empty rows, and `USEREXIT_CHECK_VBAP` as a safety net).
 - **Function codes / exclusion table**: confirm POAN/POLO and `CUA_EXCLUDE` in your release (see creation guide, step 9a).
-- **Variant configuration characteristics**: opened display-only in VA01 (creation guide step 9d). Confirm the configuration FORM and the display indicator in your release.
+- **Variant configuration characteristics**: opened display-only in VA01 via `CE_C_PROCESSING` parameter `DISPLAY` (creation guide step 9d). Confirm that DISPLAY is passed by value.

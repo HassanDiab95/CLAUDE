@@ -83,18 +83,6 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-METHODS get_locked_fcodes
       RETURNING VALUE(rt_fcodes) TYPE tt_fcode.
 
-    "! Characteristic value assignment in display mode (like VA03):
-    "! switches the transaction type to display ('A') for a relevant VA01
-    "! order and remembers the original value.
-    CLASS-METHODS config_display_on
-      IMPORTING is_vbak  TYPE vbak
-      CHANGING  cv_trtyp TYPE t180-trtyp.
-
-    "! Restores the transaction type changed by CONFIG_DISPLAY_ON.
-    "! Safe to call any time (does nothing if nothing was switched).
-    CLASS-METHODS config_display_off
-      CHANGING cv_trtyp TYPE t180-trtyp.
-
     "! Result of the last IS_RELEVANT evaluation (used outside SAPMV45A,
     "! e.g. pricing screens in SAPLV69A where VBAK is not available).
     CLASS-METHODS is_current_doc_relevant
@@ -117,7 +105,6 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-DATA gv_evaluated     TYPE abap_bool.
     CLASS-DATA gt_filters       TYPE tt_filter.
     CLASS-DATA gv_filters_read  TYPE abap_bool.
-    CLASS-DATA gv_saved_trtyp   TYPE t180-trtyp.
 
     CLASS-METHODS evaluate
       IMPORTING is_key             TYPE ty_key
@@ -253,25 +240,6 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
   METHOD get_locked_fcodes.
     rt_fcodes = VALUE #( ( gc_fcode-insert_item )
                          ( gc_fcode-delete_item ) ).
-  ENDMETHOD.
-
-
-  METHOD config_display_on.
-    IF  cv_trtyp = 'H'                                    " create (VA01)
-    AND is_vbak-vgbel IS NOT INITIAL
-    AND is_vbak-vgtyp = gc_vgtyp_contract
-    AND is_relevant( is_vbak = is_vbak iv_process = gc_process-create ) = abap_true.
-      gv_saved_trtyp = cv_trtyp.
-      cv_trtyp       = 'A'.                               " display (as VA03)
-    ENDIF.
-  ENDMETHOD.
-
-
-  METHOD config_display_off.
-    IF gv_saved_trtyp IS NOT INITIAL.
-      cv_trtyp = gv_saved_trtyp.
-      CLEAR gv_saved_trtyp.
-    ENDIF.
   ENDMETHOD.
 
 

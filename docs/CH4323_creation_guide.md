@@ -19,7 +19,7 @@ Use one package (e.g. `ZSD_CH4323`) and a workbench transport. SM30 entries go o
 | 9a | ZSD_SO_CON_ITEM_FCODES | Enhancement in FORM CUA_SETZEN – disable Insert/Delete item | SE38 / SE80 |
 | 9b | ZSD_SO_CON_NO_NEW_ITEM | Enhancement in MV45AFZB – reject new items (safety net) | SE38 / SE80 |
 | 9c | ZSD_SO_CON_NO_DELETE_ITEM | Enhancement in MV45AFZB – reject item deletion (safety net) | SE38 / SE80 |
-| 9d | ZSD_SO_CON_CONFIG_DISPLAY | Enhancement in SAPMV45A configuration FORM – characteristic values display-only | SE38 / SE80 |
+| 9d | ZSD_SO_CON_CONFIG_DISPLAY | Enhancement at start of FM CE_C_PROCESSING – characteristic values display-only | SE37 |
 | 10 | ZSD_SO_CON_PRICE_LOCK | Enhancement in LV69AFZZ (optional) | SE38 / SE80 |
 | 11 | ZSD_SOCON | Parameter transaction for SM30 | SE93 |
 | 12 | – | Maintain filter data + test | SM30 / VA01 |
@@ -414,18 +414,6 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-METHODS get_locked_fcodes
       RETURNING VALUE(rt_fcodes) TYPE tt_fcode.
 
-    "! Characteristic value assignment in display mode (like VA03):
-    "! switches the transaction type to display ('A') for a relevant VA01
-    "! order and remembers the original value.
-    CLASS-METHODS config_display_on
-      IMPORTING is_vbak  TYPE vbak
-      CHANGING  cv_trtyp TYPE t180-trtyp.
-
-    "! Restores the transaction type changed by CONFIG_DISPLAY_ON.
-    "! Safe to call any time (does nothing if nothing was switched).
-    CLASS-METHODS config_display_off
-      CHANGING cv_trtyp TYPE t180-trtyp.
-
     "! Result of the last IS_RELEVANT evaluation (used outside SAPMV45A,
     "! e.g. pricing screens in SAPLV69A where VBAK is not available).
     CLASS-METHODS is_current_doc_relevant
@@ -448,7 +436,6 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     CLASS-DATA gv_evaluated     TYPE abap_bool.
     CLASS-DATA gt_filters       TYPE tt_filter.
     CLASS-DATA gv_filters_read  TYPE abap_bool.
-    CLASS-DATA gv_saved_trtyp   TYPE t180-trtyp.
 
     CLASS-METHODS evaluate
       IMPORTING is_key             TYPE ty_key
@@ -587,25 +574,6 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD config_display_on.
-    IF  cv_trtyp = 'H'                                    " create (VA01)
-    AND is_vbak-vgbel IS NOT INITIAL
-    AND is_vbak-vgtyp = gc_vgtyp_contract
-    AND is_relevant( is_vbak = is_vbak iv_process = gc_process-create ) = abap_true.
-      gv_saved_trtyp = cv_trtyp.
-      cv_trtyp       = 'A'.                               " display (as VA03)
-    ENDIF.
-  ENDMETHOD.
-
-
-  METHOD config_display_off.
-    IF gv_saved_trtyp IS NOT INITIAL.
-      cv_trtyp = gv_saved_trtyp.
-      CLEAR gv_saved_trtyp.
-    ENDIF.
-  ENDMETHOD.
-
-
   METHOD is_current_doc_relevant.
     rv_relevant = xsdbool( gv_evaluated = abap_true AND gv_last_relevant = abap_true ).
   ENDMETHOD.
@@ -639,10 +607,6 @@ ENDCLASS.
 *&   => close Material / Quantity / Net value fields for input
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_con_field_lock.
-
-* Restore the transaction type if the configuration was opened in
-* display mode (ZSD_SO_CON_CONFIG_DISPLAY) and not yet restored
-  zcl_sd_so_contract_ctrl=>config_display_off( CHANGING cv_trtyp = t180-trtyp ).
 
   IF t180-trtyp = 'H'                                         " create (VA01)
      AND vbak-vgbel IS NOT INITIAL
@@ -781,63 +745,71 @@ ENHANCEMENT 1 zsd_so_con_no_delete_item.
 ENDENHANCEMENT.
 ```
 
-## Step 9d – Characteristic values display-only (like VA03)
+## Step 9d – Characteristic values display-only (like VA03) – FM CE_C_PROCESSING
 
-The characteristic value assignment screen belongs to Variant Configuration, not to SAPMV45A, so `USEREXIT_FIELD_MODIFICATION` does not reach its fields.
-The same effect as VA03 is achieved by opening the configuration in **display mode**. SAPMV45A decides between change and display mode from
-the transaction type `T180-TRTYP` (`A` = display). Two implicit enhancements in the SAPMV45A FORM that calls the configuration switch it to `A`
-for the call (same filter as the field lock: VA01, reference to a contract, VA01 filter matches) and then restore it.
-The user can open the configuration and see every characteristic value, but cannot change any of them. There is no save check or error message.
+The characteristic value assignment belongs to Variant Configuration, so `USEREXIT_FIELD_MODIFICATION` does not reach its fields.
+VA03 shows them display-only because the parameter **`DISPLAY`** of FM `CE_C_PROCESSING` is set. Call path, confirmed in the debugger:
 
-1. **Find the FORM.** VA01 → select an item → `/h` → open the item configuration.
-   In the debugger choose *Breakpoints → Breakpoint at → Function module* `CE_C_PROCESSING`, then press F8.
-   When it stops, the **call stack** shows the SAPMV45A FORM one level above the function module. That is the FORM to enhance.
-2. **Check the display decision.** In that FORM (or the code just before the CALL FUNCTION), confirm that display mode is derived from `T180-TRTYP`.
-   You can also compare with VA03, where the same call runs in display mode.
-   If your release uses another indicator, set that indicator in enhancement 1 instead of `T180-TRTYP`.
-3. Create **enhancement 1** at the **start** of the FORM and **enhancement 2** at the **end** of the same FORM, in implementation `ZSD_SO_CON_CONFIG_DISPLAY`.
-4. The field-lock enhancement (step 9) also restores `T180-TRTYP` as a safety net, in case the FORM is left early with EXIT/RETURN.
+```
+SAPMV45A  FORM FCODE_POCO                        (item -> configuration)
+SAPFV45S  FORM CONFIGURATION_FCODE / _PROCESSING
+SAPLV45CU FUNCTION V45CU_CONFIGURATION
+SAPLCUKO  FUNCTION CE_C_PROCESSING  -> ... display = display ...
+```
 
-`src/enhancement/sapmv45a_configuration_display.abap`:
+An implicit enhancement at the **start** of `CE_C_PROCESSING` sets `DISPLAY = 'X'` when the caller is a VA01 order (`(SAPMV45A)T180-TRTYP = 'H'`)
+and `IS_RELEVANT` returns true for `(SAPMV45A)VBAK`, using the same filter as the field lock.
+Any other caller is not affected: other transactions, other orders, VA02 and VA03.
+There is no save check and no error message.
+
+1. **Check the parameter.** SE37 → `CE_C_PROCESSING` → *Import* tab → `DISPLAY`: note its type and check that **Pass Value** is ticked.
+   In VA03, stop at the breakpoint and look at the value of `DISPLAY` (expected `X`). Use the same value in the enhancement.
+2. SE37 → `CE_C_PROCESSING` → Display → *Edit → Enhancement Operations → Show Implicit Enhancement Options* →
+   right-click the option at the **start** of the function module → *Enhancement Implementation → Create* → `ZSD_SO_CON_CONFIG_DISPLAY`.
+3. Paste the code and activate.
+4. **If Pass Value is not ticked**, the syntax check rejects `display = 'X'` ("cannot be changed").
+   In that case, put the same code at the start of the caller one level up, FM `V45CU_CONFIGURATION` (check that it has a display parameter passed by value),
+   or tell the developer to set the display variable in SAPFV45S FORM `CONFIGURATION_PROCESSING` before the call.
+
+`src/enhancement/ce_c_processing_display.abap`:
 
 ```abap
 *&---------------------------------------------------------------------*
-*& SAPMV45A - FORM that calls the item configuration (characteristic
-*& value assignment). Two implicit enhancements in the SAME FORM:
-*&   Enhancement 1 at the START of the FORM
-*&   Enhancement 2 at the END of the FORM
+*& Function module CE_C_PROCESSING (function group CUKO, SAPLCUKO)
+*& Implicit enhancement at the START of the function module.
 *&
-*& Opens the characteristic value assignment in DISPLAY mode in VA01 for
-*& orders with reference to a contract that match the VA01 filter, like
-*& VA03: all characteristic values are closed for input.
+*& Call path in VA01 (item configuration):
+*&   SAPMV45A FCODE_POCO -> SAPFV45S CONFIGURATION_FCODE/_PROCESSING
+*&   -> FM V45CU_CONFIGURATION -> FM CE_C_PROCESSING (parameter DISPLAY)
 *&
-*& How it works: SAPMV45A decides between change and display mode of
-*& the configuration from the transaction type T180-TRTYP ('A' =
-*& display). It is set to 'A' only while the configuration is called and
-*& restored afterwards. USEREXIT_FIELD_MODIFICATION restores it as well
-*& (safety net if the FORM is left early with EXIT/RETURN).
+*& Sets DISPLAY = 'X' when the configuration is called from a sales order
+*& in VA01 (create) with reference to a contract that matches the VA01
+*& filter. The characteristic value assignment then opens display-only,
+*& as in VA03. Any other caller (other transactions, other orders) is
+*& not affected.
 *&
-*& Find the FORM: VA01 > select item > /h > open the item configuration.
-*& In the debugger set a breakpoint on function module CE_C_PROCESSING,
-*& continue (F8), then look at the call stack: the SAPMV45A FORM one
-*& level above the function module is the FORM to enhance.
+*& The order data is read from SAPMV45A with a dynamic ASSIGN, because
+*& the function module has no access to the sales order globals.
+*& Requirement: DISPLAY is passed by value (SE37 > CE_C_PROCESSING >
+*& Import tab > "Pass Value" ticked). Otherwise the assignment is
+*& rejected by the syntax check (see creation guide step 9d).
 *&---------------------------------------------------------------------*
-
-*--- Enhancement 1: START of the FORM ---------------------------------*
 ENHANCEMENT 1 zsd_so_con_config_display.
 
-  zcl_sd_so_contract_ctrl=>config_display_on(
-    EXPORTING is_vbak  = vbak
-    CHANGING  cv_trtyp = t180-trtyp ).
+  FIELD-SYMBOLS <ls_zz_vbak>  TYPE vbak.
+  FIELD-SYMBOLS <lv_zz_trtyp> TYPE t180-trtyp.
 
-ENDENHANCEMENT.
+  ASSIGN ('(SAPMV45A)VBAK')        TO <ls_zz_vbak>.
+  ASSIGN ('(SAPMV45A)T180-TRTYP')  TO <lv_zz_trtyp>.
 
-
-*--- Enhancement 2: END of the same FORM ------------------------------*
-ENHANCEMENT 2 zsd_so_con_config_display.
-
-  zcl_sd_so_contract_ctrl=>config_display_off(
-    CHANGING cv_trtyp = t180-trtyp ).
+  IF  <ls_zz_vbak>  IS ASSIGNED
+  AND <lv_zz_trtyp> IS ASSIGNED
+  AND <lv_zz_trtyp> = 'H'                                     " create (VA01)
+  AND zcl_sd_so_contract_ctrl=>is_relevant(
+        is_vbak    = <ls_zz_vbak>
+        iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true.
+    display = 'X'.                                            " as VA03
+  ENDIF.
 
 ENDENHANCEMENT.
 ```
@@ -921,7 +893,7 @@ Test cases:
 | 9a | VA01 test 1: Insert Row / Delete Item buttons | Greyed out, menu entries hidden |
 | 9b | VA01 test 1: type a material into an empty row and press Enter | Error: new items not allowed |
 | 9c | VA01 test 1: open item configuration | Opens, all characteristic values display-only |
-| 9d | VA01 test 1: after leaving the configuration, item fields and order still behave as create (save works) | OK |
+| 9d | Configuration in other transactions (e.g. CU50, MM, VA02) | Not affected |
 | 9e | VA01 order not matching the filter: open item configuration | Values can be changed |
 | 9 | VA02 on the order from test 1 | Editable (TSD ch. 4 handles VA02) |
 | 10 | Only line `VA01 VKORG I EQ 2000`; VA01 order with ref. to contract in 2000 | Locked |
@@ -933,5 +905,5 @@ Note: the filter table is read once per session. After changing SM30 entries, st
 
 - All object names are proposals (TSD open item).
 - Confirm the screen field names in IS_LOCKED_FIELD on your screens with F1 → Technical Information.
-- Variant configuration: the characteristic values are opened display-only (step 9d). Confirm the configuration FORM and display indicator in your release.
+- Variant configuration: the characteristic values are opened display-only via `CE_C_PROCESSING` parameter `DISPLAY` (step 9d). Confirm that DISPLAY is passed by value.
 - VA02 change detection, delivery block XX and the approval workflow come in the next delivery.
