@@ -2,8 +2,9 @@
 *& SAPMV45A - FORM CUA_SETZEN   (include MV45AF0C_CUA_SETZEN)
 *& Implicit enhancement at the END of the FORM.
 *&
-*& Removes the item functions "Insert Row" (POAN) and "Delete Item"
-*& (POLO) from the GUI status in VA01 for relevant orders, like VA03.
+*& Removes the item functions "Insert Row" (POAN), "Delete Item" (POLO)
+*& and "Item configuration" (POKO) from the GUI status in VA01 for
+*& relevant orders, like VA03 (codes in ZCL_SD_SO_CONTRACT_CTRL=>GC_FCODE).
 *& Excluded function codes also make the matching pushbuttons above the
 *& item table inactive (greyed out) and remove the menu entries.
 *&

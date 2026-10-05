@@ -170,6 +170,11 @@ Source: `src/enhancement/mv45afzz_userexit_field_modification.abap`
   | FORM `CUA_SETZEN` (end), `mv45af0c_cua_setzen.abap` | Excludes POAN (Insert Row) and POLO (Delete Item) from the GUI status via `CUA_EXCLUDE` | Buttons greyed out, menu entries hidden |
   | MV45AFZB `USEREXIT_CHECK_VBAP`, `mv45afzb_userexit_check_vbap.abap` | Error for an item without `VBAP-VGBEL` (not from the contract), except system sub-items | No new items by any route |
   | MV45AFZB `USEREXIT_CHECK_XVBAP_FOR_DELET`, `mv45afzb_userexit_check_xvbap_for_delet.abap` | `US_ERROR = 'X'` | No deletion by any route |
+  | FORM `CUA_SETZEN` (same enhancement) | Also excludes the item configuration function (`GC_FCODE-CONFIG_ITEM`, placeholder `POKO`, verify) | Configuration screen cannot be opened |
+  | MV45AFZZ `USEREXIT_SAVE_DOCUMENT_PREPARE`, `mv45afzz_userexit_save_document_prepare.abap` | `IS_CONFIG_CHANGED` compares the item characteristic values (`VC_I_GET_CONFIGURATION`) with the contract item | Save cancelled if the configuration differs |
+
+  The characteristic value screen belongs to Variant Configuration (function group CEI0), not SAPMV45A, so single characteristics
+  cannot be closed with `SCREEN-INPUT` without modifying SAP standard.
 
   The function codes are held in `ZCL_SD_SO_CONTRACT_CTRL=>GC_FCODE` / `GET_LOCKED_FCODES`.
 - Optional: `src/enhancement/lv69afzz_userexit_field_modification.abap` locks the copied price (`KOMV-KBETR`) on the item condition screen.
@@ -198,4 +203,4 @@ Source: `src/enhancement/mv45afzz_userexit_field_modification.abap`
   If F4 is required, add a `PROCESS ON VALUE-REQUEST` module in the generated maintenance screen that calls the search help for the current FIELDNAME.
 - **New items in VA01**: blocked (Insert Row disabled, material locked on empty rows, and `USEREXIT_CHECK_VBAP` as a safety net).
 - **Function codes / exclusion table**: confirm POAN/POLO and `CUA_EXCLUDE` in your release (see creation guide, step 9a).
-- **Variant configuration characteristics**: these cannot be closed via `SCREEN-INPUT`. This stays open until the characteristics in scope are confirmed.
+- **Variant configuration characteristics**: the configuration function is disabled in VA01 and checked on save against the contract. Confirm the function code and the characteristics in scope.

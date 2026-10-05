@@ -49,6 +49,7 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
       BEGIN OF gc_fcode,
         insert_item TYPE sy-ucomm VALUE 'POAN',   " Insert row / new item
         delete_item TYPE sy-ucomm VALUE 'POLO',   " Delete item
+        config_item TYPE sy-ucomm VALUE 'POKO',   " Item configuration (VC) - verify with /h
       END OF gc_fcode.
 
     TYPES tt_fcode TYPE STANDARD TABLE OF sy-ucomm WITH EMPTY KEY.
@@ -82,6 +83,14 @@ CLASS zcl_sd_so_contract_ctrl DEFINITION
     "! Function codes to exclude from the GUI status (insert / delete item).
     CLASS-METHODS get_locked_fcodes
       RETURNING VALUE(rt_fcodes) TYPE tt_fcode.
+
+    "! Returns abap_true when the characteristic values of the order item
+    "! configuration differ from the referenced contract item configuration.
+    CLASS-METHODS is_config_changed
+      IMPORTING iv_cuobj          TYPE vbap-cuobj
+                iv_vgbel          TYPE vbap-vgbel
+                iv_vgpos          TYPE vbap-vgpos
+      RETURNING VALUE(rv_changed) TYPE abap_bool.
 
     "! Result of the last IS_RELEVANT evaluation (used outside SAPMV45A,
     "! e.g. pricing screens in SAPLV69A where VBAK is not available).
@@ -239,7 +248,73 @@ CLASS zcl_sd_so_contract_ctrl IMPLEMENTATION.
 
   METHOD get_locked_fcodes.
     rt_fcodes = VALUE #( ( gc_fcode-insert_item )
-                         ( gc_fcode-delete_item ) ).
+                         ( gc_fcode-delete_item )
+                         ( gc_fcode-config_item ) ).
+  ENDMETHOD.
+
+
+  METHOD is_config_changed.
+    TYPES:
+      BEGIN OF ty_value,
+        atnam TYPE conf_out-atnam,
+        atwrt TYPE conf_out-atwrt,
+      END OF ty_value.
+    TYPES tt_value TYPE SORTED TABLE OF ty_value WITH NON-UNIQUE KEY atnam atwrt.
+
+    DATA lt_conf_order    TYPE STANDARD TABLE OF conf_out.
+    DATA lt_conf_contract TYPE STANDARD TABLE OF conf_out.
+
+    rv_changed = abap_false.
+
+    IF iv_cuobj IS INITIAL OR iv_vgbel IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   Configuration instance of the contract item
+    SELECT SINGLE cuobj FROM vbap
+      WHERE vbeln = @iv_vgbel
+        AND posnr = @iv_vgpos
+      INTO @DATA(lv_cuobj_contract).
+    IF sy-subrc <> 0 OR lv_cuobj_contract IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   Order item: read from the configuration buffer (not yet saved)
+    CALL FUNCTION 'VC_I_GET_CONFIGURATION'
+      EXPORTING
+        instance           = iv_cuobj
+        language           = sy-langu
+      TABLES
+        configuration      = lt_conf_order
+      EXCEPTIONS
+        instance_not_found = 1
+        internal_error     = 2
+        OTHERS             = 3.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+*   Contract item: read from the database
+    CALL FUNCTION 'VC_I_GET_CONFIGURATION'
+      EXPORTING
+        instance           = lv_cuobj_contract
+        language           = sy-langu
+      TABLES
+        configuration      = lt_conf_contract
+      EXCEPTIONS
+        instance_not_found = 1
+        internal_error     = 2
+        OTHERS             = 3.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lt_values_order)    = CORRESPONDING tt_value( lt_conf_order ).
+    DATA(lt_values_contract) = CORRESPONDING tt_value( lt_conf_contract ).
+
+    IF lt_values_order <> lt_values_contract.
+      rv_changed = abap_true.
+    ENDIF.
   ENDMETHOD.
 
 
