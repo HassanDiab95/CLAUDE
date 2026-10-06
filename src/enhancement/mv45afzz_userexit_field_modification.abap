@@ -15,24 +15,27 @@
 *&   the whole order is closed for change (all fields display-only,
 *&   delivery block included).
 *&---------------------------------------------------------------------*
-ENHANCEMENT 1 zsd_so_con_field_lock.
+ENHANCEMENT 1 ZSD_SO_CON_FIELD_LOCK.    "active version
+*
+  CONSTANTS LC_ZZ_OFF TYPE C LENGTH 1 VALUE '0'.
 
-  IF t180-trtyp = 'H'                                         " create (VA01)
-     AND vbak-vgbel IS NOT INITIAL
-     AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
-     AND zcl_sd_so_contract_ctrl=>is_relevant(
-           is_vbak    = vbak
-           iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true
-     AND zcl_sd_so_contract_ctrl=>is_locked_field( screen-name ) = abap_true.
-    screen-input = '0'.
-    MODIFY SCREEN.
-  ENDIF.
-
-  IF t180-trtyp = 'V'                                         " change (VA02)
-     AND screen-input = '1'
-     AND zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true.
-    screen-input = '0'.
-    MODIFY SCREEN.
-  ENDIF.
+  CASE T180-TRTYP.
+    WHEN 'H'.                                                 " create (VA01)
+      IF  ZCL_SD_SO_CONTRACT_CTRL=>IS_LOCKED_FIELD( SCREEN-NAME ) = ABAP_TRUE
+      AND VBAK-VGBEL IS NOT INITIAL
+      AND VBAK-VGTYP = ZCL_SD_SO_CONTRACT_CTRL=>GC_VGTYP_CONTRACT
+      AND ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT(
+            IS_VBAK    = VBAK
+            IV_PROCESS = ZCL_SD_SO_CONTRACT_CTRL=>GC_PROCESS-CREATE ) = ABAP_TRUE.
+        SCREEN-INPUT = LC_ZZ_OFF.
+        MODIFY SCREEN.
+      ENDIF.
+    WHEN 'V'.                                                 " change (VA02)
+      IF  SCREEN-INPUT = '1'
+      AND ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( VBAK-VBELN ) = ABAP_TRUE.
+        SCREEN-INPUT = LC_ZZ_OFF.
+        MODIFY SCREEN.
+      ENDIF.
+  ENDCASE.
 
 ENDENHANCEMENT.
