@@ -39,8 +39,19 @@ CLASS ZCL_SD_SO_CHG_NOTIFY DEFINITION
         !IV_LOG_ID      TYPE SYSUUID_C32
         !IV_INTRO       TYPE CSEQUENCE OPTIONAL
         !IV_INBOX_LINK  TYPE ABAP_BOOL DEFAULT ABAP_FALSE
+        !IV_INBOX       TYPE ABAP_BOOL DEFAULT ABAP_FALSE
       RETURNING
         VALUE(RT_LINES) TYPE TT_LINES .
+
+    "! HTML description of the decision work item (Fiori My Inbox):
+    "! same content as the approver e-mail, without the inbox link and
+    "! without '&' (My Inbox reads &...& in the text as a variable)
+    METHODS BUILD_INBOX_HTML
+      IMPORTING
+        !IV_LOG_ID     TYPE SYSUUID_C32
+        !IV_LEVEL      TYPE ZSD_SO_LEVEL
+      RETURNING
+        VALUE(RT_HTML) TYPE W3HTMLTAB .
 
     METHODS TO_W3HTML
       IMPORTING
@@ -69,6 +80,8 @@ CLASS ZCL_SD_SO_CHG_NOTIFY DEFINITION
         !IV_RESULT TYPE ZSD_SO_WF_STATUS .
 
   PRIVATE SECTION.
+
+    DATA MV_INBOX TYPE ABAP_BOOL .
 
     CONSTANTS GC_MAX_LINE TYPE I VALUE 255.
     CONSTANTS GC_TD_LABEL TYPE STRING
@@ -251,6 +264,7 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
           LV_COUNT  TYPE I.
 
     CLEAR RT_LINES.
+    MV_INBOX = IV_INBOX.
 
     LS_HEAD   = ZCL_SD_SO_CHG_LOG=>GET_HEADER( IV_LOG_ID ).
     LT_LEVELS = ZCL_SD_SO_CHG_LOG=>GET_LEVELS( IV_LOG_ID ).
@@ -345,7 +359,7 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
     ADD_LINE( EXPORTING IV_TEXT = `</table>` CHANGING CT_LINES = RT_LINES ).
 
     " link to My Inbox (approver e-mail only)
-    IF IV_INBOX_LINK = ABAP_TRUE.
+    IF IV_INBOX_LINK = ABAP_TRUE AND IV_INBOX = ABAP_FALSE.
       LV_URL = GET_INBOX_URL( ).
       IF LV_URL IS NOT INITIAL.
         REPLACE ALL OCCURRENCES OF `&` IN LV_URL WITH `&amp;`.
@@ -361,6 +375,26 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
 
     ADD_LINE( EXPORTING IV_TEXT = `</div>` CHANGING CT_LINES = RT_LINES ).
 
+    CLEAR MV_INBOX.
+
+  ENDMETHOD.
+
+
+  METHOD BUILD_INBOX_HTML.
+
+    DATA: LS_HEAD  TYPE ZSD_SO_CHG_LH,
+          LV_INTRO TYPE STRING.
+
+    LS_HEAD = ZCL_SD_SO_CHG_LOG=>GET_HEADER( IV_LOG_ID ).
+
+    LV_INTRO = 'Please approve or reject the change of sales order'(056) && ` `
+               && ALPHA_OUT( LS_HEAD-VBELN ) && ` (` && 'level'(051) && ` `
+               && FMT_NUMBER( IV_LEVEL ) && ` / ` && FMT_NUMBER( LS_HEAD-LEVELS ) && `).`.
+
+    RT_HTML = TO_W3HTML( BUILD_LINES( IV_LOG_ID = IV_LOG_ID
+                                      IV_INTRO  = LV_INTRO
+                                      IV_INBOX  = ABAP_TRUE ) ).
+
   ENDMETHOD.
 
 
@@ -369,6 +403,19 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
     DATA LV_IN TYPE STRING.
 
     LV_IN = IV_TEXT.
+
+    " My Inbox: no '&' at all (&...& would be read as a container variable),
+    " so no HTML entities either - replace the special characters directly
+    IF MV_INBOX = ABAP_TRUE.
+      REPLACE ALL OCCURRENCES OF `->` IN LV_IN WITH `→`.
+      REPLACE ALL OCCURRENCES OF `&`  IN LV_IN WITH `+`.
+      REPLACE ALL OCCURRENCES OF `<`  IN LV_IN WITH `(`.
+      REPLACE ALL OCCURRENCES OF `>`  IN LV_IN WITH `)`.
+      REPLACE ALL OCCURRENCES OF `"`  IN LV_IN WITH `'`.
+      RV_TEXT = LV_IN.
+      RETURN.
+    ENDIF.
+
     RV_TEXT = CL_HTTP_UTILITY=>ESCAPE_HTML( UNESCAPED = LV_IN ).
 
   ENDMETHOD.

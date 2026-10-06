@@ -1237,8 +1237,19 @@ CLASS ZCL_SD_SO_CHG_NOTIFY DEFINITION
         !IV_LOG_ID      TYPE SYSUUID_C32
         !IV_INTRO       TYPE CSEQUENCE OPTIONAL
         !IV_INBOX_LINK  TYPE ABAP_BOOL DEFAULT ABAP_FALSE
+        !IV_INBOX       TYPE ABAP_BOOL DEFAULT ABAP_FALSE
       RETURNING
         VALUE(RT_LINES) TYPE TT_LINES .
+
+    "! HTML description of the decision work item (Fiori My Inbox):
+    "! same content as the approver e-mail, without the inbox link and
+    "! without '&' (My Inbox reads &...& in the text as a variable)
+    METHODS BUILD_INBOX_HTML
+      IMPORTING
+        !IV_LOG_ID     TYPE SYSUUID_C32
+        !IV_LEVEL      TYPE ZSD_SO_LEVEL
+      RETURNING
+        VALUE(RT_HTML) TYPE W3HTMLTAB .
 
     METHODS TO_W3HTML
       IMPORTING
@@ -1267,6 +1278,8 @@ CLASS ZCL_SD_SO_CHG_NOTIFY DEFINITION
         !IV_RESULT TYPE ZSD_SO_WF_STATUS .
 
   PRIVATE SECTION.
+
+    DATA MV_INBOX TYPE ABAP_BOOL .
 
     CONSTANTS GC_MAX_LINE TYPE I VALUE 255.
     CONSTANTS GC_TD_LABEL TYPE STRING
@@ -1449,6 +1462,7 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
           LV_COUNT  TYPE I.
 
     CLEAR RT_LINES.
+    MV_INBOX = IV_INBOX.
 
     LS_HEAD   = ZCL_SD_SO_CHG_LOG=>GET_HEADER( IV_LOG_ID ).
     LT_LEVELS = ZCL_SD_SO_CHG_LOG=>GET_LEVELS( IV_LOG_ID ).
@@ -1543,7 +1557,7 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
     ADD_LINE( EXPORTING IV_TEXT = `</table>` CHANGING CT_LINES = RT_LINES ).
 
     " link to My Inbox (approver e-mail only)
-    IF IV_INBOX_LINK = ABAP_TRUE.
+    IF IV_INBOX_LINK = ABAP_TRUE AND IV_INBOX = ABAP_FALSE.
       LV_URL = GET_INBOX_URL( ).
       IF LV_URL IS NOT INITIAL.
         REPLACE ALL OCCURRENCES OF `&` IN LV_URL WITH `&amp;`.
@@ -1559,6 +1573,26 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
 
     ADD_LINE( EXPORTING IV_TEXT = `</div>` CHANGING CT_LINES = RT_LINES ).
 
+    CLEAR MV_INBOX.
+
+  ENDMETHOD.
+
+
+  METHOD BUILD_INBOX_HTML.
+
+    DATA: LS_HEAD  TYPE ZSD_SO_CHG_LH,
+          LV_INTRO TYPE STRING.
+
+    LS_HEAD = ZCL_SD_SO_CHG_LOG=>GET_HEADER( IV_LOG_ID ).
+
+    LV_INTRO = 'Please approve or reject the change of sales order'(056) && ` `
+               && ALPHA_OUT( LS_HEAD-VBELN ) && ` (` && 'level'(051) && ` `
+               && FMT_NUMBER( IV_LEVEL ) && ` / ` && FMT_NUMBER( LS_HEAD-LEVELS ) && `).`.
+
+    RT_HTML = TO_W3HTML( BUILD_LINES( IV_LOG_ID = IV_LOG_ID
+                                      IV_INTRO  = LV_INTRO
+                                      IV_INBOX  = ABAP_TRUE ) ).
+
   ENDMETHOD.
 
 
@@ -1567,6 +1601,19 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
     DATA LV_IN TYPE STRING.
 
     LV_IN = IV_TEXT.
+
+    " My Inbox: no '&' at all (&...& would be read as a container variable),
+    " so no HTML entities either - replace the special characters directly
+    IF MV_INBOX = ABAP_TRUE.
+      REPLACE ALL OCCURRENCES OF `->` IN LV_IN WITH `→`.
+      REPLACE ALL OCCURRENCES OF `&`  IN LV_IN WITH `+`.
+      REPLACE ALL OCCURRENCES OF `<`  IN LV_IN WITH `(`.
+      REPLACE ALL OCCURRENCES OF `>`  IN LV_IN WITH `)`.
+      REPLACE ALL OCCURRENCES OF `"`  IN LV_IN WITH `'`.
+      RV_TEXT = LV_IN.
+      RETURN.
+    ENDIF.
+
     RV_TEXT = CL_HTTP_UTILITY=>ESCAPE_HTML( UNESCAPED = LV_IN ).
 
   ENDMETHOD.
@@ -1831,6 +1878,7 @@ Text symbols:
 | 053 | Change approval | 15 |
 | 054 | E-mail sent to | 14 |
 | 055 | E-mail not sent: | 16 |
+| 056 | Please approve or reject the change of sales order | 50 |
 | 060 | approved - the delivery block is released | 41 |
 | 061 | rejected - the order stays blocked | 34 |
 | 062 | Your change of sales order | 26 |
@@ -2182,12 +2230,13 @@ CLASS zcl_sd_so_chg_wf DEFINITION
       EXPORTING ev_levels TYPE i.
 
     "! Loop step: level at position IV_INDEX -> pending, e-mail to the
-    "! approver, agent for the decision step
+    "! approver, agent and HTML description for the decision step
     METHODS prepare_level
       IMPORTING iv_log_id TYPE sysuuid_c32
                 iv_index  TYPE i
       EXPORTING ev_level  TYPE zsd_so_level
-                et_agents TYPE tswhactor.
+                et_agents TYPE tswhactor
+                et_html   TYPE w3htmltab.
 
     "! After the user decision: level approved / rejected
     METHODS decide
@@ -2281,7 +2330,7 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
 
 
   METHOD prepare_level.
-    CLEAR: ev_level, et_agents.
+    CLEAR: ev_level, et_agents, et_html.
 
     DATA(lt_levels) = zcl_sd_so_chg_log=>get_levels( iv_log_id ).
     READ TABLE lt_levels INTO DATA(ls_level) INDEX iv_index.
@@ -2303,8 +2352,13 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
                                   iv_text   = ls_level-full_name ).
 
 *   E-mail (Outlook): work item waiting in Fiori My Inbox
-    NEW zcl_sd_so_chg_notify( )->notify_approver( iv_log_id = iv_log_id
-                                                   iv_level  = ev_level ).
+    DATA(lo_notify) = NEW zcl_sd_so_chg_notify( ).
+    lo_notify->notify_approver( iv_log_id = iv_log_id
+                                iv_level  = ev_level ).
+
+*   Same content as HTML description of the decision work item (My Inbox)
+    et_html = lo_notify->build_inbox_html( iv_log_id = iv_log_id
+                                           iv_level  = ev_level ).
 
     zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
                                   iv_event  = zcl_sd_so_chg_log=>gc_event-inbox

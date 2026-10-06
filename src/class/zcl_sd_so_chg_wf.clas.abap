@@ -48,12 +48,13 @@ CLASS zcl_sd_so_chg_wf DEFINITION
       EXPORTING ev_levels TYPE i.
 
     "! Loop step: level at position IV_INDEX -> pending, e-mail to the
-    "! approver, agent for the decision step
+    "! approver, agent and HTML description for the decision step
     METHODS prepare_level
       IMPORTING iv_log_id TYPE sysuuid_c32
                 iv_index  TYPE i
       EXPORTING ev_level  TYPE zsd_so_level
-                et_agents TYPE tswhactor.
+                et_agents TYPE tswhactor
+                et_html   TYPE w3htmltab.
 
     "! After the user decision: level approved / rejected
     METHODS decide
@@ -147,7 +148,7 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
 
 
   METHOD prepare_level.
-    CLEAR: ev_level, et_agents.
+    CLEAR: ev_level, et_agents, et_html.
 
     DATA(lt_levels) = zcl_sd_so_chg_log=>get_levels( iv_log_id ).
     READ TABLE lt_levels INTO DATA(ls_level) INDEX iv_index.
@@ -169,8 +170,13 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
                                   iv_text   = ls_level-full_name ).
 
 *   E-mail (Outlook): work item waiting in Fiori My Inbox
-    NEW zcl_sd_so_chg_notify( )->notify_approver( iv_log_id = iv_log_id
-                                                   iv_level  = ev_level ).
+    DATA(lo_notify) = NEW zcl_sd_so_chg_notify( ).
+    lo_notify->notify_approver( iv_log_id = iv_log_id
+                                iv_level  = ev_level ).
+
+*   Same content as HTML description of the decision work item (My Inbox)
+    et_html = lo_notify->build_inbox_html( iv_log_id = iv_log_id
+                                           iv_level  = ev_level ).
 
     zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
                                   iv_event  = zcl_sd_so_chg_log=>gc_event-inbox
