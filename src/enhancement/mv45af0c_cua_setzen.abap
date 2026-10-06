@@ -13,21 +13,32 @@
 *& SET PF-STATUS ... EXCLUDING. Check the name in your release:
 *& in the debugger, set a breakpoint on statement SET PF-STATUS.
 *&---------------------------------------------------------------------*
-ENHANCEMENT 1 zsd_so_con_item_fcodes.
+ENHANCEMENT 1 ZSD_SO_CON_ITEM_FCODES.    "active version
+*
+  DATA LV_ZZ_LOCK TYPE ABAP_BOOL.
 
-  IF ( t180-trtyp = 'H'                                       " create (VA01)
-       AND vbak-vgbel IS NOT INITIAL
-       AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
-       AND zcl_sd_so_contract_ctrl=>is_relevant(
-             is_vbak    = vbak
-             iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true )
-  OR ( t180-trtyp = 'V'                                       " change (VA02)
-       AND zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true ).
+  CLEAR LV_ZZ_LOCK.
 
-    DATA(lt_zz_fcodes) = zcl_sd_so_contract_ctrl=>get_locked_fcodes( ).
-    LOOP AT lt_zz_fcodes INTO DATA(lv_zz_fcode).
-      cua_exclude = lv_zz_fcode.
-      COLLECT cua_exclude.
+  CASE T180-TRTYP.
+    WHEN 'H'.                                                 " create (VA01)
+      IF  VBAK-VGBEL IS NOT INITIAL
+      AND VBAK-VGTYP = ZCL_SD_SO_CONTRACT_CTRL=>GC_VGTYP_CONTRACT
+      AND ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT(
+            IS_VBAK    = VBAK
+            IV_PROCESS = ZCL_SD_SO_CONTRACT_CTRL=>GC_PROCESS-CREATE ) = ABAP_TRUE.
+        LV_ZZ_LOCK = ABAP_TRUE.
+      ENDIF.
+    WHEN 'V'.                                                 " change (VA02)
+      IF ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( VBAK-VBELN ) = ABAP_TRUE.
+        LV_ZZ_LOCK = ABAP_TRUE.
+      ENDIF.
+  ENDCASE.
+
+  IF LV_ZZ_LOCK = ABAP_TRUE.
+    DATA(LT_ZZ_FCODES) = ZCL_SD_SO_CONTRACT_CTRL=>GET_LOCKED_FCODES( ).
+    LOOP AT LT_ZZ_FCODES INTO DATA(LV_ZZ_FCODE).
+      CUA_EXCLUDE = LV_ZZ_FCODE.
+      COLLECT CUA_EXCLUDE.
     ENDLOOP.
   ENDIF.
 
