@@ -9,8 +9,9 @@
 *& Purpose        : HTML body and e-mails of the sales order change
 *&                  approval workflow (CH4323).
 *& Note           : No COMMIT WORK here; the workflow step commits.
-*&                  Fiori launchpad base URL: TVARVC parameter
-*&                  ZSD_SO_FLP_BASE (e.g. https://<host>:<port>/sap/bc/ui2/flp)
+*&                  Fiori launchpad base URL: constants GC_FLP_BASE_PRD
+*&                  (production, system GC_SYSID_PRD) and GC_FLP_BASE
+*&                  (development / quality).
 *&---------------------------------------------------------------------*
 *& Created By     : Hassan Diab
 *& Created On     : 06.10.2026
@@ -74,7 +75,14 @@ CLASS ZCL_SD_SO_CHG_NOTIFY DEFINITION
       VALUE `border:1px solid #d9d9d9;padding:5px 10px;background:#f5f6f7;font-weight:bold;width:220px`. "#EC NOTEXT
     CONSTANTS GC_TD_VALUE TYPE STRING
       VALUE `border:1px solid #d9d9d9;padding:5px 10px`.    "#EC NOTEXT
-    CONSTANTS GC_TVARVC_FLP TYPE RVARI_VNAM VALUE 'ZSD_SO_FLP_BASE'. "#EC NOTEXT
+
+    CONSTANTS GC_SYSID_PRD TYPE SYSYSID VALUE '<PRD>'.      "#EC NOTEXT
+    CONSTANTS GC_FLP_BASE_PRD TYPE STRING
+      VALUE `https://<prd-host>:<port>/sap/bc/ui2/flp`.     "#EC NOTEXT
+    CONSTANTS GC_FLP_BASE TYPE STRING
+      VALUE `https://<dev-qas-host>:<port>/sap/bc/ui2/flp`. "#EC NOTEXT
+    CONSTANTS GC_INBOX_INTENT TYPE STRING
+      VALUE `#WorkflowTask-displayInbox`.                   "#EC NOTEXT
 
     METHODS ADD_LINE
       IMPORTING
@@ -409,20 +417,15 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
 
   METHOD GET_INBOX_URL.
 
-    DATA LV_BASE TYPE TVARVC-LOW.
+    DATA LV_BASE TYPE STRING.
 
-    CLEAR RV_URL.
-
-    SELECT SINGLE LOW FROM TVARVC INTO LV_BASE
-      WHERE NAME = GC_TVARVC_FLP
-        AND TYPE = 'P'.
-
-    IF LV_BASE IS INITIAL.
-      RETURN.
+    IF SY-SYSID = GC_SYSID_PRD.
+      LV_BASE = GC_FLP_BASE_PRD.
+    ELSE.
+      LV_BASE = GC_FLP_BASE.
     ENDIF.
 
-    RV_URL = LV_BASE.
-    CONCATENATE RV_URL `?sap-client=` SY-MANDT `#WorkflowTask-displayInbox`
+    CONCATENATE LV_BASE `?sap-client=` SY-MANDT GC_INBOX_INTENT
            INTO RV_URL.
 
   ENDMETHOD.

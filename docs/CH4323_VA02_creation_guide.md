@@ -8,7 +8,7 @@ Prerequisite: Part 1 is active, in particular:
 - the class ZCL_SD_SO_CONTRACT_CTRL
 - the enhancements ZSD_SO_CON_FIELD_LOCK, ZSD_SO_CON_ITEM_FCODES and ZSD_SO_CON_CONFIG_DISPLAY
 
-Package: `ZSD` (or the project package). Workbench request for all objects; customizing request for SM30 entries, TVARVC and the delivery block.
+Package: `ZSD` (or the project package). Workbench request for all objects; customizing request for SM30 entries and the delivery block.
 
 ## 0. Overview – creation order
 
@@ -33,7 +33,7 @@ Package: `ZSD` (or the project package). Workbench request for all objects; cust
 | 17 | TS9xxxxxx1 … TS9xxxxxx6 | Workflow tasks | PFTC |
 | 18 | ZSD_SO_CHG_APPR (WS9xxxxxxx) | Workflow template + start event | SWDD |
 | 19 | ZSD_SO_CHG_WF_LOG / ZSD_SOCHG_LOG | Log report + transaction (+ texts) | SE38 / SE93 |
-| 20 | XX, ZSD_SO_FLP_BASE, SCOT, My Inbox, SWU3 | Customizing / configuration | SPRO / STVARV / … |
+| 20 | XX, SCOT, My Inbox, SWU3 | Customizing / configuration | SPRO / SCOT / … |
 | 21 | – | Maintain approvers, test | ZSD_SO_APPR / VA02 |
 
 The classes reference each other (LOG ↔ MONITOR ↔ NOTIFY ↔ WF). Create all four classes empty first (step 8), then paste the code and activate them together (SE80 → *Activate* with all four selected, or ADT mass activation).
@@ -1184,7 +1184,16 @@ Text symbols (*Goto → Text Symbols*):
 ## 10. Class ZCL_SD_SO_CHG_NOTIFY
 
 Purpose: HTML e-mails (Outlook). To the approver of each level: "work item in My Inbox". To the requester: approved, rejected, or no approver.
-The My Inbox link uses the TVARVC parameter `ZSD_SO_FLP_BASE` (step 20).
+The My Inbox link is built from constants in the class. **Before activating, replace the placeholders:**
+
+| Constant | Value |
+|----------|-------|
+| GC_SYSID_PRD | System ID of the production system (e.g. `PS4`) |
+| GC_FLP_BASE_PRD | Launchpad URL of production, e.g. `https://<prd-host>:<port>/sap/bc/ui2/flp` |
+| GC_FLP_BASE | Launchpad URL of development / quality |
+| GC_INBOX_INTENT | `#WorkflowTask-displayInbox` (standard My Inbox, no change needed) |
+
+The URLs must not contain `?` or `#`; the method adds `?sap-client=<client>` and the intent.
 
 ```abap
 *&---------------------------------------------------------------------*
@@ -1198,8 +1207,9 @@ The My Inbox link uses the TVARVC parameter `ZSD_SO_FLP_BASE` (step 20).
 *& Purpose        : HTML body and e-mails of the sales order change
 *&                  approval workflow (CH4323).
 *& Note           : No COMMIT WORK here; the workflow step commits.
-*&                  Fiori launchpad base URL: TVARVC parameter
-*&                  ZSD_SO_FLP_BASE (e.g. https://<host>:<port>/sap/bc/ui2/flp)
+*&                  Fiori launchpad base URL: constants GC_FLP_BASE_PRD
+*&                  (production, system GC_SYSID_PRD) and GC_FLP_BASE
+*&                  (development / quality).
 *&---------------------------------------------------------------------*
 *& Created By     : Hassan Diab
 *& Created On     : 06.10.2026
@@ -1263,7 +1273,14 @@ CLASS ZCL_SD_SO_CHG_NOTIFY DEFINITION
       VALUE `border:1px solid #d9d9d9;padding:5px 10px;background:#f5f6f7;font-weight:bold;width:220px`. "#EC NOTEXT
     CONSTANTS GC_TD_VALUE TYPE STRING
       VALUE `border:1px solid #d9d9d9;padding:5px 10px`.    "#EC NOTEXT
-    CONSTANTS GC_TVARVC_FLP TYPE RVARI_VNAM VALUE 'ZSD_SO_FLP_BASE'. "#EC NOTEXT
+
+    CONSTANTS GC_SYSID_PRD TYPE SYSYSID VALUE '<PRD>'.      "#EC NOTEXT
+    CONSTANTS GC_FLP_BASE_PRD TYPE STRING
+      VALUE `https://<prd-host>:<port>/sap/bc/ui2/flp`.     "#EC NOTEXT
+    CONSTANTS GC_FLP_BASE TYPE STRING
+      VALUE `https://<dev-qas-host>:<port>/sap/bc/ui2/flp`. "#EC NOTEXT
+    CONSTANTS GC_INBOX_INTENT TYPE STRING
+      VALUE `#WorkflowTask-displayInbox`.                   "#EC NOTEXT
 
     METHODS ADD_LINE
       IMPORTING
@@ -1598,20 +1615,15 @@ CLASS ZCL_SD_SO_CHG_NOTIFY IMPLEMENTATION.
 
   METHOD GET_INBOX_URL.
 
-    DATA LV_BASE TYPE TVARVC-LOW.
+    DATA LV_BASE TYPE STRING.
 
-    CLEAR RV_URL.
-
-    SELECT SINGLE LOW FROM TVARVC INTO LV_BASE
-      WHERE NAME = GC_TVARVC_FLP
-        AND TYPE = 'P'.
-
-    IF LV_BASE IS INITIAL.
-      RETURN.
+    IF SY-SYSID = GC_SYSID_PRD.
+      LV_BASE = GC_FLP_BASE_PRD.
+    ELSE.
+      LV_BASE = GC_FLP_BASE.
     ENDIF.
 
-    RV_URL = LV_BASE.
-    CONCATENATE RV_URL `?sap-client=` SY-MANDT `#WorkflowTask-displayInbox`
+    CONCATENATE LV_BASE `?sap-client=` SY-MANDT GC_INBOX_INTENT
            INTO RV_URL.
 
   ENDMETHOD.
@@ -3217,12 +3229,11 @@ START-OF-SELECTION.
 | # | Item | Where | Value / action |
 |---|------|-------|----------------|
 | 1 | Delivery block XX | SPRO → Logistics Execution → Shipping → Deliveries → Define Reasons for Blocking in Shipping (OVLS / TVLS) | Block `XX`, text `Change approval pending`, tick *Delivery block* (and *Billing block* if wanted). Assign it to the delivery types / sales document types as required |
-| 2 | TVARVC ZSD_SO_FLP_BASE | STVARV → Parameters | Name `ZSD_SO_FLP_BASE`, value e.g. `https://<host>:<port>/sap/bc/ui2/flp` (no `?` and no `#`) |
-| 3 | E-mail | SCOT / SOST | SMTP node active, job RSCONN01 scheduled (or immediate sending). Sender: user WF-BATCH needs an e-mail address in SU01 |
-| 4 | Workflow runtime | SWU3 | All entries green (WF-BATCH, RFC destination, event queue) |
-| 5 | My Inbox | /IWFND/MAINT_SERVICE | Service `/IWPGW/TASKPROCESSING` (version 2) active; approvers have the My Inbox catalog / role |
-| 6 | Approvers | SU01 | Each approver has an e-mail address (unless filled in ZSD_SO_APPR_CFG) |
-| 7 | Filter | ZSD_SOCON (Part 1) | Process `VA02` or `BOTH` lines for the orders in scope |
+| 2 | E-mail | SCOT / SOST | SMTP node active, job RSCONN01 scheduled (or immediate sending). Sender: user WF-BATCH needs an e-mail address in SU01 |
+| 3 | Workflow runtime | SWU3 | All entries green (WF-BATCH, RFC destination, event queue) |
+| 4 | My Inbox | /IWFND/MAINT_SERVICE | Service `/IWPGW/TASKPROCESSING` (version 2) active; approvers have the My Inbox catalog / role |
+| 5 | Approvers | SU01 | Each approver has an e-mail address (unless filled in ZSD_SO_APPR_CFG) |
+| 6 | Filter | ZSD_SOCON (Part 1) | Process `VA02` or `BOTH` lines for the orders in scope |
 
 ## 21. Maintain approvers and test
 

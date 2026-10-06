@@ -82,7 +82,7 @@ COMMIT ─► workflow ZSD_SO_CHG_APPR
 | 19 | FORM `CUA_SETZEN` | Existing ZSD_SO_CON_ITEM_FCODES | + VA02 in approval: Insert/Delete item off | `src/enhancement/mv45af0c_cua_setzen.abap` |
 | 20 | FM `CE_C_PROCESSING` | Existing ZSD_SO_CON_CONFIG_DISPLAY | + VA02 in approval: configuration display | `src/enhancement/ce_c_processing_display.abap` |
 | 21 | ZSD_SO_CHG_APPR (WS9xxxxxxx) | Workflow template | Approval loop | SWDD |
-| 22 | ZSD_SO_FLP_BASE | TVARVC parameter | Fiori launchpad base URL for the My Inbox link | STVARV |
+| 22 | GC_SYSID_PRD / GC_FLP_BASE_PRD / GC_FLP_BASE | Constants in ZCL_SD_SO_CHG_NOTIFY | Fiori launchpad base URL for the My Inbox link (production / other systems) | SE24 |
 | 23 | XX | Delivery block | Approval block (TSD: value to be confirmed) | Customizing |
 | 24 | ZSD_SO_APPR | SM30 parameter transaction | Maintain approver table | SE93 |
 
