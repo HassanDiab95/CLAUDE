@@ -2337,6 +2337,19 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
     DATA ls_header_inx TYPE bapisdh1x.
     DATA lt_return     TYPE STANDARD TABLE OF bapiret2.
 
+*   Sales order of this run: from the log header (independent of the
+*   object binding of the workflow step); instance key only as fallback
+    DATA(ls_head)  = zcl_sd_so_chg_log=>get_header( iv_log_id ).
+    DATA(lv_vbeln) = COND vbak-vbeln( WHEN ls_head-vbeln IS NOT INITIAL
+                                      THEN ls_head-vbeln
+                                      ELSE vbeln ).
+    IF lv_vbeln IS INITIAL.
+      zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                    iv_event  = zcl_sd_so_chg_log=>gc_event-rel_err
+                                    iv_text   = 'Sales order number not found in log header - release not possible' ).
+      RETURN.
+    ENDIF.
+
 *   Release only after the LAST level: every level of the run must be approved
     DATA(lt_levels) = zcl_sd_so_chg_log=>get_levels( iv_log_id ).
     IF lt_levels IS INITIAL
@@ -2361,7 +2374,7 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
 
     CALL FUNCTION 'BAPI_SALESORDER_CHANGE'
       EXPORTING
-        salesdocument    = vbeln
+        salesdocument    = lv_vbeln
         order_header_in  = ls_header_in
         order_header_inx = ls_header_inx
       TABLES
@@ -2378,6 +2391,7 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
                                     iv_text   = ls_return-message ).
       RAISE EXCEPTION TYPE cx_bo_temporary.
     ENDIF.
+*   COMMIT WORK is done by the workflow runtime after the background step
 
     zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
                                   iv_event  = zcl_sd_so_chg_log=>gc_event-release
@@ -2787,6 +2801,9 @@ The approval process has six steps that do work. **Five of them are background t
 ```
 
 Notes:
+- **Object binding of every activity (important):** in each activity step, *Binding (workflow → task)* must contain `&ORDER&` → `&_WI_OBJECT_ID&`.
+  This is the object instance on which the method runs; it carries the order number as attribute VBELN.
+  FINISH_APPROVED reads the order number from the log header (ZSD_SO_CHG_LH-VBELN via LOG_ID) and uses the instance only as fallback.
 - **Workflow ID binding:** if `&_WORKITEM.WORKITEMID&` is not offered in your release, leave IV_WF_ID unbound. START then finds the workflow itself.
 - **DECIDED_BY:** `_WI_ACTUAL_AGENT` is `US<user>`. If needed, bind it to a CHAR 14 element and pass `+2` to DECIDED_BY, or use a container operation.
 - **Retry:** for step ZSO_CHG_APPROVED, set the error handling for *temporary errors* to retry (e.g. 10 × every 10 minutes, *Details → Error handling*). This covers an order still open in VA02 when the last approver approves.
