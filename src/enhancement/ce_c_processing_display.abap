@@ -18,23 +18,40 @@
 *& Import tab > "Pass Value" ticked). Otherwise the assignment is
 *& rejected by the syntax check (see creation guide step 9d).
 *&---------------------------------------------------------------------*
-ENHANCEMENT 1 zsd_so_con_config_display.
+ENHANCEMENT 1 ZSD_SO_CON_CONFIG_DISPLAY.    "active version
+*
+  FIELD-SYMBOLS: <LS_ZZ_VBAK>  TYPE VBAK,
+                 <LV_ZZ_TRTYP> TYPE T180-TRTYP.
 
-  FIELD-SYMBOLS <ls_zz_vbak>  TYPE vbak.
-  FIELD-SYMBOLS <lv_zz_trtyp> TYPE t180-trtyp.
+  DATA LV_ZZ_DISPLAY TYPE ABAP_BOOL.
 
-  ASSIGN ('(SAPMV45A)VBAK')        TO <ls_zz_vbak>.
-  ASSIGN ('(SAPMV45A)T180-TRTYP')  TO <lv_zz_trtyp>.
+  CLEAR LV_ZZ_DISPLAY.
 
-  IF <ls_zz_vbak> IS ASSIGNED AND <lv_zz_trtyp> IS ASSIGNED.
-    IF ( <lv_zz_trtyp> = 'H'                                  " create (VA01)
-         AND zcl_sd_so_contract_ctrl=>is_relevant(
-               is_vbak    = <ls_zz_vbak>
-               iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true )
-    OR ( <lv_zz_trtyp> = 'V'                                  " change (VA02)
-         AND zcl_sd_so_chg_monitor=>is_approval_pending( <ls_zz_vbak>-vbeln ) = abap_true ).
-      display = 'X'.                                          " as VA03
-    ENDIF.
+  " sales order data (only assigned when called from SAPMV45A)
+  ASSIGN ('(SAPMV45A)VBAK')       TO <LS_ZZ_VBAK>.
+  ASSIGN ('(SAPMV45A)T180-TRTYP') TO <LV_ZZ_TRTYP>.
+
+  IF <LS_ZZ_VBAK> IS ASSIGNED AND <LV_ZZ_TRTYP> IS ASSIGNED.
+
+    CASE <LV_ZZ_TRTYP>.
+      WHEN 'H'.                                               " create (VA01)
+        IF  <LS_ZZ_VBAK>-VGBEL IS NOT INITIAL
+        AND <LS_ZZ_VBAK>-VGTYP = ZCL_SD_SO_CONTRACT_CTRL=>GC_VGTYP_CONTRACT
+        AND ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT(
+              IS_VBAK    = <LS_ZZ_VBAK>
+              IV_PROCESS = ZCL_SD_SO_CONTRACT_CTRL=>GC_PROCESS-CREATE ) = ABAP_TRUE.
+          LV_ZZ_DISPLAY = ABAP_TRUE.
+        ENDIF.
+      WHEN 'V'.                                               " change (VA02)
+        IF ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( <LS_ZZ_VBAK>-VBELN ) = ABAP_TRUE.
+          LV_ZZ_DISPLAY = ABAP_TRUE.
+        ENDIF.
+    ENDCASE.
+
+  ENDIF.
+
+  IF LV_ZZ_DISPLAY = ABAP_TRUE.
+    DISPLAY = ABAP_TRUE.                                      " as VA03
   ENDIF.
 
 ENDENHANCEMENT.
