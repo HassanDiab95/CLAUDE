@@ -171,6 +171,11 @@ Category CL, object `ZCL_SD_SO_CHG_WF`, event `CHANGE_APPROVAL_REQUIRED`. Bindin
 
 ### 7.3 Steps
 
+Background (no agent, WF-BATCH): START, PREPARE_LEVEL, DECIDE, FINISH_APPROVED, FINISH_REJECTED.
+Dialog: only the User Decision step 3.2 (agent = approver of the level, Fiori My Inbox).
+The delivery block is removed only by FINISH_APPROVED, once, after the **last** level approved. FINISH_APPROVED also refuses the release if any level in the log is not *Approved*.
+
+
 ```
 1  Activity  START          LOG_ID, WF_ID = &_WORKITEM.WORKITEMID&  -> LEVELS
 2  Condition LEVELS = 0  -> end (run already closed with status E)

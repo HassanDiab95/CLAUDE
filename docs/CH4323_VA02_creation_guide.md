@@ -2337,6 +2337,19 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
     DATA ls_header_inx TYPE bapisdh1x.
     DATA lt_return     TYPE STANDARD TABLE OF bapiret2.
 
+*   Release only after the LAST level: every level of the run must be approved
+    DATA(lt_levels) = zcl_sd_so_chg_log=>get_levels( iv_log_id ).
+    IF lt_levels IS INITIAL
+    OR line_exists( lt_levels[ status = zcl_sd_so_chg_log=>gc_level-waiting ] )
+    OR line_exists( lt_levels[ status = zcl_sd_so_chg_log=>gc_level-pending ] )
+    OR line_exists( lt_levels[ status = zcl_sd_so_chg_log=>gc_level-rejected ] )
+    OR line_exists( lt_levels[ status = zcl_sd_so_chg_log=>gc_level-not_reached ] ).
+      zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                    iv_event  = zcl_sd_so_chg_log=>gc_event-error
+                                    iv_text   = 'Release refused: not all levels approved - order stays blocked' ).
+      RETURN.
+    ENDIF.
+
 *   Close the run first: the order save of the BAPI below must not see a
 *   running approval (otherwise the block would be set again)
     zcl_sd_so_chg_log=>finish( iv_log_id = iv_log_id
@@ -2547,25 +2560,28 @@ All input fields are closed in VA02 while the order is in approval.
 *&   the whole order is closed for change (all fields display-only,
 *&   delivery block included).
 *&---------------------------------------------------------------------*
-ENHANCEMENT 1 zsd_so_con_field_lock.
+ENHANCEMENT 1 ZSD_SO_CON_FIELD_LOCK.    "active version
+*
+  CONSTANTS LC_ZZ_OFF TYPE C LENGTH 1 VALUE '0'.
 
-  IF t180-trtyp = 'H'                                         " create (VA01)
-     AND vbak-vgbel IS NOT INITIAL
-     AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
-     AND zcl_sd_so_contract_ctrl=>is_relevant(
-           is_vbak    = vbak
-           iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true
-     AND zcl_sd_so_contract_ctrl=>is_locked_field( screen-name ) = abap_true.
-    screen-input = '0'.
-    MODIFY SCREEN.
-  ENDIF.
-
-  IF t180-trtyp = 'V'                                         " change (VA02)
-     AND screen-input = '1'
-     AND zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true.
-    screen-input = '0'.
-    MODIFY SCREEN.
-  ENDIF.
+  CASE T180-TRTYP.
+    WHEN 'H'.                                                 " create (VA01)
+      IF  ZCL_SD_SO_CONTRACT_CTRL=>IS_LOCKED_FIELD( SCREEN-NAME ) = ABAP_TRUE
+      AND VBAK-VGBEL IS NOT INITIAL
+      AND VBAK-VGTYP = ZCL_SD_SO_CONTRACT_CTRL=>GC_VGTYP_CONTRACT
+      AND ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT(
+            IS_VBAK    = VBAK
+            IV_PROCESS = ZCL_SD_SO_CONTRACT_CTRL=>GC_PROCESS-CREATE ) = ABAP_TRUE.
+        SCREEN-INPUT = LC_ZZ_OFF.
+        MODIFY SCREEN.
+      ENDIF.
+    WHEN 'V'.                                                 " change (VA02)
+      IF  SCREEN-INPUT = '1'
+      AND ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( VBAK-VBELN ) = ABAP_TRUE.
+        SCREEN-INPUT = LC_ZZ_OFF.
+        MODIFY SCREEN.
+      ENDIF.
+  ENDCASE.
 
 ENDENHANCEMENT.
 ```
@@ -2590,21 +2606,32 @@ Insert Row / Delete Item are removed in VA02 while the order is in approval.
 *& SET PF-STATUS ... EXCLUDING. Check the name in your release:
 *& in the debugger, set a breakpoint on statement SET PF-STATUS.
 *&---------------------------------------------------------------------*
-ENHANCEMENT 1 zsd_so_con_item_fcodes.
+ENHANCEMENT 1 ZSD_SO_CON_ITEM_FCODES.    "active version
+*
+  DATA LV_ZZ_LOCK TYPE ABAP_BOOL.
 
-  IF ( t180-trtyp = 'H'                                       " create (VA01)
-       AND vbak-vgbel IS NOT INITIAL
-       AND vbak-vgtyp = zcl_sd_so_contract_ctrl=>gc_vgtyp_contract
-       AND zcl_sd_so_contract_ctrl=>is_relevant(
-             is_vbak    = vbak
-             iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true )
-  OR ( t180-trtyp = 'V'                                       " change (VA02)
-       AND zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true ).
+  CLEAR LV_ZZ_LOCK.
 
-    DATA(lt_zz_fcodes) = zcl_sd_so_contract_ctrl=>get_locked_fcodes( ).
-    LOOP AT lt_zz_fcodes INTO DATA(lv_zz_fcode).
-      cua_exclude = lv_zz_fcode.
-      COLLECT cua_exclude.
+  CASE T180-TRTYP.
+    WHEN 'H'.                                                 " create (VA01)
+      IF  VBAK-VGBEL IS NOT INITIAL
+      AND VBAK-VGTYP = ZCL_SD_SO_CONTRACT_CTRL=>GC_VGTYP_CONTRACT
+      AND ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT(
+            IS_VBAK    = VBAK
+            IV_PROCESS = ZCL_SD_SO_CONTRACT_CTRL=>GC_PROCESS-CREATE ) = ABAP_TRUE.
+        LV_ZZ_LOCK = ABAP_TRUE.
+      ENDIF.
+    WHEN 'V'.                                                 " change (VA02)
+      IF ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( VBAK-VBELN ) = ABAP_TRUE.
+        LV_ZZ_LOCK = ABAP_TRUE.
+      ENDIF.
+  ENDCASE.
+
+  IF LV_ZZ_LOCK = ABAP_TRUE.
+    DATA(LT_ZZ_FCODES) = ZCL_SD_SO_CONTRACT_CTRL=>GET_LOCKED_FCODES( ).
+    LOOP AT LT_ZZ_FCODES INTO DATA(LV_ZZ_FCODE).
+      CUA_EXCLUDE = LV_ZZ_FCODE.
+      COLLECT CUA_EXCLUDE.
     ENDLOOP.
   ENDIF.
 
@@ -2636,23 +2663,40 @@ The configuration is display-only in VA02 while the order is in approval.
 *& Import tab > "Pass Value" ticked). Otherwise the assignment is
 *& rejected by the syntax check (see creation guide step 9d).
 *&---------------------------------------------------------------------*
-ENHANCEMENT 1 zsd_so_con_config_display.
+ENHANCEMENT 1 ZSD_SO_CON_CONFIG_DISPLAY.    "active version
+*
+  FIELD-SYMBOLS: <LS_ZZ_VBAK>  TYPE VBAK,
+                 <LV_ZZ_TRTYP> TYPE T180-TRTYP.
 
-  FIELD-SYMBOLS <ls_zz_vbak>  TYPE vbak.
-  FIELD-SYMBOLS <lv_zz_trtyp> TYPE t180-trtyp.
+  DATA LV_ZZ_DISPLAY TYPE ABAP_BOOL.
 
-  ASSIGN ('(SAPMV45A)VBAK')        TO <ls_zz_vbak>.
-  ASSIGN ('(SAPMV45A)T180-TRTYP')  TO <lv_zz_trtyp>.
+  CLEAR LV_ZZ_DISPLAY.
 
-  IF <ls_zz_vbak> IS ASSIGNED AND <lv_zz_trtyp> IS ASSIGNED.
-    IF ( <lv_zz_trtyp> = 'H'                                  " create (VA01)
-         AND zcl_sd_so_contract_ctrl=>is_relevant(
-               is_vbak    = <ls_zz_vbak>
-               iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true )
-    OR ( <lv_zz_trtyp> = 'V'                                  " change (VA02)
-         AND zcl_sd_so_chg_monitor=>is_approval_pending( <ls_zz_vbak>-vbeln ) = abap_true ).
-      display = 'X'.                                          " as VA03
-    ENDIF.
+  " sales order data (only assigned when called from SAPMV45A)
+  ASSIGN ('(SAPMV45A)VBAK')       TO <LS_ZZ_VBAK>.
+  ASSIGN ('(SAPMV45A)T180-TRTYP') TO <LV_ZZ_TRTYP>.
+
+  IF <LS_ZZ_VBAK> IS ASSIGNED AND <LV_ZZ_TRTYP> IS ASSIGNED.
+
+    CASE <LV_ZZ_TRTYP>.
+      WHEN 'H'.                                               " create (VA01)
+        IF  <LS_ZZ_VBAK>-VGBEL IS NOT INITIAL
+        AND <LS_ZZ_VBAK>-VGTYP = ZCL_SD_SO_CONTRACT_CTRL=>GC_VGTYP_CONTRACT
+        AND ZCL_SD_SO_CONTRACT_CTRL=>IS_RELEVANT(
+              IS_VBAK    = <LS_ZZ_VBAK>
+              IV_PROCESS = ZCL_SD_SO_CONTRACT_CTRL=>GC_PROCESS-CREATE ) = ABAP_TRUE.
+          LV_ZZ_DISPLAY = ABAP_TRUE.
+        ENDIF.
+      WHEN 'V'.                                               " change (VA02)
+        IF ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( <LS_ZZ_VBAK>-VBELN ) = ABAP_TRUE.
+          LV_ZZ_DISPLAY = ABAP_TRUE.
+        ENDIF.
+    ENDCASE.
+
+  ENDIF.
+
+  IF LV_ZZ_DISPLAY = ABAP_TRUE.
+    DISPLAY = ABAP_TRUE.                                      " as VA03
   ENDIF.
 
 ENDENHANCEMENT.
@@ -2660,22 +2704,35 @@ ENDENHANCEMENT.
 
 ## 17. Workflow tasks (PFTC)
 
-PFTC → Task type **Standard task** → Create. For every task:
-- Object category **ABAP Class**, object type `ZCL_SD_SO_CHG_WF`, the method below.
-- **Background processing** ticked (except the decision).
-- *Synchronous object method*.
+The approval process has six steps that do work. **Five of them are background tasks**: they call class methods and no person is involved.
+**The only dialog step is the user decision (Approve / Reject).** It does not need an own task: it is the *User Decision* step type in the template, which uses the standard decision task TS00008267.
+
+| Step | Task (abbreviation) | Name | Method | Background | Dialog / agent | Bindings task ↔ method |
+|------|---------------------|------|--------|------------|----------------|------------------------|
+| 1 | ZSO_CHG_START | Start approval run | START | **Yes** | No agent (WF-BATCH) | IV_LOG_ID, IV_WF_ID → EV_LEVELS |
+| 3.1 | ZSO_CHG_LEVEL | Prepare approval level | PREPARE_LEVEL | **Yes** | No agent (WF-BATCH) | IV_LOG_ID, IV_INDEX → EV_LEVEL, ET_AGENTS |
+| 3.2 | *User Decision step* (standard TS00008267) | Approve / Reject | – | **No** | **Dialog**: approver of the level (expression &AGENTS&), in Fiori My Inbox | Result → outcome Approve / Reject; _WI_ACTUAL_AGENT → DECIDED_BY |
+| 3.3 / 3.4 | ZSO_CHG_DECIDE | Log decision | DECIDE | **Yes** | No agent (WF-BATCH) | IV_LOG_ID, IV_LEVEL, IV_APPROVED, IV_DECIDED_BY |
+| 4 (approved) | ZSO_CHG_APPROVED | Release delivery block | FINISH_APPROVED | **Yes** | No agent (WF-BATCH) | IV_LOG_ID. Exception CX_BO_TEMPORARY = *Temporary error* (retry) |
+| 4 (rejected) | ZSO_CHG_REJECTED | Close rejected run | FINISH_REJECTED | **Yes** | No agent (WF-BATCH) | IV_LOG_ID |
+
+**Settings for the five background tasks** (PFTC → Standard task → Create):
+- Object category **ABAP Class**, object type `ZCL_SD_SO_CHG_WF`, the method above.
+- Tick **Background processing** and **Synchronous object method**.
 - Container elements are proposed from the method parameters: answer *Yes*.
-- *Additional data → Agent assignment → Attributes → General task* (all tasks).
+- *Additional data → Agent assignment → Attributes → General task*.
+- No agent is entered in the template step. Background steps run under the workflow system user WF-BATCH (SWU3).
 
-| Task (abbreviation) | Name | Method | Background | Bindings task ↔ method |
-|---------------------|------|--------|------------|------------------------|
-| ZSO_CHG_START | Start approval run | START | X | IV_LOG_ID, IV_WF_ID → EV_LEVELS |
-| ZSO_CHG_LEVEL | Prepare approval level | PREPARE_LEVEL | X | IV_LOG_ID, IV_INDEX → EV_LEVEL, ET_AGENTS |
-| ZSO_CHG_DECIDE | Log decision | DECIDE | X | IV_LOG_ID, IV_LEVEL, IV_APPROVED, IV_DECIDED_BY |
-| ZSO_CHG_APPROVED | Release delivery block | FINISH_APPROVED | X | IV_LOG_ID. Exception CX_BO_TEMPORARY = *Temporary error* |
-| ZSO_CHG_REJECTED | Close rejected run | FINISH_REJECTED | X | IV_LOG_ID |
+**Settings for the dialog step (3.2, User Decision):**
+- Step type *User Decision* in SWDD, not a PFTC task.
+- Agents: *Expression* `&AGENTS&`, which is the approver of the current level from ZSD_SO_APPR_CFG / ZSD_SO_CHG_LL.
+- Decision texts: 1 = `Approve`, 2 = `Reject`.
+- The work item appears in **Fiori My Inbox** with Approve / Reject buttons.
 
-The decision itself is a **User Decision** step in the workflow template (step 18). It uses the standard decision task, so no own task is needed.
+**Who removes the delivery block?** Only step 4 (approved), FINISH_APPROVED. It runs **once, after the last level has approved**:
+- The loop ends only when `LEVEL_INDEX > LEVELS` (all levels approved) or `REJECTED = 'X'`.
+- Approval at level 1 … n-1 only logs the decision (DECIDE) and moves to the next level. The order stays blocked.
+- FINISH_APPROVED also checks the log itself: if any level is not *Approved*, it refuses the release, logs an ERROR event and the order stays blocked.
 
 ## 18. Workflow template ZSD_SO_CHG_APPR (SWDD)
 

@@ -203,6 +203,19 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
     DATA ls_header_inx TYPE bapisdh1x.
     DATA lt_return     TYPE STANDARD TABLE OF bapiret2.
 
+*   Release only after the LAST level: every level of the run must be approved
+    DATA(lt_levels) = zcl_sd_so_chg_log=>get_levels( iv_log_id ).
+    IF lt_levels IS INITIAL
+    OR line_exists( lt_levels[ status = zcl_sd_so_chg_log=>gc_level-waiting ] )
+    OR line_exists( lt_levels[ status = zcl_sd_so_chg_log=>gc_level-pending ] )
+    OR line_exists( lt_levels[ status = zcl_sd_so_chg_log=>gc_level-rejected ] )
+    OR line_exists( lt_levels[ status = zcl_sd_so_chg_log=>gc_level-not_reached ] ).
+      zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                    iv_event  = zcl_sd_so_chg_log=>gc_event-error
+                                    iv_text   = 'Release refused: not all levels approved - order stays blocked' ).
+      RETURN.
+    ENDIF.
+
 *   Close the run first: the order save of the BAPI below must not see a
 *   running approval (otherwise the block would be set again)
     zcl_sd_so_chg_log=>finish( iv_log_id = iv_log_id
