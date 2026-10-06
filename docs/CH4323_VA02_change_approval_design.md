@@ -50,7 +50,7 @@ Save ── USEREXIT_SAVE_DOCUMENT_PREPARE
 COMMIT ─► workflow ZSD_SO_CHG_APPR
    START (WF id, START event; no level -> status E, mail requester, end)
    LOOP index 1..levels UNTIL rejected
-      PREPARE_LEVEL (level P, LEVEL event, e-mail, INBOX event, agent)
+      PREPARE_LEVEL (level D, LEVEL event, e-mail, INBOX event, agent)
       User decision Approve / Reject (My Inbox)
       DECIDE (level A/R, APPROVE/REJECT event)
    rejected ─► FINISH_REJECTED (CLOSE event, status R, mail requester)
@@ -93,7 +93,7 @@ COMMIT ─► workflow ZSD_SO_CHG_APPR
 | Domain = data element | Type | Len | Fixed values | Label |
 |-----------------------|------|-----|--------------|-------|
 | ZSD_SO_LEVEL | NUMC | 2 | – | Level / Approval Level |
-| ZSD_SO_WF_STATUS | CHAR | 1 | Run: P In process, A Approved, R Rejected, X Cancelled, E Error, F Replaced. Level: W Waiting, P Pending, A Approved, R Rejected, N Not reached | Status |
+| ZSD_SO_WF_STATUS | CHAR | 1 | P In process (run), D Pending decision (level), W Waiting (level), N Not reached (level), A Approved, R Rejected, X Cancelled (run), E Error (run), F Replaced (run). Each value has one meaning. | Status |
 | ZSD_SO_WF_EVENT | CHAR | 10 | CHANGE, START, LEVEL, MAIL, MAIL_ERR, INBOX, APPROVE, REJECT, RELEASE, REL_ERR, CLOSE, INFO, ERROR, REPLACED | Event |
 | ZSD_SO_SEQNR | NUMC | 4 | – | No. |
 | ZSD_SO_CHG_TEXT | CHAR | 255 | – (lower case) | Text |
@@ -213,7 +213,7 @@ Category CL, object `ZCL_SD_SO_CHG_WF`, event `CHANGE_APPROVAL_REQUIRED`. Bindin
 | 3 | Change quantity and material in one save | One run, two CHANGE events, one workflow |
 | 4 | Change a characteristic value / add or delete an item | Block, run, workflow |
 | 5 | Open the order in VA02 while run P | Message "display only"; all fields, Insert/Delete and configuration closed |
-| 6 | Level 1 approves (two levels) | Level 1 A, level 2 P, e-mail to level 2 |
+| 6 | Level 1 approves (two levels) | Level 1 A, level 2 D, e-mail to level 2 |
 | 7 | All levels approve | Block removed, run A, RELEASE event, requester mail; VA02 open again |
 | 8 | Level 2 rejects | Run R, level 3 N, block stays, requester mail; VA02 open again |
 | 9 | After approval or rejection, change again | New run, new workflow |
