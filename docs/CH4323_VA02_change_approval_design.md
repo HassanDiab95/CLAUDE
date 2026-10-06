@@ -166,6 +166,7 @@ Category CL, object `ZCL_SD_SO_CHG_WF`, event `CHANGE_APPROVAL_REQUIRED`. Bindin
 | LEVEL_INDEX | INT4, initial value 1 | |
 | LEVEL | ZSD_SO_LEVEL | |
 | AGENTS | TSWHACTOR | |
+| HTML_DESC | W3HTML (multiline) | |
 | REJECTED | XFELD | |
 | DECIDED_BY | XUBNAME | |
 
@@ -180,7 +181,7 @@ The delivery block is removed only by FINISH_APPROVED, once, after the **last** 
 1  Activity  START          LOG_ID, WF_ID = &_WORKITEM.WORKITEMID&  -> LEVELS
 2  Condition LEVELS = 0  -> end (run already closed with status E)
 3  Loop UNTIL  REJECTED = 'X'  OR  LEVEL_INDEX > LEVELS
-   3.1 Activity      PREPARE_LEVEL  LOG_ID, LEVEL_INDEX -> LEVEL, AGENTS
+   3.1 Activity      PREPARE_LEVEL  LOG_ID, LEVEL_INDEX -> LEVEL, AGENTS, HTML_DESC
    3.2 User decision "Change of sales order &ORDER.VBELN& – approve?"   agents: &AGENTS&
                      outcomes Approve / Reject;  _WI_ACTUAL_AGENT -> DECIDED_BY
        Approve: Activity DECIDE (approved = X);  LEVEL_INDEX = LEVEL_INDEX + 1
@@ -191,6 +192,7 @@ The delivery block is removed only by FINISH_APPROVED, once, after the **last** 
 ```
 
 - If `&_WORKITEM.WORKITEMID&` is not available in your release, leave `IV_WF_ID` empty. `START` then finds the running workflow of the order itself.
+- Work item description: `&HTML_DESC&`, built by PREPARE_LEVEL with ZCL_SD_SO_CHG_NOTIFY->BUILD_INBOX_HTML. It has the same content as the approver e-mail, without `&` and without HTML entities, so My Inbox does not read it as variables.
 - My Inbox: the user decision task shows Approve / Reject. OData service `/IWPGW/TASKPROCESSING` must be active, and approvers need the My Inbox tile.
 
 ## 8. Log report ZSD_SO_CHG_WF_LOG (transaction ZSD_SOCHG_LOG)

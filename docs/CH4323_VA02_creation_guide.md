@@ -2778,7 +2778,7 @@ The approval process has six steps that do work. **Five of them are background t
 | Step | Task (abbreviation) | Name | Method | Background | Dialog / agent | Bindings task ↔ method |
 |------|---------------------|------|--------|------------|----------------|------------------------|
 | 1 | ZSO_CHG_START | Start approval run | START | **Yes** | No agent (WF-BATCH) | IV_LOG_ID, IV_WF_ID → EV_LEVELS |
-| 3.1 | ZSO_CHG_LEVEL | Prepare approval level | PREPARE_LEVEL | **Yes** | No agent (WF-BATCH) | IV_LOG_ID, IV_INDEX → EV_LEVEL, ET_AGENTS |
+| 3.1 | ZSO_CHG_LEVEL | Prepare approval level | PREPARE_LEVEL | **Yes** | No agent (WF-BATCH) | IV_LOG_ID, IV_INDEX → EV_LEVEL, ET_AGENTS, ET_HTML |
 | 3.2 | *User Decision step* (standard TS00008267) | Approve / Reject | – | **No** | **Dialog**: approver of the level (expression &AGENTS&), in Fiori My Inbox | Result → outcome Approve / Reject; _WI_ACTUAL_AGENT → DECIDED_BY |
 | 3.3 / 3.4 | ZSO_CHG_DECIDE | Log decision | DECIDE | **Yes** | No agent (WF-BATCH) | IV_LOG_ID, IV_LEVEL, IV_APPROVED, IV_DECIDED_BY |
 | 4 (approved) | ZSO_CHG_APPROVED | Release delivery block | FINISH_APPROVED | **Yes** | No agent (WF-BATCH) | IV_LOG_ID. Exception CX_BO_TEMPORARY = *Temporary error* (retry) |
@@ -2818,6 +2818,7 @@ The approval process has six steps that do work. **Five of them are background t
 | LEVEL_INDEX | ABAP Dict. INT4 | | 1 | Loop counter |
 | LEVEL | ABAP Dict. ZSD_SO_LEVEL | | | Current level |
 | AGENTS | ABAP Dict. TSWHACTOR (multiline) | | | Approver of the current level |
+| HTML_DESC | ABAP Dict. W3HTML (multiline) | | | HTML description of the decision work item (same content as the e-mail) |
 | REJECTED | ABAP Dict. XFELD | | | X = rejected |
 | DECIDED_BY | ABAP Dict. XUBNAME | | | User who decided |
 
@@ -2836,13 +2837,15 @@ The approval process has six steps that do work. **Five of them are background t
        true  -> Process control: Complete workflow   (run already closed with status E)
 3   Loop (UNTIL)  REJECTED = 'X'  OR  LEVEL_INDEX > LEVELS
     3.1 Activity  ZSO_CHG_LEVEL      binding: LOG_ID, LEVEL_INDEX -> IV_INDEX
-                                     back:    EV_LEVEL -> LEVEL, ET_AGENTS -> AGENTS
+                                     back:    EV_LEVEL -> LEVEL, ET_AGENTS -> AGENTS,
+                                              ET_HTML -> HTML_DESC
     3.2 User Decision
           Title     : Change of sales order &ORDER.VBELN& - approve?
           Decisions : 1 Approve   2 Reject   (Reject: comment mandatory - optional)
           Agents    : Expression &AGENTS&
           Back      : &_WI_ACTUAL_AGENT& -> DECIDED_BY   (remove "US" prefix if needed)
           Object    : &ORDER&  (display object -> VA03)
+          Description: &HTML_DESC&  (HTML for My Inbox, see 18.5)
         Outcome Approve:
           3.3 Activity  ZSO_CHG_DECIDE   LOG_ID, LEVEL, IV_APPROVED = 'X', DECIDED_BY
           3.5 Container operation  LEVEL_INDEX = LEVEL_INDEX + 1
@@ -2853,6 +2856,34 @@ The approval process has six steps that do work. **Five of them are background t
        true  -> Activity ZSO_CHG_REJECTED   (LOG_ID)
        false -> Activity ZSO_CHG_APPROVED   (LOG_ID)  - temporary error: retry
 ```
+
+### 18.5 HTML description of the decision work item (My Inbox)
+
+The approver sees the same content as the e-mail in the work item description in My Inbox: sales order, changes and approval status.
+
+How it works:
+1. PREPARE_LEVEL (step 3.1) builds the HTML with `ZCL_SD_SO_CHG_NOTIFY->BUILD_INBOX_HTML` and returns it as **ET_HTML** (type W3HTMLTAB, lines of at most 255 characters).
+2. Binding ET_HTML → workflow container element **HTML_DESC** (ABAP Dict. type **W3HTML**, *multiline*).
+3. The user decision step shows `&HTML_DESC&` as its description. My Inbox renders the lines as HTML.
+
+Setup in SWDD:
+- **Container:** create HTML_DESC (data type W3HTML, tick *Multiline*). No import/export flag is needed.
+- **Task ZSO_CHG_LEVEL (PFTC):** refresh the task container from the method so that ET_HTML is proposed. Then step 3.1 → binding back: `ET_HTML` → `HTML_DESC`.
+- **User decision step 3.2 → description:**
+  - Open the step, tab *Decision* → *Description* (long text of the step). Enter the single line `&HTML_DESC&`.
+  - Use *Insert expression* to pick the container element, so it is written as an expression, not plain text.
+  - If your release has no step description for the user decision: PFTC → copy the standard decision task **TS00008267** to your own task, e.g. `ZSO_CHG_DECISION`.
+    1. Add container element HTML_DESC (W3HTML, multiline, import).
+    2. Write `&HTML_DESC&` in its *Description* (long text).
+    3. Enter this task in step 3.2 (field *Task* on the user decision step) and bind `&HTML_DESC&` → `&HTML_DESC&`.
+
+Rules built into the class for My Inbox (`IV_INBOX = 'X'`):
+- **No `&` in the text.** My Inbox reads `&...&` as a container variable. Values with `&` are written as `+`.
+- **No HTML entities** (`&gt;`, `&amp;` …). `->` is written as `→`; `<`, `>` and `"` are replaced.
+- **No My Inbox link** in the description (the user is already in My Inbox).
+- **Every line at most 255 characters** (W3HTML). ADD_LINE splits long values at a blank.
+
+Note: in SAP GUI (SBWP) the description shows the raw HTML tags. My Inbox renders them.
 
 Notes:
 - **Object binding of every activity (important):** in each activity step, *Binding (workflow → task)* must contain `&ORDER&` → `&_WI_OBJECT_ID&`.
