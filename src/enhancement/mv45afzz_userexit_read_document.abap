@@ -8,8 +8,13 @@
 *& compares against this snapshot.
 *& Only for orders with reference to a contract that match the VA02
 *& filter (ZSD_SO_CON_FLT, process VA02 or BOTH).
-*& If the order is in the approval cycle, the user is told that the order
-*& is locked (all fields are closed by USEREXIT_FIELD_MODIFICATION).
+*&
+*& If the order is in the approval cycle, a dialog user is sent to VA03
+*& for the same order. VA02 would keep the order enqueued and the
+*& release (BAPI_SALESORDER_CHANGE) of the approver would fail with
+*& "Sales document ... is currently being processed by ...".
+*& Not for BAPI / batch input / background (e.g. the release step of the
+*& workflow itself): there the order must stay in change mode.
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_chg_snapshot.
 
@@ -23,6 +28,17 @@ ENHANCEMENT 1 zsd_so_chg_snapshot.
                                           it_xvbap = xvbap[] ).
 
     IF zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true.
+      IF call_bapi IS INITIAL                                 " not a BAPI
+         AND sy-binpt IS INITIAL                              " not batch input
+         AND sy-batch IS INITIAL.                             " not background
+*       Free the order and open it in display mode (VA03)
+        CALL FUNCTION 'DEQUEUE_ALL'.
+        SET PARAMETER ID 'AUN' FIELD vbak-vbeln.
+        MESSAGE s398(00) WITH 'Order' vbak-vbeln
+                              'is in the approval workflow - display only' ''.
+        LEAVE TO TRANSACTION 'VA03' AND SKIP FIRST SCREEN.
+      ENDIF.
+*     Fallback: all fields stay closed (USEREXIT_FIELD_MODIFICATION)
       MESSAGE s398(00) WITH 'Order' vbak-vbeln
                             'is in the approval workflow - display only' ''.
     ELSEIF zcl_sd_so_chg_monitor=>is_block_kept( vbak-vbeln ) = abap_true.
