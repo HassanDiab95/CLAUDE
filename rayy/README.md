@@ -1,7 +1,7 @@
 # 🌱 ري (Rayy): a smart IoT plant that shows its feelings
 
 > **Graduation project.** **Rayy (ري, "watering / quenching thirst")** turns the plant's live readings
-> (**soil moisture, light and temperature**) into **emoji faces** on a small screen and **sound alerts**
+> (**soil moisture, light and temperature**) into **emoji faces** shown in the **web dashboard** and the **Android app**, and **sound alerts**
 > (a different buzzer melody for each feeling).
 > It sends its data to the cloud (**Firebase**), and a **web dashboard** and an **Android app** show it.
 > Power comes from a simple **5 V USB power bank** (or phone charger).
@@ -15,6 +15,8 @@
 
 👉 **[docs/00-step-by-step-guide.md](docs/00-step-by-step-guide.md)**: the complete guide from buying the parts
 to the final demo, step by step.
+
+📝 **[docs/forms/](docs/forms)**: the college forms filled in: نموذج (1) مقترح المشروع، نموذج (2) خطة المشروع (with UML, ERD, relational model, normalization, wiring and prototype), نموذج (3) تسليم المشروع.
 
 🧭 **[docs/Rayy-Setup-Guide-by-Part.docx](docs/Rayy-Setup-Guide-by-Part.docx)**: for each part (Firebase, Web, ESP32, Android): files and paths, apps to install, what is downloaded, configuration and complete steps.
 
@@ -56,7 +58,6 @@ flowchart LR
     S1[Soil moisture sensor] --> ESP
     S2[BH1750 light sensor] --> ESP
     S3[DHT22 temperature + humidity] --> ESP
-    ESP[ESP32] --> OLED[OLED emoji face 😊]
     ESP --> BZ[Buzzer melodies 🔊]
     PB[🔋 5 V USB power bank] --> ESP
   end
@@ -65,8 +66,9 @@ flowchart LR
   FB <--> APP[📱 Android app]
 ```
 
-* The **ESP32** reads the sensors every 2 s, chooses a mood, draws the emoji and plays a melody.
-  It works **without internet** too: the face and sounds keep working, and only the cloud upload stops.
+* The **ESP32** reads the sensors every 2 s, chooses a mood and plays its melody. There is **no screen on the plant**:
+  the emoji face is shown in the web dashboard and the Android app. Without internet the plant still decides its mood
+  and plays its melodies; the apps update again when the connection is back.
 * Every 30 s it uploads the **live** data. Every 5 min it saves a **history** point. Each time the mood
   changes it writes an **event**. It also downloads the **config** (thresholds, quiet hours, mute) set from the apps.
 * The **web** and **Android** apps sign in with Firebase Authentication and update in real time.

@@ -25,8 +25,8 @@
 ## 10.2 Presentation and demo tips
 
 * Start with the **story**: "Plants can't talk… until now 🌱😊".
-* **Live demo:** pull out the soil sensor → the plant plays its sad "thirsty" melody and the face changes on the OLED, the web
-  and the phone at the same time → water it → the joyful "thank you" melody 😊. This is the most impressive moment.
+* **Live demo:** pull out the soil sensor → the plant plays its sad "thirsty" melody and the emoji changes on the web
+  dashboard and the phone at the same time → water it → the joyful "thank you" melody 😊. This is the most impressive moment.
 * Press **"Play"** from the phone in front of the committee: the plant plays the melody.
 * Show the **history chart** of a full day (prepare it the day before) to show how the soil dries over time.
 * Bring a **backup video** of the demo and a **charged power bank**. Use a **phone hotspot**.
@@ -35,7 +35,7 @@
 
 * 💦 **Automatic watering:** a small 5 V pump + relay/MOSFET when the plant is thirsty, with a water-tank level sensor.
 * 🔔 **Push notifications** on the phone (Firebase Cloud Messaging + Cloud Functions).
-* 🌈 **Colour TFT display** (ST7789 240×240) with colourful animated emoji.
+* 🌈 **A small screen on the plant** (e.g. colour TFT ST7789) to show the emoji next to the plant too.
 * 🧠 **AI:** predict when the plant will need water from the history, or detect plant diseases with a camera (ESP32-CAM).
 * 🗣️ **Spoken sentences** instead of melodies with a DFPlayer Mini MP3 module + speaker (recorded voice: "I'm thirsty!"),
   and voice commands with a microphone.

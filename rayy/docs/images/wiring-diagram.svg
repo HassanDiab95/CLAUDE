@@ -13,7 +13,7 @@
 
   <!-- Rails -->
   <line x1="200" y1="250" x2="1110" y2="250" stroke="#f39c12" stroke-width="4"/>
-  <text x="760" y="243" font-size="12" font-weight="bold" fill="#f39c12">3.3 V rail (ESP32 3V3) → VCC of soil, DHT22, OLED, BH1750</text>
+  <text x="760" y="243" font-size="12" font-weight="bold" fill="#f39c12">3.3 V rail (ESP32 3V3) → VCC of soil sensor, DHT22, BH1750</text>
   <line x1="200" y1="270" x2="1110" y2="270" stroke="#000" stroke-width="4"/>
   <text x="210" y="288" font-weight="bold">GND rail (ESP32 GND pin) → GND of every module</text>
 
@@ -74,30 +74,19 @@
   <polyline points="280,655 500,655" fill="none" stroke="#444" stroke-width="3"/>
 
   <!-- ===================== RIGHT MODULES ===================== -->
-  <rect x="1000" y="380" width="250" height="80" rx="8" fill="#e9eef5" stroke="#22313f" stroke-width="2"/>
-  <rect x="1012" y="392" width="58" height="34" fill="#0b1a2a"/>
-  <text x="1041" y="416" text-anchor="middle" font-size="18">😊</text>
-  <text x="1160" y="403" text-anchor="middle" font-weight="bold">OLED 0.96" SSD1306</text>
-  <text x="1160" y="421" text-anchor="middle" font-size="11">I2C address 0x3C</text>
-  <text x="1125" y="447" text-anchor="middle" font-size="11">VCC → 3.3 V · GND · SDA · SCL</text>
-
   <rect x="1000" y="490" width="250" height="70" rx="8" fill="#fffbe0" stroke="#b59a00" stroke-width="2"/>
   <text x="1125" y="514" text-anchor="middle" font-weight="bold">BH1750 light sensor (GY-302)</text>
   <text x="1125" y="532" text-anchor="middle" font-size="11">I2C 0x23 (ADDR → GND)</text>
   <text x="1125" y="549" text-anchor="middle" font-size="11">VCC → 3.3 V · GND · SDA · SCL</text>
 
   <g fill="none" stroke-width="3">
-    <polyline points="800,425 1000,425" stroke="#2f7d4f"/>
-    <polyline points="910,425 910,520 1000,520" stroke="#2f7d4f"/>
-    <polyline points="800,465 940,465 940,445 1000,445" stroke="#8e44ad"/>
-    <polyline points="940,465 940,540 1000,540" stroke="#8e44ad"/>
+    <polyline points="800,425 910,425 910,520 1000,520" stroke="#2f7d4f"/>
+    <polyline points="800,465 880,465 880,540 1000,540" stroke="#8e44ad"/>
   </g>
-  <circle cx="910" cy="425" r="4" fill="#2f7d4f"/><circle cx="940" cy="465" r="4" fill="#8e44ad"/>
   <text x="830" y="417" font-size="11" fill="#2f7d4f">SDA</text>
   <text x="830" y="482" font-size="11" fill="#8e44ad">SCL</text>
-
-  <text x="1000" y="600" font-size="12" fill="#5f6f64">The OLED and BH1750 share the same 2 wires</text>
-  <text x="1000" y="617" font-size="12" fill="#5f6f64">(I2C bus): connect SDA to SDA and SCL to SCL.</text>
+  <text x="1000" y="600" font-size="12" fill="#5f6f64">No screen: the emoji face is shown</text>
+  <text x="1000" y="617" font-size="12" fill="#5f6f64">in the web dashboard and Android app.</text>
 
   <text x="30" y="725" font-size="12" fill="#5f6f64">Use only ADC1 pins (GPIO32–39) for analog sensors: ADC2 pins do not work while Wi-Fi is on.</text>
   <text x="30" y="743" font-size="12" fill="#5f6f64">Choose a power bank without "auto power-off" at low current, or keep the project on a USB phone charger.</text>

@@ -1,12 +1,13 @@
 // =====================================================================
 //  RAYY (ري): a smart IoT plant that shows its feelings with
-//  emoji faces (OLED) and sound alerts (buzzer melodies).
+//  emoji faces (in the web dashboard and the Android app) and
+//  sound alerts (buzzer melodies).
 //
 //  Board  : ESP32 Dev Module (ESP32 DevKit V1), powered by a 5 V USB
 //           power bank or a 5 V USB phone charger
 //  Core   : esp32 by Espressif Systems 3.x (Arduino IDE Boards Manager)
-//  Libs   : Adafruit SSD1306, Adafruit GFX, DHT sensor library,
-//           Adafruit Unified Sensor, BH1750 (Christopher Laws), ArduinoJson 7
+//  Libs   : DHT sensor library, Adafruit Unified Sensor,
+//           BH1750 (Christopher Laws), ArduinoJson 7
 //
 //  Edit config.h (Wi-Fi + Firebase) before uploading.
 // =====================================================================
@@ -16,7 +17,7 @@
 #include "pins.h"
 #include "mood.h"
 #include "sensors.h"
-#include "display.h"
+#include "status.h"
 #include "sound.h"
 #include "cloud.h"
 
@@ -25,10 +26,8 @@ static Status      st;
 static Mood        prevMood = MOOD_HAPPY;
 static bool        firstEvaluation = true;
 
-static uint32_t lastSensor = 0, lastUpload = 0, lastHistory = 0, lastFrame = 0;
-static uint32_t lastScreenSwap = 0, lastSound = 0, frame = 0;
-static bool     showFace = true;
-static bool     oledOk = false;
+static uint32_t lastSensor = 0, lastUpload = 0, lastHistory = 0;
+static uint32_t lastSound = 0;
 static bool     pendingEvent = false;   // mood changed, event not uploaded yet
 
 // ---------------------------------------------------------------------
@@ -80,8 +79,6 @@ static void readAndEvaluate() {
   if (m != prevMood) {
     Serial.printf("[mood] %s -> %s\n", moodName(prevMood), moodName(m));
     pendingEvent = true;
-    showFace = true;                  // show the new face immediately
-    lastScreenSwap = millis();
   }
   prevMood = m;
 }
@@ -96,16 +93,14 @@ static void syncCloud(bool withHistory) {
   if (cmd > 0) { soundPlay((Track)cmd); lastSound = millis(); }
 }
 
-// Short press: switch screen. Long press (>1 s): play the current mood sound.
+// Button press: play the melody of the current mood.
 static void handleButton() {
   static bool wasDown = false;
   static uint32_t downAt = 0;
   bool down = digitalRead(PIN_BUTTON) == LOW;
   if (down && !wasDown) downAt = millis();
   if (!down && wasDown) {
-    uint32_t held = millis() - downAt;
-    if (held > 1000) { soundPlay(trackForMood(st.mood)); lastSound = millis(); }
-    else if (held > 40) { showFace = !showFace; lastScreenSwap = millis(); }
+    if (millis() - downAt > 40) { soundPlay(trackForMood(st.mood)); lastSound = millis(); }
   }
   wasDown = down;
 }
@@ -119,16 +114,12 @@ void setup() {
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   Wire.begin(PIN_SDA, PIN_SCL);
 
-  oledOk = displayBegin();
-  if (!oledOk) Serial.println("[display] SSD1306 not found at 0x3C");
-  else displayMessage("Rayy", "Starting...");
-
   sensorsBegin();
   soundBegin();
   soundPlay(TRACK_HELLO);
   cloudBegin();
 
-  if (oledOk) displayMessage("Connecting Wi-Fi", WIFI_SSID);
+  Serial.printf("[wifi] connecting to %s\n", WIFI_SSID);
   uint32_t start = millis();
   while (!wifiConnected() && millis() - start < 10000) { soundLoop(); delay(20); }
   Serial.printf("[wifi] %s\n", wifiConnected() ? WiFi.localIP().toString().c_str() : "offline (will keep trying)");
@@ -139,7 +130,7 @@ void setup() {
 
   readAndEvaluate();
   syncCloud(true);
-  lastSensor = lastUpload = lastHistory = lastScreenSwap = millis();
+  lastSensor = lastUpload = lastHistory = millis();
 }
 
 void loop() {
@@ -163,18 +154,6 @@ void loop() {
     bool history = now - lastHistory >= HISTORY_INTERVAL_MS;
     if (history) lastHistory = now;
     syncCloud(history);
-  }
-
-  if (now - lastScreenSwap >= SCREEN_ROTATE_MS) {
-    lastScreenSwap = now;
-    showFace = !showFace;
-  }
-
-  if (oledOk && now - lastFrame >= 200) {      // 5 frames per second
-    lastFrame = now;
-    frame++;
-    if (showFace) displayFace(st, frame);
-    else displayData(st);
   }
 
   // Status LED: solid = connected to Firebase, blinking = offline

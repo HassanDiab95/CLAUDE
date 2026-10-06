@@ -3,7 +3,7 @@
 // =====================================================================
 #pragma once
 #include "mood.h"
-#include "display.h"
+#include "status.h"
 
 void cloudBegin();                 // start Wi-Fi (non blocking) + NTP clock
 bool wifiConnected();

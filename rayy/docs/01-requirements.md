@@ -22,7 +22,7 @@ technology. The plant's live readings (**soil moisture, light and temperature**)
 ## 1.2 Objectives
 
 1. Measure soil moisture, light intensity, air temperature and humidity automatically.
-2. Show the plant's state as an **animated emoji face** on a display next to the plant.
+2. Show the plant's state as an **emoji face** in the **web dashboard** and the **Android app** (no screen on the plant).
 3. Play **sound alerts**: a different buzzer melody for each mood (sad melody when thirsty, happy melody after watering…).
 4. Send the data to the **cloud** (Firebase) and show it on a **web dashboard** and an **Android app**.
 5. Run from a simple **5 V USB power bank** (portable) or a USB charger.
@@ -47,7 +47,7 @@ technology. The plant's live readings (**soil moisture, light and temperature**)
 | FR-1 | The system shall read soil moisture (%) every 2 seconds. |
 | FR-2 | The system shall read light intensity (lux), air temperature (°C) and humidity (%). |
 | FR-3 | The system shall decide the plant mood: *happy, thirsty, drowning (too wet), hot, cold, needs light, sleeping*. |
-| FR-4 | The system shall display an animated emoji face for the mood on the OLED screen, and a data screen. |
+| FR-4 | The web and Android apps shall display the emoji face of the current mood. |
 | FR-5 | The system shall play a buzzer melody when the mood changes, and repeat a complaint every 30 min (configurable). |
 | FR-6 | The system shall stay silent during quiet hours (default 22:00–07:00) and when muted. |
 | FR-7 | The system shall upload the live readings to Firebase every 30 s, a history point every 5 min, and an event on each mood change. |
@@ -59,7 +59,7 @@ technology. The plant's live readings (**soil moisture, light and temperature**)
 | FR-13 | The apps shall let the user play a chosen melody on the plant ("Play") and mute it. |
 | FR-14 | The web app shall let the user edit thresholds (moisture, temperature, light) and quiet hours. |
 | FR-15 | The apps shall support Arabic and English. |
-| FR-16 | A push button on the plant: short press = change screen, long press = play the current mood's melody. |
+| FR-16 | A push button on the plant plays the current mood's melody. |
 
 ## 1.5 Non-functional requirements
 
@@ -77,7 +77,7 @@ technology. The plant's live readings (**soil moisture, light and temperature**)
 ## 1.6 Hardware requirements (summary; details in [02](02-hardware-bom.md))
 
 ESP32 DevKit V1 · capacitive soil moisture sensor v1.2 · BH1750 light sensor · DHT22 temperature/humidity
-sensor · 0.96" OLED SSD1306 (I2C) · passive buzzer + 100 Ω resistor · push button · breadboard + wires ·
+sensor · passive buzzer + 100 Ω resistor · push button · breadboard + wires ·
 5 V USB power bank (or USB charger) · small enclosure.
 
 ## 1.7 Software requirements
@@ -85,7 +85,7 @@ sensor · 0.96" OLED SSD1306 (I2C) · passive buzzer + 100 Ω resistor · push b
 | Part | Tool / technology |
 |---|---|
 | Firmware | Arduino IDE 2.x + "esp32 by Espressif" core 3.x, C++ |
-| Arduino libraries | Adafruit SSD1306, Adafruit GFX, DHT sensor library, Adafruit Unified Sensor, BH1750 (Christopher Laws), ArduinoJson 7 |
+| Arduino libraries | DHT sensor library, Adafruit Unified Sensor, BH1750 (Christopher Laws), ArduinoJson 7 |
 | Cloud / database | **Firebase**: Realtime Database, Authentication (email/password), Hosting |
 | Web app | HTML5, CSS3, JavaScript (ES modules), Firebase JS SDK 10, Chart.js 4 |
 | Android app | Android Studio (Koala or newer), Kotlin, Jetpack Compose (Material 3), Firebase Android SDK (BoM 33) |

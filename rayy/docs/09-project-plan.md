@@ -5,7 +5,7 @@
 | Role | Main responsibility |
 |---|---|
 | **Team leader + integration** | Planning, meetings, purchasing, final integration, presentation |
-| **Hardware & wiring** | Sensors, OLED, buzzer, breadboard → final board, enclosure |
+| **Hardware & wiring** | Sensors, buzzer, button, breadboard → final board, enclosure |
 | **Firmware (ESP32)** | Arduino code, calibration, mood logic, melodies |
 | **Firebase + web** | Firebase project, rules, web dashboard, hosting |
 | **Android** | Android app, building and testing the APK |
@@ -18,7 +18,7 @@ Everyone tests the system and writes their own part of the report.
 | Week | Goals | Deliverables |
 |---|---|---|
 | **1** | Approve the proposal. Study the docs. **Order the components**. Create the Firebase project and accounts. Install Arduino IDE + Android Studio | Components bought, Firebase ready |
-| **2** | Breadboard: ESP32 + OLED (faces) + buzzer (melodies), then BH1750, DHT22 and the soil sensor. Calibrate the soil sensor | Faces, melodies and readings working |
+| **2** | Breadboard: ESP32 + buzzer (melodies), then BH1750, DHT22 and the soil sensor. Calibrate the soil sensor | Melodies and readings working |
 | **3** | Mood logic, Wi-Fi + Firebase upload, button. Test with the Firebase console | Data visible in Firebase |
 | **4** | Web dashboard (publish on Firebase Hosting). Android app (build the APK) | Web + Android with live data |
 | **5** | Final assembly in a box on the pot. 2-day test on the power bank. Fix bugs | Finished prototype |
@@ -31,7 +31,7 @@ gantt
   section Preparation
   Order parts / Firebase / tools     :a1, 2026-01-04, 7d
   section Hardware + firmware
-  Sensors + OLED + buzzer            :a2, after a1, 7d
+  Sensors + buzzer                   :a2, after a1, 7d
   Mood logic + Firebase upload       :a3, after a2, 7d
   Final assembly                     :a4, 2026-02-01, 7d
   section Apps

@@ -26,7 +26,6 @@
 #define SENSOR_INTERVAL_MS    2000UL      // read sensors every 2 s
 #define UPLOAD_INTERVAL_MS    30000UL     // send live data every 30 s
 #define HISTORY_INTERVAL_MS   300000UL    // save a history point every 5 min
-#define SCREEN_ROTATE_MS      6000UL      // face screen <-> data screen
 
 // ---------- Soil sensor calibration (see docs/08-testing-calibration.md)
 // Raw ADC value (0..4095) with the sensor in DRY air and in a glass of WATER

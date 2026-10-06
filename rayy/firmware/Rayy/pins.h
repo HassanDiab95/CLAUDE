@@ -12,6 +12,6 @@
 #define PIN_BUTTON      13   // push button to GND (internal pull-up)
 #define PIN_LED         2    // on-board blue LED (status)
 
-// I2C bus: OLED SSD1306 (0x3C) + BH1750 light sensor (0x23)
+// I2C bus: BH1750 light sensor (0x23)
 #define PIN_SDA         21
 #define PIN_SCL         22

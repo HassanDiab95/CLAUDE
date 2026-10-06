@@ -9,12 +9,12 @@
 | ESP32 pin | Connected to | Notes |
 |---|---|---|
 | **USB port** | 5 V power bank / charger | Powers the whole project |
-| **3V3** | VCC of soil sensor, DHT22, BH1750, OLED | Total < 50 mA |
+| **3V3** | VCC of soil sensor, DHT22, BH1750 | Total < 50 mA |
 | **GND** | GND of every module | **All grounds together** |
 | **GPIO34** | Soil sensor **AOUT** | Analog input (ADC1) |
 | **GPIO4** | DHT22 **OUT / DATA** | |
-| **GPIO21** | I2C **SDA**: OLED + BH1750 | Shared bus |
-| **GPIO22** | I2C **SCL**: OLED + BH1750 | Shared bus |
+| **GPIO21** | I2C **SDA**: BH1750 | |
+| **GPIO22** | I2C **SCL**: BH1750 | |
 | **GPIO25** | **100 Ω** → buzzer **(+)** | PWM melodies |
 | **GPIO13** | Push button → GND | Internal pull-up is used |
 | GPIO2 | On-board blue LED | Solid = connected to Firebase, blinking = offline |
@@ -54,17 +54,6 @@ pin 3 = not connected, pin 4 = GND. Keep it outside the box, in the shade.
 
 Point it **up**, next to the plant leaves.
 
-### OLED 0.96" SSD1306 I2C
-| OLED pin | ESP32 |
-|---|---|
-| VCC | 3V3 |
-| GND | GND |
-| SCL | GPIO22 |
-| SDA | GPIO21 |
-
-Some OLEDs have the pins in the order **GND-VCC-SCL-SDA** and others **VCC-GND-SCL-SDA**. Read the labels!
-If the I2C address is **0x3D** (rare), change `0x3C` to `0x3D` in `display.cpp`.
-
 ### Passive buzzer
 | Buzzer pin | ESP32 |
 |---|---|
@@ -87,21 +76,20 @@ Do not connect any other power source at the same time.
 
 ## 3.4 Assembly steps (recommended order)
 
-1. **ESP32 + OLED** first. Upload the firmware and check that the face appears.
-2. Add the **buzzer** and check that the "hello" melody plays at start-up.
+1. **ESP32 + buzzer** first. Upload the firmware and check that the "hello" melody plays at start-up.
+2. Open the Serial Monitor (115200 baud) to see the messages.
 3. Add the **BH1750 and DHT22** and check the readings in the Serial Monitor (115200 baud).
 4. Add the **soil sensor** and calibrate it ([08](08-testing-calibration.md)).
-5. Add the **button**: a short press changes the screen, a long press plays the current mood's melody.
+5. Add the **button**: a press plays the current mood's melody.
 6. **Final version:** solder onto a small perfboard (or use a mini breadboard) and put it in a box fixed to the pot:
-   OLED behind a window at the front, holes for the buzzer, a hole for the USB cable, and the soil sensor cable going
+   holes for the buzzer, a hole for the USB cable, and the soil sensor cable going
    into the pot. The DHT22 and BH1750 stay outside the box.
 
 ## 3.5 Typical problems
 
 | Problem | Cause / solution |
 |---|---|
-| OLED stays black | SDA/SCL swapped, VCC/GND swapped, or address 0x3D |
-| BH1750 not found | Check SDA/SCL. Run the "I2C scanner" example sketch: you should see 0x23 and 0x3C |
+| BH1750 not found | Check SDA/SCL. Run the "I2C scanner" example sketch: you should see 0x23 |
 | DHT22 reads `nan` | Wrong pin, or missing pull-up on a bare sensor |
 | Soil % always 0 or 100 | Not calibrated (see [08](08-testing-calibration.md)) |
 | No sound | Active buzzer instead of passive, wrong pin, or (+)/(−) reversed |

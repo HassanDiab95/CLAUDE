@@ -26,7 +26,6 @@ Full list with explanations and prices: [02-hardware-bom.md](02-hardware-bom.md)
 * Capacitive soil moisture sensor v1.2
 * DHT22 (temperature + humidity) module
 * BH1750 (GY-302) light sensor module
-* 0.96" OLED SSD1306 I2C (4 pins)
 * Passive buzzer (module or bare) + 100 Ω resistor
 * Push button
 * Breadboard + jumper wires (male-male and female-male)
@@ -48,7 +47,6 @@ On a Windows / macOS / Linux computer:
    `https://espressif.github.io/arduino-esp32/package_esp32_index.json`, then
    **Tools → Board → Boards Manager** → search **esp32** → install **"esp32 by Espressif Systems"** (3.x).
 4. **Tools → Manage Libraries** → install:
-   * **Adafruit SSD1306** (click "Install all" for its dependencies)
    * **DHT sensor library** by Adafruit (click "Install all")
    * **BH1750** by Christopher Laws
    * **ArduinoJson** by Benoit Blanchon (version 7)
@@ -88,7 +86,6 @@ Detailed with screenshots-style instructions: [04-firebase-setup.md](04-firebase
 | Soil sensor | VCC → 3V3 · GND → GND · AOUT → **GPIO34** |
 | DHT22 | + → 3V3 · − → GND · OUT → **GPIO4** |
 | BH1750 | VCC → 3V3 · GND → GND · SDA → **GPIO21** · SCL → **GPIO22** · ADDR → GND |
-| OLED | VCC → 3V3 · GND → GND · SDA → **GPIO21** · SCL → **GPIO22** |
 | Buzzer | (+) → **100 Ω** → **GPIO25** · (−) → GND |
 | Button | one leg → **GPIO13** · other leg → GND |
 
@@ -116,7 +113,7 @@ modules' VCC/GND to these rows.
 5. Open **Tools → Serial Monitor** at **115200 baud**.
 
 ✅ **Check:**
-* You hear the "hello" melody, the OLED shows "Rayy / Starting…" and then the emoji face.
+* You hear the "hello" melody.
 * The Serial Monitor shows `[cloud] signed in to Firebase` and a line of readings every 2 seconds.
 * In the Firebase console → Realtime Database, `plants/plant01/live` appears and updates every 30 s.
 
@@ -151,7 +148,7 @@ modules' VCC/GND to these rows.
    ```
    Your dashboard is now at `https://<project-id>.web.app`.
 
-✅ **Check:** the website shows the same emoji as the OLED, and the badge says "Online".
+✅ **Check:** the website shows the plant's emoji (e.g. 😫 when the soil sensor is in dry air), and the badge says "Online".
 
 ---
 
@@ -183,7 +180,7 @@ Use the test table in [08-testing-calibration.md](08-testing-calibration.md). Th
 ## Step 10: Final assembly, report and presentation
 
 1. Move the circuit from the breadboard to a small **perfboard** (solder) or keep a mini breadboard inside a box.
-2. Put it in a small **box** with a window for the OLED and a hole for the buzzer and the USB cable. Fix the box to
+2. Put it in a small **box** with holes for the buzzer and the USB cable. Fix the box to
    the pot. Keep the DHT22 and BH1750 **outside** the box.
 3. Power it with the **power bank** (it lasts about 2–3 days with 10,000 mAh; recharge it like a phone) or with a
    USB phone charger permanently.

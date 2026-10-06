@@ -14,7 +14,6 @@ esp32 core 3.0.7 (≈ 84 % flash, 14 % RAM, no warnings).
 
 | Library (search name) | Author |
 |---|---|
-| Adafruit SSD1306 | Adafruit (accept "install all": Adafruit GFX, Adafruit BusIO) |
 | DHT sensor library | Adafruit (accept "install all": Adafruit Unified Sensor) |
 | BH1750 | Christopher Laws |
 | ArduinoJson | Benoit Blanchon (version **7.x**) |
@@ -54,7 +53,7 @@ starts by itself.
 | `pins.h` | Pin map |
 | `mood.h / mood.cpp` | The plant "brain": readings → mood, and which melody to play (pure C++, unit-tested) |
 | `sensors.h / .cpp` | Soil (ADC + calibration), DHT22, BH1750 |
-| `display.h / .cpp` | OLED: 7 animated emoji faces, status bar (moisture, temp, humidity, mute, Wi-Fi), data screen |
+| `status.h` | The current plant state (readings, mood, Wi-Fi/cloud, mute) shared with the cloud upload |
 | `sound.h / .cpp` | Buzzer: 9 melodies played **in the background** (non-blocking), so the face keeps moving |
 | `cloud.h / .cpp` | Wi-Fi reconnect, NTP clock (Riyadh time), Firebase login (REST), upload live/history/events, read config/command |
 
@@ -62,7 +61,7 @@ starts by itself.
 
 ```mermaid
 flowchart TD
-  A[Power on] --> B[Init OLED, sensors, buzzer]
+  A[Power on] --> B[Init sensors, buzzer]
   B --> C[Play 'hello' melody]
   C --> D[Connect Wi-Fi + NTP clock + Firebase login]
   D --> L[loop]
@@ -75,7 +74,7 @@ flowchart TD
   S -- no --> U
   U -- yes --> F[Download config + command<br/>Upload live, event, history every 5 min]
   U -- no --> O
-  F --> O[Draw face / data screen 5 fps<br/>update melody, handle button]
+  F --> O[Update melody<br/>handle button]
   O --> L
 ```
 
@@ -112,26 +111,17 @@ This makes the code small and easy to explain:
 3. **Add history / event:** `POST …/history.json` creates a new child with a unique, time-ordered key.
 4. **Read settings:** `GET …/config.json`. **Read a command:** `GET …/command.json`, then `DELETE` it.
 
-## 5.7 The emoji faces
+## 5.7 The emoji faces (in the apps, not on the plant)
 
-The faces are **drawn with code** (circles, arcs, lines), so no image files are needed. They are animated at 5 frames/s.
-The screen switches between the **face** and the **data screen** every 6 s (or with a short button press).
-
-| Mood | Drawing |
-|---|---|
-| 😊 Happy | Round eyes with shine, smile, cheeks, small leaf, blinking |
-| 😫 Thirsty | Sad eyebrows, open mouth with tongue, falling water drop, "WATER!" |
-| 🥴 Too wet | X eyes, wavy mouth, drops, "Too wet" |
-| 🥵 Hot | Squinting eyes, panting mouth, sweat drop, sun |
-| 🥶 Cold | Shaking eyes, chattering zig-zag teeth, snowflake |
-| 😞 Needs light | Sad eyes, frown, light bulb, "Light?" |
-| 😴 Sleeping | Closed eyes, small "o" mouth, rising "z Z" |
+The project has **no screen**. The ESP32 sends the mood name (`happy`, `thirsty`, …) to Firebase and the **web dashboard**
+and **Android app** show the matching emoji: 😊 happy · 😫 thirsty · 🥴 too wet · 🥵 hot · 🥶 cold · 😞 needs light · 😴 sleeping.
+On the plant itself, the mood is expressed by the **melody** of the buzzer. A press on the push button plays the current mood's melody.
 
 ## 5.8 Changing behaviour
 
 * **Thresholds, quiet hours, mute:** from the web app (no re-upload needed). The ESP32 reads them every 30 s.
 * **Intervals, soil calibration:** `config.h`.
-* **Add a new mood:** add it to `enum Mood`, `evaluateMood()`, `moodName()`, a face in `displayFace()`, a melody in
+* **Add a new mood:** add it to `enum Mood`, `evaluateMood()`, `moodName()`, a melody in
   `sound.cpp`, and the texts in the apps.
 
 ## 5.9 Unit tests of the mood logic (on a PC)
