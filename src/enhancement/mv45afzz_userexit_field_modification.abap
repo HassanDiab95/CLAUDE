@@ -11,8 +11,9 @@
 *&       / AUART_CON (= VBAK-AUART of the referenced contract)
 *&       (a field without lines is not restricted)
 *&   => close Material / Quantity / Net value fields for input
-*& VA02 (TSD 5): while a change approval is pending, the header delivery
-*&   block VBAK-LIFSK cannot be changed manually.
+*& VA02: while the order is in the approval cycle (workflow log status P)
+*&   the whole order is closed for change (all fields display-only,
+*&   delivery block included).
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_con_field_lock.
 
@@ -28,7 +29,7 @@ ENHANCEMENT 1 zsd_so_con_field_lock.
   ENDIF.
 
   IF t180-trtyp = 'V'                                         " change (VA02)
-     AND screen-name = 'VBAK-LIFSK'
+     AND screen-input = '1'
      AND zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true.
     screen-input = '0'.
     MODIFY SCREEN.

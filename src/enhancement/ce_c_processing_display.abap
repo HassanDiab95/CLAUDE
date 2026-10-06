@@ -9,8 +9,8 @@
 *& Sets DISPLAY = 'X' when the configuration is called from a sales order
 *& in VA01 (create) with reference to a contract that matches the VA01
 *& filter. The characteristic value assignment then opens display-only,
-*& as in VA03. Any other caller (other transactions, other orders) is
-*& not affected.
+*& as in VA03. Same in VA02 while the order is in the approval cycle.
+*& Any other caller (other transactions, other orders) is not affected.
 *&
 *& The order data is read from SAPMV45A with a dynamic ASSIGN, because
 *& the function module has no access to the sales order globals.
@@ -26,13 +26,15 @@ ENHANCEMENT 1 zsd_so_con_config_display.
   ASSIGN ('(SAPMV45A)VBAK')        TO <ls_zz_vbak>.
   ASSIGN ('(SAPMV45A)T180-TRTYP')  TO <lv_zz_trtyp>.
 
-  IF  <ls_zz_vbak>  IS ASSIGNED
-  AND <lv_zz_trtyp> IS ASSIGNED
-  AND <lv_zz_trtyp> = 'H'                                     " create (VA01)
-  AND zcl_sd_so_contract_ctrl=>is_relevant(
-        is_vbak    = <ls_zz_vbak>
-        iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true.
-    display = 'X'.                                            " as VA03
+  IF <ls_zz_vbak> IS ASSIGNED AND <lv_zz_trtyp> IS ASSIGNED.
+    IF ( <lv_zz_trtyp> = 'H'                                  " create (VA01)
+         AND zcl_sd_so_contract_ctrl=>is_relevant(
+               is_vbak    = <ls_zz_vbak>
+               iv_process = zcl_sd_so_contract_ctrl=>gc_process-create ) = abap_true )
+    OR ( <lv_zz_trtyp> = 'V'                                  " change (VA02)
+         AND zcl_sd_so_chg_monitor=>is_approval_pending( <ls_zz_vbak>-vbeln ) = abap_true ).
+      display = 'X'.                                          " as VA03
+    ENDIF.
   ENDIF.
 
 ENDENHANCEMENT.

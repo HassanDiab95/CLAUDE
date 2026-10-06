@@ -1,7 +1,29 @@
-"! <p>SD: Workflow object for the VA02 change approval (TSD CH4323, ch. 6).</p>
-"! Key = sales order number. Raised event CHANGE_APPROVAL_REQUIRED starts
-"! workflow ZSD_SO_CHG_APPR. All background steps of the workflow call the
-"! methods of this class.
+*&---------------------------------------------------------------------*
+*& Class          : ZCL_SD_SO_CHG_WF
+*& Workflow       : ZSD_SO_CHG_APPR (WS9xxxxxxx)
+*& Package        : ZSD
+*&---------------------------------------------------------------------*
+*& Technical Consultant  : Hassan Diab
+*& Functional Consultant : <Functional consultant>
+*&---------------------------------------------------------------------*
+*& Purpose        : Workflow object (IF_WORKFLOW) of the sales order
+*&                  change approval (CH4323). Key = sales order.
+*&                  Event CHANGE_APPROVAL_REQUIRED (parameter LOG_ID)
+*&                  starts the workflow; every background step calls one
+*&                  method of this class.
+*& Note           : No COMMIT WORK here; the workflow step commits.
+*&---------------------------------------------------------------------*
+*& Created By     : Hassan Diab
+*& Created On     : 06.10.2026
+*& Request No.    : <Request>
+*& Version        : 1.0
+*&---------------------------------------------------------------------*
+*& Change History
+*&---------------------------------------------------------------------*
+*& Ver | Date       | Author        | Request No.  | Description
+*&-----|------------|---------------|--------------|--------------------
+*& 1.0 | 06.10.2026 | Hassan Diab   | <Request>    | Initial Creation
+*&---------------------------------------------------------------------*
 CLASS zcl_sd_so_chg_wf DEFINITION
   PUBLIC
   FINAL
@@ -10,72 +32,50 @@ CLASS zcl_sd_so_chg_wf DEFINITION
   PUBLIC SECTION.
     INTERFACES if_workflow.
 
-    EVENTS change_approval_required.
+    EVENTS change_approval_required
+      EXPORTING VALUE(log_id) TYPE sysuuid_c32.
 
-    TYPES tt_level TYPE STANDARD TABLE OF ze_sd_appr_level WITH EMPTY KEY.
-
-    DATA vbeln       TYPE vbak-vbeln          READ-ONLY.
-    DATA counter     TYPE ze_sd_appr_counter  READ-ONLY.   " current approval request
-    DATA change_text TYPE ze_sd_appr_chg_text READ-ONLY.   " used in work item text
-    DATA requester   TYPE xubname             READ-ONLY.   " user who changed the order
+    DATA vbeln TYPE vbak-vbeln READ-ONLY.
 
     METHODS constructor
       IMPORTING iv_vbeln TYPE vbak-vbeln.
 
-    "! Step 1: cancel older running approval workflows of this order
-    METHODS cancel_previous_workflows.
+    "! Step 1: store the workflow ID, log START, return the number of levels.
+    "! No level maintained -> run ends with status E, order stays blocked.
+    METHODS start
+      IMPORTING iv_log_id TYPE sysuuid_c32
+                iv_wf_id  TYPE sww_wiid OPTIONAL
+      EXPORTING ev_levels TYPE i.
 
-    "! Step 2: approval levels of the order (ZSD_SO_APPR_CFG)
-    METHODS get_levels
-      EXPORTING et_levels TYPE tt_level
-                ev_count  TYPE i.
-
-    "! Loop step: approvers (agents) of the level at position IV_INDEX
-    METHODS get_level_agents
-      IMPORTING it_levels TYPE tt_level
+    "! Loop step: level at position IV_INDEX -> pending, e-mail to the
+    "! approver, agent for the decision step
+    METHODS prepare_level
+      IMPORTING iv_log_id TYPE sysuuid_c32
                 iv_index  TYPE i
-      EXPORTING ev_level  TYPE ze_sd_appr_level
+      EXPORTING ev_level  TYPE zsd_so_level
                 et_agents TYPE tswhactor.
 
-    "! Loop step: e-mail to the approvers of the level (Outlook)
-    METHODS send_approval_email
-      IMPORTING iv_level  TYPE ze_sd_appr_level
-                it_agents TYPE tswhactor.
+    "! After the user decision: level approved / rejected
+    METHODS decide
+      IMPORTING iv_log_id     TYPE sysuuid_c32
+                iv_level      TYPE zsd_so_level
+                iv_approved   TYPE abap_bool
+                iv_decided_by TYPE xubname OPTIONAL.
 
-    "! All levels approved: remove delivery block, log, inform requester
-    METHODS set_approved
-      IMPORTING iv_decided_by TYPE xubname
-                iv_level      TYPE ze_sd_appr_level
+    "! All levels approved: remove delivery block, close run, mail requester
+    METHODS finish_approved
+      IMPORTING iv_log_id TYPE sysuuid_c32
       RAISING   cx_bo_temporary.
 
-    "! Rejected: keep delivery block, log, inform requester
-    METHODS set_rejected
-      IMPORTING iv_decided_by TYPE xubname
-                iv_level      TYPE ze_sd_appr_level.
-
-    "! No approver maintained: keep delivery block, log, inform requester
-    METHODS set_no_approver.
+    "! Rejected: order stays blocked, close run, mail requester
+    METHODS finish_rejected
+      IMPORTING iv_log_id TYPE sysuuid_c32.
 
   PRIVATE SECTION.
     DATA ms_lpor TYPE sibflpor.
 
-    METHODS update_log
-      IMPORTING iv_status     TYPE ze_sd_appr_status
-                iv_decided_by TYPE xubname OPTIONAL
-                iv_level      TYPE ze_sd_appr_level OPTIONAL.
-
-    METHODS notify_requester
-      IMPORTING iv_subject TYPE so_obj_des
-                iv_text    TYPE string.
-
-    METHODS get_email
-      IMPORTING iv_user         TYPE xubname
-      RETURNING VALUE(rv_email) TYPE ad_smtpadr.
-
-    METHODS send_email
-      IMPORTING iv_email   TYPE ad_smtpadr
-                iv_subject TYPE so_obj_des
-                it_body    TYPE soli_tab.
+    METHODS find_running_workflow
+      RETURNING VALUE(rv_wf_id) TYPE sww_wiid.
 ENDCLASS.
 
 
@@ -86,15 +86,6 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
     ms_lpor = VALUE #( instid = iv_vbeln
                        typeid = zcl_sd_so_chg_monitor=>gc_wf_objtype
                        catid  = 'CL' ).
-
-*   Latest approval request of the order
-    SELECT counter, change_text, chg_user
-      FROM zsd_so_appr_log
-      WHERE vbeln = @iv_vbeln
-      ORDER BY counter DESCENDING
-      INTO (@counter, @change_text, @requester)
-      UP TO 1 ROWS.
-    ENDSELECT.
   ENDMETHOD.
 
 
@@ -128,133 +119,98 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD cancel_previous_workflows.
-    DATA lt_worklist TYPE STANDARD TABLE OF swr_wihdr.
-    DATA lv_rc       TYPE sysubrc.
+  METHOD start.
+    CLEAR ev_levels.
 
-    CALL FUNCTION 'SAP_WAPI_WORKITEMS_TO_OBJECT'
-      EXPORTING
-        object_por      = ms_lpor
-        top_level_items = abap_true
-      TABLES
-        worklist        = lt_worklist.
-
-*   Running workflows of this order; the newest one is the current workflow
-    DELETE lt_worklist WHERE wi_type <> 'F'
-                          OR wi_stat = 'COMPLETED'
-                          OR wi_stat = 'CANCELLED'.
-    SORT lt_worklist BY wi_id DESCENDING.
-    DELETE lt_worklist INDEX 1.
-
-    LOOP AT lt_worklist INTO DATA(ls_wi).
-      CALL FUNCTION 'SAP_WAPI_ADM_WORKFLOW_CANCEL'
-        EXPORTING
-          workitem_id = ls_wi-wi_id
-        IMPORTING
-          return_code = lv_rc.
-    ENDLOOP.
-  ENDMETHOD.
-
-
-  METHOD get_levels.
-    CLEAR: et_levels, ev_count.
-
-    SELECT SINGLE vkorg, auart FROM vbak
-      WHERE vbeln = @vbeln
-      INTO @DATA(ls_vbak).
-    IF sy-subrc <> 0.
-      RETURN.
+    DATA(lv_wf_id) = iv_wf_id.
+    IF lv_wf_id IS INITIAL.
+      lv_wf_id = find_running_workflow( ).
     ENDIF.
+    zcl_sd_so_chg_log=>set_wf_id( iv_log_id = iv_log_id iv_wf_id = lv_wf_id ).
 
-    SELECT DISTINCT appr_lvl FROM zsd_so_appr_cfg
-      WHERE vkorg  = @ls_vbak-vkorg
-        AND auart  = @ls_vbak-auart
-        AND active = @abap_true
-      ORDER BY appr_lvl
-      INTO TABLE @et_levels.
+    zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                  iv_event  = zcl_sd_so_chg_log=>gc_event-start
+                                  iv_text   = |Workflow { lv_wf_id ALPHA = OUT } started| ).
 
-    ev_count = lines( et_levels ).
+    ev_levels = lines( zcl_sd_so_chg_log=>get_levels( iv_log_id ) ).
+
+    IF ev_levels = 0.
+      zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                    iv_event  = zcl_sd_so_chg_log=>gc_event-error
+                                    iv_text   = 'No approver maintained in ZSD_SO_APPR_CFG - order stays blocked' ).
+      zcl_sd_so_chg_log=>finish( iv_log_id = iv_log_id
+                                 iv_status = zcl_sd_so_chg_log=>gc_status-error ).
+      NEW zcl_sd_so_chg_notify( )->notify_requester( iv_log_id = iv_log_id
+                                                      iv_result = zcl_sd_so_chg_log=>gc_status-error ).
+    ENDIF.
   ENDMETHOD.
 
 
-  METHOD get_level_agents.
+  METHOD prepare_level.
     CLEAR: ev_level, et_agents.
 
-    READ TABLE it_levels INDEX iv_index INTO ev_level.
+    DATA(lt_levels) = zcl_sd_so_chg_log=>get_levels( iv_log_id ).
+    READ TABLE lt_levels INTO DATA(ls_level) INDEX iv_index.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE vkorg, auart FROM vbak
-      WHERE vbeln = @vbeln
-      INTO @DATA(ls_vbak).
+    ev_level  = ls_level-appr_level.
+    et_agents = VALUE #( ( otype = 'US' objid = ls_level-uname ) ).
 
-    SELECT approver FROM zsd_so_appr_cfg
-      WHERE vkorg    = @ls_vbak-vkorg
-        AND auart    = @ls_vbak-auart
-        AND appr_lvl = @ev_level
-        AND active   = @abap_true
-      INTO TABLE @DATA(lt_approvers).
+    zcl_sd_so_chg_log=>set_current_level( iv_log_id = iv_log_id iv_level = ev_level ).
+    zcl_sd_so_chg_log=>set_level_status( iv_log_id = iv_log_id
+                                         iv_level  = ev_level
+                                         iv_status = zcl_sd_so_chg_log=>gc_level-pending ).
+    zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                  iv_event  = zcl_sd_so_chg_log=>gc_event-level
+                                  iv_level  = ev_level
+                                  iv_uname  = ls_level-uname
+                                  iv_text   = ls_level-full_name ).
 
-    et_agents = VALUE #( FOR ls_appr IN lt_approvers
-                         ( otype = 'US' objid = ls_appr-approver ) ).
+*   E-mail (Outlook): work item waiting in Fiori My Inbox
+    NEW zcl_sd_so_chg_notify( )->notify_approver( iv_log_id = iv_log_id
+                                                   iv_level  = ev_level ).
+
+    zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                  iv_event  = zcl_sd_so_chg_log=>gc_event-inbox
+                                  iv_level  = ev_level
+                                  iv_uname  = ls_level-uname ).
   ENDMETHOD.
 
 
-  METHOD send_approval_email.
-    SELECT SINGLE low FROM tvarvc
-      WHERE name = 'ZSD_SO_APPR_INBOX_URL'
-        AND type = 'P'
-      INTO @DATA(lv_url).
+  METHOD decide.
+    DATA(lv_status) = COND zsd_so_wf_status( WHEN iv_approved = abap_true
+                                             THEN zcl_sd_so_chg_log=>gc_level-approved
+                                             ELSE zcl_sd_so_chg_log=>gc_level-rejected ).
+    DATA(lv_event)  = COND zsd_so_wf_event( WHEN iv_approved = abap_true
+                                            THEN zcl_sd_so_chg_log=>gc_event-approve
+                                            ELSE zcl_sd_so_chg_log=>gc_event-reject ).
 
-    SELECT SINGLE vkorg, auart FROM vbak
-      WHERE vbeln = @vbeln
-      INTO @DATA(ls_vbak).
-
-    DATA(lv_subject) = CONV so_obj_des( |Approval required: Sales Order { vbeln ALPHA = OUT }| ).
-
-    DATA(lt_body) = VALUE soli_tab(
-      ( line = |<p>Dear approver,</p>| )
-      ( line = |<p>Sales order <b>{ vbeln ALPHA = OUT }</b> was changed by { requester }| )
-      ( line = | and needs your approval (level { iv_level }).</p>| )
-      ( line = |<p>Changes:</p><p>| )
-      ( line = change_text )
-      ( line = |</p><p>The order has delivery block { zcl_sd_so_chg_monitor=>gc_block } until it is approved.</p>| )
-      ( line = |<p>Please approve or reject the work item in your Fiori inbox:</p>| )
-      ( line = |<p><a href="{ lv_url }">My Inbox</a></p>| ) ).
-
-    LOOP AT it_agents INTO DATA(ls_agent).
-*     E-mail from the approver table, otherwise from the user master (SU01)
-      SELECT SINGLE email FROM zsd_so_appr_cfg
-        WHERE vkorg    = @ls_vbak-vkorg
-          AND auart    = @ls_vbak-auart
-          AND appr_lvl = @iv_level
-          AND approver = @ls_agent-objid
-        INTO @DATA(lv_email).
-      IF lv_email IS INITIAL.
-        lv_email = get_email( CONV #( ls_agent-objid ) ).
-      ENDIF.
-      IF lv_email IS NOT INITIAL.
-        send_email( iv_email = lv_email iv_subject = lv_subject it_body = lt_body ).
-      ENDIF.
-      CLEAR lv_email.
-    ENDLOOP.
+    zcl_sd_so_chg_log=>set_level_status( iv_log_id = iv_log_id
+                                         iv_level  = iv_level
+                                         iv_status = lv_status
+                                         iv_uname  = iv_decided_by ).
+    zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                  iv_event  = lv_event
+                                  iv_level  = iv_level
+                                  iv_uname  = iv_decided_by ).
   ENDMETHOD.
 
 
-  METHOD set_approved.
+  METHOD finish_approved.
     DATA ls_header_in  TYPE bapisdh1.
     DATA ls_header_inx TYPE bapisdh1x.
     DATA lt_return     TYPE STANDARD TABLE OF bapiret2.
 
-*   Status first: the save of the BAPI below must not see a pending approval
-    update_log( iv_status = zcl_sd_so_chg_monitor=>gc_status-approved
-                iv_decided_by = iv_decided_by
-                iv_level      = iv_level ).
+*   Close the run first: the order save of the BAPI below must not see a
+*   running approval (otherwise the block would be set again)
+    zcl_sd_so_chg_log=>finish( iv_log_id = iv_log_id
+                               iv_status = zcl_sd_so_chg_log=>gc_status-approved ).
 
-    ls_header_in-dlv_block    = space.
-    ls_header_inx-updateflag  = 'U'.
-    ls_header_inx-dlv_block   = abap_true.
+    ls_header_in-dlv_block   = space.
+    ls_header_inx-updateflag = 'U'.
+    ls_header_inx-dlv_block  = abap_true.
 
     CALL FUNCTION 'BAPI_SALESORDER_CHANGE'
       EXPORTING
@@ -264,96 +220,58 @@ CLASS zcl_sd_so_chg_wf IMPLEMENTATION.
       TABLES
         return           = lt_return.
 
-    IF line_exists( lt_return[ type = 'E' ] ) OR line_exists( lt_return[ type = 'A' ] ).
-*     e.g. order locked by a user: temporary error, the workflow retries
+    LOOP AT lt_return INTO DATA(ls_return) WHERE type CA 'EA'.
+      EXIT.
+    ENDLOOP.
+    IF sy-subrc = 0.
+*     e.g. order locked: undo, log, temporary error -> workflow retries
       CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+      zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                    iv_event  = zcl_sd_so_chg_log=>gc_event-rel_err
+                                    iv_text   = ls_return-message ).
       RAISE EXCEPTION TYPE cx_bo_temporary.
     ENDIF.
-*   COMMIT WORK is done by the workflow runtime after the background step
 
-    notify_requester(
-      iv_subject = CONV #( |Sales Order { vbeln ALPHA = OUT } approved| )
-      iv_text    = |Your change of sales order { vbeln ALPHA = OUT } was approved by { iv_decided_by }. | &&
-                   |Delivery block { zcl_sd_so_chg_monitor=>gc_block } was removed.| ).
+    zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                  iv_event  = zcl_sd_so_chg_log=>gc_event-release
+                                  iv_text   = |Delivery block { zcl_sd_so_chg_monitor=>gc_block } removed| ).
+
+    NEW zcl_sd_so_chg_notify( )->notify_requester( iv_log_id = iv_log_id
+                                                    iv_result = zcl_sd_so_chg_log=>gc_status-approved ).
   ENDMETHOD.
 
 
-  METHOD set_rejected.
-    update_log( iv_status     = zcl_sd_so_chg_monitor=>gc_status-rejected
-                iv_decided_by = iv_decided_by
-                iv_level      = iv_level ).
+  METHOD finish_rejected.
+    zcl_sd_so_chg_log=>add_event( iv_log_id = iv_log_id
+                                  iv_event  = zcl_sd_so_chg_log=>gc_event-close
+                                  iv_text   = |Delivery block { zcl_sd_so_chg_monitor=>gc_block } remains| ).
+    zcl_sd_so_chg_log=>finish( iv_log_id = iv_log_id
+                               iv_status = zcl_sd_so_chg_log=>gc_status-rejected ).
 
-    notify_requester(
-      iv_subject = CONV #( |Sales Order { vbeln ALPHA = OUT } rejected| )
-      iv_text    = |Your change of sales order { vbeln ALPHA = OUT } was rejected by { iv_decided_by } | &&
-                   |(level { iv_level }). Delivery block { zcl_sd_so_chg_monitor=>gc_block } remains.| ).
+    NEW zcl_sd_so_chg_notify( )->notify_requester( iv_log_id = iv_log_id
+                                                    iv_result = zcl_sd_so_chg_log=>gc_status-rejected ).
   ENDMETHOD.
 
 
-  METHOD set_no_approver.
-    update_log( iv_status = zcl_sd_so_chg_monitor=>gc_status-no_approver ).
+  METHOD find_running_workflow.
+    DATA lt_worklist TYPE STANDARD TABLE OF swr_wihdr.
 
-    notify_requester(
-      iv_subject = CONV #( |Sales Order { vbeln ALPHA = OUT }: no approver| )
-      iv_text    = |No approver is maintained in ZSD_SO_APPR_CFG for sales order { vbeln ALPHA = OUT }. | &&
-                   |Delivery block { zcl_sd_so_chg_monitor=>gc_block } remains.| ).
-  ENDMETHOD.
-
-
-  METHOD update_log.
-    UPDATE zsd_so_appr_log
-      SET status       = @iv_status,
-          decided_by   = @iv_decided_by,
-          decided_date = @sy-datum,
-          decided_time = @sy-uzeit,
-          appr_lvl     = @iv_level
-      WHERE vbeln   = @vbeln
-        AND counter = @counter.
-  ENDMETHOD.
-
-
-  METHOD notify_requester.
-    DATA(lv_email) = get_email( requester ).
-    IF lv_email IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    send_email( iv_email   = lv_email
-                iv_subject = iv_subject
-                it_body    = VALUE #( ( line = |<p>{ iv_text }</p>| ) ) ).
-  ENDMETHOD.
-
-
-  METHOD get_email.
-    DATA ls_address TYPE bapiaddr3.
-    DATA lt_return  TYPE STANDARD TABLE OF bapiret2.
-
-    CALL FUNCTION 'BAPI_USER_GET_DETAIL'
+*   Newest running top-level workflow of this order = the current one
+    CALL FUNCTION 'SAP_WAPI_WORKITEMS_TO_OBJECT'
       EXPORTING
-        username = iv_user
-      IMPORTING
-        address  = ls_address
+        object_por      = ms_lpor
+        top_level_items = abap_true
       TABLES
-        return   = lt_return.
+        worklist        = lt_worklist.
 
-    rv_email = ls_address-e_mail.
-  ENDMETHOD.
-
-
-  METHOD send_email.
-    TRY.
-        DATA(lo_request) = cl_bcs=>create_persistent( ).
-        lo_request->set_document( cl_document_bcs=>create_document(
-                                    i_type    = 'HTM'
-                                    i_text    = it_body
-                                    i_subject = iv_subject ) ).
-        lo_request->add_recipient( cl_cam_address_bcs=>create_internet_address( iv_email ) ).
-        lo_request->set_send_immediately( abap_true ).
-        lo_request->send( ).
-*       Sent with the COMMIT WORK of the workflow runtime (check in SOST)
-      CATCH cx_bcs.
-*       E-mail errors must not stop the approval; visible in SOST / WF log
-    ENDTRY.
+    DELETE lt_worklist WHERE wi_type <> 'F'
+                          OR wi_stat = 'COMPLETED'
+                          OR wi_stat = 'CANCELLED'.
+    SORT lt_worklist BY wi_id DESCENDING.
+    READ TABLE lt_worklist INTO DATA(ls_wi) INDEX 1.
+    IF sy-subrc = 0.
+      rv_wf_id = ls_wi-wi_id.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

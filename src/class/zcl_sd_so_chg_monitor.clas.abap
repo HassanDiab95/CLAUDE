@@ -3,9 +3,10 @@
 "! <ul>
 "! <li>TAKE_SNAPSHOT (USEREXIT_READ_DOCUMENT): values when the order is opened</li>
 "! <li>DETECT_CHANGES (USEREXIT_SAVE_DOCUMENT_PREPARE): compare with the snapshot</li>
-"! <li>START_APPROVAL (USEREXIT_SAVE_DOCUMENT): log entry + workflow event,
-"!     raised in the update task, so the workflow only starts after a
-"!     successful save</li>
+"! <li>START_APPROVAL (USEREXIT_SAVE_DOCUMENT): workflow log (ZCL_SD_SO_CHG_LOG),
+"!     old run closed + old workflow cancelled, workflow event raised in the
+"!     update task, so the workflow only starts after a successful save</li>
+"! <li>IS_APPROVAL_PENDING: order is in the approval cycle -> VA02 locked</li>
 "! </ul>
 "! Monitored: Material, Quantity, Net value, Net price, VC characteristic
 "! values, items added, items deleted.
@@ -17,15 +18,6 @@ CLASS zcl_sd_so_chg_monitor DEFINITION
   PUBLIC SECTION.
     "! Header delivery block for pending approval (TSD: final value to be confirmed)
     CONSTANTS gc_block TYPE vbak-lifsk VALUE 'XX'.
-
-    CONSTANTS:
-      BEGIN OF gc_status,
-        pending     TYPE ze_sd_appr_status VALUE 'P',
-        approved    TYPE ze_sd_appr_status VALUE 'A',
-        rejected    TYPE ze_sd_appr_status VALUE 'R',
-        cancelled   TYPE ze_sd_appr_status VALUE 'C',   " replaced by a newer change
-        no_approver TYPE ze_sd_appr_status VALUE 'E',   " no approver maintained
-      END OF gc_status.
 
     CONSTANTS gc_wf_objtype TYPE sibftypeid VALUE 'ZCL_SD_SO_CHG_WF'.
     CONSTANTS gc_wf_event   TYPE sibfevent  VALUE 'CHANGE_APPROVAL_REQUIRED'.
@@ -48,7 +40,7 @@ CLASS zcl_sd_so_chg_monitor DEFINITION
       RETURNING VALUE(rv_required) TYPE abap_bool.
 
     CLASS-METHODS start_approval
-      IMPORTING iv_vbeln TYPE vbak-vbeln.
+      IMPORTING is_vbak TYPE vbak.
 
     CLASS-METHODS is_approval_pending
       IMPORTING iv_vbeln          TYPE vbak-vbeln
@@ -151,44 +143,75 @@ CLASS zcl_sd_so_chg_monitor IMPLEMENTATION.
 
 
   METHOD start_approval.
-    DATA ls_log TYPE zsd_so_appr_log.
+    DATA ls_header TYPE zsd_so_chg_lh.
+    DATA lo_container TYPE REF TO if_swf_ifs_parameter_container.
 
-    IF gv_required = abap_false OR iv_vbeln IS INITIAL.
+    IF gv_required = abap_false OR is_vbak-vbeln IS INITIAL.
       RETURN.
     ENDIF.
 
-*   A new change replaces an approval that is still pending
-    UPDATE zsd_so_appr_log SET status = @gc_status-cancelled
-      WHERE vbeln  = @iv_vbeln
-        AND status = @gc_status-pending.
+    ls_header-vbeln       = is_vbak-vbeln.
+    ls_header-contract    = is_vbak-vgbel.
+    ls_header-auart       = is_vbak-auart.
+    ls_header-vkorg       = is_vbak-vkorg.
+    ls_header-vtweg       = is_vbak-vtweg.
+    ls_header-spart       = is_vbak-spart.
+    ls_header-kunnr       = is_vbak-kunnr.
+    ls_header-netwr       = is_vbak-netwr.
+    ls_header-waerk       = is_vbak-waerk.
+    ls_header-change_text = concat_lines_of( table = gt_changes sep = `; ` ).
+    ls_header-trigger_evt = gc_wf_event.
+    ls_header-trigger_by  = sy-uname.
+    ls_header-trigger_on  = sy-datum.
+    ls_header-trigger_at  = sy-uzeit.
+    SELECT SINGLE name1 FROM kna1 WHERE kunnr = @is_vbak-kunnr INTO @ls_header-cust_name.
 
-    SELECT MAX( counter ) FROM zsd_so_appr_log
-      WHERE vbeln = @iv_vbeln
-      INTO @DATA(lv_counter).
+*   New run: header + one level row per approver of ZSD_SO_APPR_CFG
+    DATA(lv_log_id) = zcl_sd_so_chg_log=>create_log(
+                        is_header   = ls_header
+                        it_approver = zcl_sd_so_chg_log=>get_approvers( iv_vkorg = is_vbak-vkorg
+                                                                        iv_auart = is_vbak-auart ) ).
+    IF lv_log_id IS INITIAL.
+      RETURN.
+    ENDIF.
 
-    ls_log-vbeln       = iv_vbeln.
-    ls_log-counter     = lv_counter + 1.
-    ls_log-status      = gc_status-pending.
-    ls_log-chg_user    = sy-uname.
-    ls_log-chg_date    = sy-datum.
-    ls_log-chg_time    = sy-uzeit.
-    ls_log-change_text = concat_lines_of( table = gt_changes sep = `; ` ).
-    INSERT zsd_so_appr_log FROM @ls_log.
+*   One CHANGE event per changed field (shown in the e-mail and the log report)
+    LOOP AT gt_changes INTO DATA(lv_change).
+      zcl_sd_so_chg_log=>add_event( iv_log_id = lv_log_id
+                                    iv_event  = zcl_sd_so_chg_log=>gc_event-change
+                                    iv_uname  = sy-uname
+                                    iv_text   = lv_change ).
+    ENDLOOP.
 
-*   Workflow event: raised in the update task = only after successful save.
-*   One event per save, even if several fields changed.
+*   Older run still in process (change by BAPI / IDoc while VA02 is locked):
+*   close it and cancel (kill) its workflow
+    zcl_sd_so_chg_log=>close_previous( iv_vbeln      = is_vbak-vbeln
+                                       iv_new_log_id = lv_log_id
+                                       iv_user       = sy-uname ).
+
+*   Workflow event with LOG_ID, raised in the update task = only after a
+*   successful save. One event per save, however many fields changed.
     TRY.
+        lo_container = cl_swf_evt_event=>get_event_container(
+                         im_objcateg = cl_swf_evt_event=>mc_objcateg_cl
+                         im_objtype  = gc_wf_objtype
+                         im_event    = gc_wf_event ).
+        lo_container->set( name = 'LOG_ID' value = lv_log_id ).
+
         cl_swf_evt_event=>raise_in_update_task(
-          im_objcateg = cl_swf_evt_event=>mc_objcateg_cl
-          im_objtype  = gc_wf_objtype
-          im_event    = gc_wf_event
-          im_objkey   = CONV #( iv_vbeln ) ).
-      CATCH cx_swf_evt_invalid_objtype cx_swf_evt_invalid_event.
-*       Block and pending log stay; the WF administrator restarts (SWUE)
+          im_objcateg        = cl_swf_evt_event=>mc_objcateg_cl
+          im_objtype         = gc_wf_objtype
+          im_event           = gc_wf_event
+          im_objkey          = CONV #( is_vbak-vbeln )
+          im_event_container = lo_container ).
+      CATCH cx_root INTO DATA(lx_event).
+        zcl_sd_so_chg_log=>add_event( iv_log_id = lv_log_id
+                                      iv_event  = zcl_sd_so_chg_log=>gc_event-error
+                                      iv_text   = lx_event->get_text( ) ).
     ENDTRY.
 
     CLEAR: gt_changes, gv_required.
-    gv_pending_vbeln = iv_vbeln.
+    gv_pending_vbeln = is_vbak-vbeln.
     gv_pending       = abap_true.
   ENDMETHOD.
 
@@ -200,13 +223,7 @@ CLASS zcl_sd_so_chg_monitor IMPLEMENTATION.
 
     IF iv_vbeln <> gv_pending_vbeln.
       gv_pending_vbeln = iv_vbeln.
-      SELECT SINGLE @abap_true FROM zsd_so_appr_log
-        WHERE vbeln  = @iv_vbeln
-          AND status = @gc_status-pending
-        INTO @gv_pending.
-      IF sy-subrc <> 0.
-        gv_pending = abap_false.
-      ENDIF.
+      gv_pending       = zcl_sd_so_chg_log=>is_running( iv_vbeln ).
     ENDIF.
 
     rv_pending = gv_pending.

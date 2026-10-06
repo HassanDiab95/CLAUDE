@@ -1,0 +1,748 @@
+*&---------------------------------------------------------------------*
+*& Class          : ZCL_SD_SO_CHG_LOG
+*& Workflow       : ZSD_SO_CHG_APPR (WS9xxxxxxx)
+*& Package        : ZSD
+*&---------------------------------------------------------------------*
+*& Technical Consultant  : Hassan Diab
+*& Functional Consultant : <Functional consultant>
+*&---------------------------------------------------------------------*
+*& Purpose        : Log of every run of the sales order change approval
+*&                  workflow (CH4323): header ZSD_SO_CHG_LH, levels
+*&                  ZSD_SO_CHG_LL, events ZSD_SO_CHG_LE. Approver
+*&                  determination from ZSD_SO_APPR_CFG.
+*& Note           : No COMMIT WORK here; the caller (sales order save or
+*&                  workflow step) commits.
+*&---------------------------------------------------------------------*
+*& Created By     : Hassan Diab
+*& Created On     : 06.10.2026
+*& Request No.    : <Request>
+*& Version        : 1.0
+*&---------------------------------------------------------------------*
+*& Change History
+*&---------------------------------------------------------------------*
+*& Ver | Date       | Author        | Request No.  | Description
+*&-----|------------|---------------|--------------|--------------------
+*& 1.0 | 06.10.2026 | Hassan Diab   | <Request>    | Initial Creation
+*&---------------------------------------------------------------------*
+CLASS ZCL_SD_SO_CHG_LOG DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    TYPES:
+      TT_LEVELS TYPE STANDARD TABLE OF ZSD_SO_CHG_LL WITH DEFAULT KEY .
+    TYPES:
+      TT_EVENTS TYPE STANDARD TABLE OF ZSD_SO_CHG_LE WITH DEFAULT KEY .
+    TYPES:
+      BEGIN OF TY_APPROVER,
+        APPR_LEVEL TYPE ZSD_SO_LEVEL,
+        UNAME      TYPE XUBNAME,
+        FULL_NAME  TYPE AD_NAMTEXT,
+        EMAIL      TYPE AD_SMTPADR,
+        EMAIL_SRC  TYPE CHAR1,
+      END OF TY_APPROVER .
+    TYPES:
+      TT_APPROVER TYPE STANDARD TABLE OF TY_APPROVER WITH DEFAULT KEY .
+
+    "--- header status ---------------------------------------------------
+    CONSTANTS:
+      BEGIN OF GC_STATUS,
+        IN_PROCESS TYPE ZSD_SO_WF_STATUS VALUE 'P',         "#EC NOTEXT
+        APPROVED   TYPE ZSD_SO_WF_STATUS VALUE 'A',         "#EC NOTEXT
+        REJECTED   TYPE ZSD_SO_WF_STATUS VALUE 'R',         "#EC NOTEXT
+        CANCELLED  TYPE ZSD_SO_WF_STATUS VALUE 'X',         "#EC NOTEXT
+        ERROR      TYPE ZSD_SO_WF_STATUS VALUE 'E',         "#EC NOTEXT
+        REPLACED   TYPE ZSD_SO_WF_STATUS VALUE 'F',         "#EC NOTEXT
+      END OF GC_STATUS .
+
+    "--- level status ----------------------------------------------------
+    CONSTANTS:
+      BEGIN OF GC_LEVEL,
+        WAITING     TYPE ZSD_SO_WF_STATUS VALUE 'W',        "#EC NOTEXT
+        PENDING     TYPE ZSD_SO_WF_STATUS VALUE 'P',        "#EC NOTEXT
+        APPROVED    TYPE ZSD_SO_WF_STATUS VALUE 'A',        "#EC NOTEXT
+        REJECTED    TYPE ZSD_SO_WF_STATUS VALUE 'R',        "#EC NOTEXT
+        NOT_REACHED TYPE ZSD_SO_WF_STATUS VALUE 'N',        "#EC NOTEXT
+      END OF GC_LEVEL .
+
+    "--- events ----------------------------------------------------------
+    CONSTANTS:
+      BEGIN OF GC_EVENT,
+        CHANGE   TYPE ZSD_SO_WF_EVENT VALUE 'CHANGE',       "#EC NOTEXT
+        START    TYPE ZSD_SO_WF_EVENT VALUE 'START',        "#EC NOTEXT
+        LEVEL    TYPE ZSD_SO_WF_EVENT VALUE 'LEVEL',        "#EC NOTEXT
+        MAIL     TYPE ZSD_SO_WF_EVENT VALUE 'MAIL',         "#EC NOTEXT
+        MAIL_ERR TYPE ZSD_SO_WF_EVENT VALUE 'MAIL_ERR',     "#EC NOTEXT
+        INBOX    TYPE ZSD_SO_WF_EVENT VALUE 'INBOX',        "#EC NOTEXT
+        APPROVE  TYPE ZSD_SO_WF_EVENT VALUE 'APPROVE',      "#EC NOTEXT
+        REJECT   TYPE ZSD_SO_WF_EVENT VALUE 'REJECT',       "#EC NOTEXT
+        RELEASE  TYPE ZSD_SO_WF_EVENT VALUE 'RELEASE',      "#EC NOTEXT
+        REL_ERR  TYPE ZSD_SO_WF_EVENT VALUE 'REL_ERR',      "#EC NOTEXT
+        CLOSE    TYPE ZSD_SO_WF_EVENT VALUE 'CLOSE',        "#EC NOTEXT
+        INFO     TYPE ZSD_SO_WF_EVENT VALUE 'INFO',         "#EC NOTEXT
+        ERROR    TYPE ZSD_SO_WF_EVENT VALUE 'ERROR',        "#EC NOTEXT
+        REPLACED TYPE ZSD_SO_WF_EVENT VALUE 'REPLACED',     "#EC NOTEXT
+      END OF GC_EVENT .
+
+    "--- e-mail source ---------------------------------------------------
+    CONSTANTS:
+      BEGIN OF GC_EMAIL_SRC,
+        TABLE TYPE CHAR1 VALUE 'T',                         "#EC NOTEXT
+        USER  TYPE CHAR1 VALUE 'U',                         "#EC NOTEXT
+        NONE  TYPE CHAR1 VALUE ' ',                         "#EC NOTEXT
+      END OF GC_EMAIL_SRC .
+
+    CLASS-METHODS GET_APPROVERS
+      IMPORTING
+        !IV_VKORG          TYPE VKORG
+        !IV_AUART          TYPE AUART
+      RETURNING
+        VALUE(RT_APPROVER) TYPE TT_APPROVER .
+
+    CLASS-METHODS GET_USER_DATA
+      IMPORTING
+        !IV_UNAME     TYPE XUBNAME
+      EXPORTING
+        !EV_FULL_NAME TYPE AD_NAMTEXT
+        !EV_EMAIL     TYPE AD_SMTPADR .
+
+    CLASS-METHODS CLOSE_PREVIOUS
+      IMPORTING
+        !IV_VBELN      TYPE VBELN_VA
+        !IV_NEW_LOG_ID TYPE SYSUUID_C32
+        !IV_USER       TYPE XUBNAME OPTIONAL .
+
+    CLASS-METHODS CREATE_LOG
+      IMPORTING
+        !IS_HEADER       TYPE ZSD_SO_CHG_LH
+        !IT_APPROVER     TYPE TT_APPROVER
+      RETURNING
+        VALUE(RV_LOG_ID) TYPE SYSUUID_C32 .
+
+    CLASS-METHODS SET_WF_ID
+      IMPORTING
+        !IV_LOG_ID TYPE SYSUUID_C32
+        !IV_WF_ID  TYPE SWW_WIID .
+
+    CLASS-METHODS ADD_EVENT
+      IMPORTING
+        !IV_LOG_ID TYPE SYSUUID_C32
+        !IV_EVENT  TYPE ZSD_SO_WF_EVENT
+        !IV_LEVEL  TYPE ZSD_SO_LEVEL OPTIONAL
+        !IV_UNAME  TYPE XUBNAME OPTIONAL
+        !IV_TEXT   TYPE CSEQUENCE OPTIONAL .
+
+    CLASS-METHODS SET_LEVEL_STATUS
+      IMPORTING
+        !IV_LOG_ID TYPE SYSUUID_C32
+        !IV_LEVEL  TYPE ZSD_SO_LEVEL
+        !IV_STATUS TYPE ZSD_SO_WF_STATUS
+        !IV_UNAME  TYPE XUBNAME OPTIONAL .
+
+    CLASS-METHODS SET_CURRENT_LEVEL
+      IMPORTING
+        !IV_LOG_ID TYPE SYSUUID_C32
+        !IV_LEVEL  TYPE ZSD_SO_LEVEL .
+
+    CLASS-METHODS FINISH
+      IMPORTING
+        !IV_LOG_ID TYPE SYSUUID_C32
+        !IV_STATUS TYPE ZSD_SO_WF_STATUS .
+
+    CLASS-METHODS IS_RUNNING
+      IMPORTING
+        !IV_VBELN         TYPE VBELN_VA
+      RETURNING
+        VALUE(RV_RUNNING) TYPE ABAP_BOOL .
+
+    CLASS-METHODS GET_HEADER
+      IMPORTING
+        !IV_LOG_ID       TYPE SYSUUID_C32
+      RETURNING
+        VALUE(RS_HEADER) TYPE ZSD_SO_CHG_LH .
+
+    CLASS-METHODS GET_LEVELS
+      IMPORTING
+        !IV_LOG_ID       TYPE SYSUUID_C32
+      RETURNING
+        VALUE(RT_LEVELS) TYPE TT_LEVELS .
+
+    CLASS-METHODS GET_LEVEL
+      IMPORTING
+        !IV_LOG_ID      TYPE SYSUUID_C32
+        !IV_LEVEL       TYPE ZSD_SO_LEVEL
+      RETURNING
+        VALUE(RS_LEVEL) TYPE ZSD_SO_CHG_LL .
+
+    CLASS-METHODS GET_EVENTS
+      IMPORTING
+        !IV_LOG_ID       TYPE SYSUUID_C32
+      RETURNING
+        VALUE(RT_EVENTS) TYPE TT_EVENTS .
+
+    "--- icons: resolved by name from table ICON (one place to change) ---
+    CLASS-METHODS GET_STATUS_ICON
+      IMPORTING
+        !IV_STATUS     TYPE ZSD_SO_WF_STATUS
+      RETURNING
+        VALUE(RV_ICON) TYPE ICON_D .
+
+    CLASS-METHODS GET_LEVEL_ICON
+      IMPORTING
+        !IV_STATUS     TYPE ZSD_SO_WF_STATUS
+      RETURNING
+        VALUE(RV_ICON) TYPE ICON_D .
+
+    CLASS-METHODS GET_EVENT_ICON
+      IMPORTING
+        !IV_EVENT      TYPE ZSD_SO_WF_EVENT
+      RETURNING
+        VALUE(RV_ICON) TYPE ICON_D .
+
+    CLASS-METHODS GET_STATUS_TEXT
+      IMPORTING
+        !IV_STATUS     TYPE ZSD_SO_WF_STATUS
+      RETURNING
+        VALUE(RV_TEXT) TYPE CHAR30 .
+
+    CLASS-METHODS GET_LEVEL_TEXT
+      IMPORTING
+        !IV_STATUS     TYPE ZSD_SO_WF_STATUS
+      RETURNING
+        VALUE(RV_TEXT) TYPE CHAR30 .
+
+    CLASS-METHODS GET_EVENT_TEXT
+      IMPORTING
+        !IV_EVENT      TYPE ZSD_SO_WF_EVENT
+      RETURNING
+        VALUE(RV_TEXT) TYPE CHAR30 .
+
+  PRIVATE SECTION.
+
+    TYPES:
+      BEGIN OF TY_ICON,
+        NAME TYPE ICONNAME,
+        ID   TYPE ICON_D,
+      END OF TY_ICON .
+
+    CLASS-DATA GT_ICON TYPE SORTED TABLE OF TY_ICON WITH UNIQUE KEY NAME .
+
+    CLASS-METHODS ICON_BY_NAME
+      IMPORTING
+        !IV_NAME       TYPE ICONNAME
+      RETURNING
+        VALUE(RV_ICON) TYPE ICON_D .
+
+    CLASS-METHODS TOUCH_HEADER
+      IMPORTING
+        !IV_LOG_ID TYPE SYSUUID_C32 .
+
+ENDCLASS.
+
+
+
+CLASS ZCL_SD_SO_CHG_LOG IMPLEMENTATION.
+
+
+  METHOD GET_APPROVERS.
+
+    DATA: LT_CFG      TYPE STANDARD TABLE OF ZSD_SO_APPR_CFG,
+          LS_CFG      TYPE ZSD_SO_APPR_CFG,
+          LS_APPROVER TYPE TY_APPROVER,
+          LV_EMAIL    TYPE AD_SMTPADR.
+
+    CLEAR RT_APPROVER.
+
+    SELECT * FROM ZSD_SO_APPR_CFG INTO TABLE LT_CFG
+      WHERE VKORG  = IV_VKORG
+        AND AUART  = IV_AUART
+        AND ACTIVE = ABAP_TRUE.
+
+    SORT LT_CFG BY APPR_LEVEL.
+
+    LOOP AT LT_CFG INTO LS_CFG.
+
+      CLEAR LS_APPROVER.
+      LS_APPROVER-APPR_LEVEL = LS_CFG-APPR_LEVEL.
+      LS_APPROVER-UNAME      = LS_CFG-UNAME.
+
+      GET_USER_DATA( EXPORTING IV_UNAME     = LS_CFG-UNAME
+                     IMPORTING EV_FULL_NAME = LS_APPROVER-FULL_NAME
+                               EV_EMAIL     = LV_EMAIL ).
+
+      " e-mail from the approver table first, then from the user master
+      IF LS_CFG-EMAIL IS NOT INITIAL.
+        LS_APPROVER-EMAIL     = LS_CFG-EMAIL.
+        LS_APPROVER-EMAIL_SRC = GC_EMAIL_SRC-TABLE.
+      ELSEIF LV_EMAIL IS NOT INITIAL.
+        LS_APPROVER-EMAIL     = LV_EMAIL.
+        LS_APPROVER-EMAIL_SRC = GC_EMAIL_SRC-USER.
+      ELSE.
+        LS_APPROVER-EMAIL_SRC = GC_EMAIL_SRC-NONE.
+      ENDIF.
+
+      IF LS_APPROVER-FULL_NAME IS INITIAL.
+        LS_APPROVER-FULL_NAME = LS_CFG-UNAME.
+      ENDIF.
+
+      APPEND LS_APPROVER TO RT_APPROVER.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD GET_USER_DATA.
+
+    DATA: LS_ADDRESS TYPE BAPIADDR3,
+          LT_RETURN  TYPE STANDARD TABLE OF BAPIRET2.
+
+    CLEAR: EV_FULL_NAME, EV_EMAIL.
+
+    IF IV_UNAME IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    CALL FUNCTION 'BAPI_USER_GET_DETAIL'
+      EXPORTING
+        USERNAME = IV_UNAME
+      IMPORTING
+        ADDRESS  = LS_ADDRESS
+      TABLES
+        RETURN   = LT_RETURN.
+
+    EV_FULL_NAME = LS_ADDRESS-FULLNAME.
+    EV_EMAIL     = LS_ADDRESS-E_MAIL.
+
+  ENDMETHOD.
+
+
+  METHOD ADD_EVENT.
+
+    DATA: LS_EVENT TYPE ZSD_SO_CHG_LE,
+          LV_SEQNR TYPE ZSD_SO_CHG_LE-SEQNR.
+
+    IF IV_LOG_ID IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT MAX( SEQNR ) FROM ZSD_SO_CHG_LE INTO LV_SEQNR
+      WHERE LOG_ID = IV_LOG_ID.
+
+    LS_EVENT-MANDT      = SY-MANDT.
+    LS_EVENT-LOG_ID     = IV_LOG_ID.
+    LS_EVENT-SEQNR      = LV_SEQNR + 1.
+    LS_EVENT-EVENT      = IV_EVENT.
+    LS_EVENT-APPR_LEVEL = IV_LEVEL.
+    LS_EVENT-UNAME      = IV_UNAME.
+    LS_EVENT-TEXT       = IV_TEXT.
+    LS_EVENT-CREATED_ON = SY-DATUM.
+    LS_EVENT-CREATED_AT = SY-UZEIT.
+    LS_EVENT-CREATED_BY = SY-UNAME.
+
+    INSERT ZSD_SO_CHG_LE FROM LS_EVENT.
+
+    TOUCH_HEADER( IV_LOG_ID ).
+
+  ENDMETHOD.
+
+
+  METHOD CLOSE_PREVIOUS.
+
+    DATA: LT_OLD    TYPE STANDARD TABLE OF ZSD_SO_CHG_LH,
+          LS_OLD    TYPE ZSD_SO_CHG_LH,
+          LV_TEXT   TYPE STRING,
+          LV_STATUS TYPE SWW_WISTAT,
+          LS_MSG    TYPE SWF_T100MS.
+
+    SELECT * FROM ZSD_SO_CHG_LH INTO TABLE LT_OLD
+      WHERE VBELN  = IV_VBELN
+        AND STATUS = GC_STATUS-IN_PROCESS
+        AND LOG_ID <> IV_NEW_LOG_ID.
+
+    LOOP AT LT_OLD INTO LS_OLD.
+
+      CONCATENATE 'Replaced by a new run after order change by'(040)
+                  IV_USER INTO LV_TEXT SEPARATED BY SPACE.
+      ADD_EVENT( IV_LOG_ID = LS_OLD-LOG_ID
+                 IV_EVENT  = GC_EVENT-REPLACED
+                 IV_UNAME  = IV_USER
+                 IV_TEXT   = LV_TEXT ).
+
+      UPDATE ZSD_SO_CHG_LH
+        SET STATUS      = GC_STATUS-REPLACED
+            REPLACED_BY = IV_NEW_LOG_ID
+            FINISHED_ON = SY-DATUM
+            FINISHED_AT = SY-UZEIT
+            CHANGED_ON  = SY-DATUM
+            CHANGED_AT  = SY-UZEIT
+        WHERE LOG_ID = LS_OLD-LOG_ID.
+
+      UPDATE ZSD_SO_CHG_LL
+        SET STATUS = GC_LEVEL-NOT_REACHED
+        WHERE LOG_ID = LS_OLD-LOG_ID
+          AND ( STATUS = GC_LEVEL-WAITING OR STATUS = GC_LEVEL-PENDING ).
+
+      " kill the old workflow (open work items disappear from My Inbox)
+      IF LS_OLD-WF_ID IS NOT INITIAL.
+        CALL FUNCTION 'SWW_WI_ADMIN_CANCEL'
+          EXPORTING
+            WI_ID                       = LS_OLD-WF_ID
+            DO_COMMIT                   = SPACE
+            LOG_MESSAGE                 = LS_MSG
+          IMPORTING
+            NEW_STATUS                  = LV_STATUS
+          EXCEPTIONS
+            UPDATE_FAILED               = 1
+            NO_AUTHORIZATION            = 2
+            INFEASIBLE_STATE_TRANSITION = 3
+            OTHERS                      = 4.
+        IF SY-SUBRC <> 0.
+          ADD_EVENT( IV_LOG_ID = LS_OLD-LOG_ID
+                     IV_EVENT  = GC_EVENT-ERROR
+                     IV_TEXT   = 'Old workflow could not be cancelled - cancel it in SWIA'(041) ).
+        ENDIF.
+      ENDIF.
+
+      CONCATENATE 'Previous run closed:'(042) LS_OLD-LOG_ID
+                  INTO LV_TEXT SEPARATED BY SPACE.
+      ADD_EVENT( IV_LOG_ID = IV_NEW_LOG_ID
+                 IV_EVENT  = GC_EVENT-INFO
+                 IV_TEXT   = LV_TEXT ).
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD CREATE_LOG.
+
+    DATA: LS_HEADER   TYPE ZSD_SO_CHG_LH,
+          LS_LEVEL    TYPE ZSD_SO_CHG_LL,
+          LS_APPROVER TYPE TY_APPROVER,
+          LV_UUID     TYPE SYSUUID_C32.
+
+    CLEAR RV_LOG_ID.
+
+    TRY.
+        LV_UUID = CL_SYSTEM_UUID=>CREATE_UUID_C32_STATIC( ).
+      CATCH CX_UUID_ERROR.
+        RETURN.
+    ENDTRY.
+
+    LS_HEADER            = IS_HEADER.
+    LS_HEADER-MANDT      = SY-MANDT.
+    LS_HEADER-LOG_ID     = LV_UUID.
+    LS_HEADER-STATUS     = GC_STATUS-IN_PROCESS.
+    LS_HEADER-LEVELS     = LINES( IT_APPROVER ).
+    LS_HEADER-CREATED_ON = SY-DATUM.
+    LS_HEADER-CREATED_AT = SY-UZEIT.
+    LS_HEADER-CREATED_BY = SY-UNAME.
+    LS_HEADER-CHANGED_ON = SY-DATUM.
+    LS_HEADER-CHANGED_AT = SY-UZEIT.
+
+    INSERT ZSD_SO_CHG_LH FROM LS_HEADER.
+    IF SY-SUBRC <> 0.
+      RETURN.
+    ENDIF.
+
+    LOOP AT IT_APPROVER INTO LS_APPROVER.
+      CLEAR LS_LEVEL.
+      LS_LEVEL-MANDT      = SY-MANDT.
+      LS_LEVEL-LOG_ID     = LV_UUID.
+      LS_LEVEL-APPR_LEVEL = LS_APPROVER-APPR_LEVEL.
+      LS_LEVEL-UNAME      = LS_APPROVER-UNAME.
+      LS_LEVEL-FULL_NAME  = LS_APPROVER-FULL_NAME.
+      LS_LEVEL-EMAIL      = LS_APPROVER-EMAIL.
+      LS_LEVEL-EMAIL_SRC  = LS_APPROVER-EMAIL_SRC.
+      LS_LEVEL-STATUS     = GC_LEVEL-WAITING.
+      INSERT ZSD_SO_CHG_LL FROM LS_LEVEL.
+    ENDLOOP.
+
+    RV_LOG_ID = LV_UUID.
+
+  ENDMETHOD.
+
+
+  METHOD SET_WF_ID.
+
+    UPDATE ZSD_SO_CHG_LH
+      SET WF_ID      = IV_WF_ID
+          CHANGED_ON = SY-DATUM
+          CHANGED_AT = SY-UZEIT
+      WHERE LOG_ID = IV_LOG_ID.
+
+  ENDMETHOD.
+
+
+  METHOD FINISH.
+
+    UPDATE ZSD_SO_CHG_LH
+      SET STATUS      = IV_STATUS
+          FINISHED_ON = SY-DATUM
+          FINISHED_AT = SY-UZEIT
+          CHANGED_ON  = SY-DATUM
+          CHANGED_AT  = SY-UZEIT
+      WHERE LOG_ID = IV_LOG_ID.
+
+    UPDATE ZSD_SO_CHG_LL
+      SET STATUS = GC_LEVEL-NOT_REACHED
+      WHERE LOG_ID = IV_LOG_ID
+        AND STATUS = GC_LEVEL-WAITING.
+
+  ENDMETHOD.
+
+
+  METHOD GET_EVENTS.
+
+    CLEAR RT_EVENTS.
+
+    SELECT * FROM ZSD_SO_CHG_LE INTO TABLE RT_EVENTS
+      WHERE LOG_ID = IV_LOG_ID
+      ORDER BY SEQNR.
+
+  ENDMETHOD.
+
+
+  METHOD GET_EVENT_ICON.
+
+    DATA LV_NAME TYPE ICONNAME.
+
+    CASE IV_EVENT.
+      WHEN GC_EVENT-CHANGE.   LV_NAME = 'ICON_DOCUMENT'.
+      WHEN GC_EVENT-START.    LV_NAME = 'ICON_EXECUTE_OBJECT'.
+      WHEN GC_EVENT-LEVEL.    LV_NAME = 'ICON_YELLOW_LIGHT'.
+      WHEN GC_EVENT-MAIL.     LV_NAME = 'ICON_MAIL'.
+      WHEN GC_EVENT-MAIL_ERR. LV_NAME = 'ICON_MESSAGE_ERROR'.
+      WHEN GC_EVENT-INBOX.    LV_NAME = 'ICON_INBOX'.
+      WHEN GC_EVENT-APPROVE.  LV_NAME = 'ICON_GREEN_LIGHT'.
+      WHEN GC_EVENT-REJECT.   LV_NAME = 'ICON_RED_LIGHT'.
+      WHEN GC_EVENT-RELEASE.  LV_NAME = 'ICON_UNLOCKED'.
+      WHEN GC_EVENT-REL_ERR.  LV_NAME = 'ICON_MESSAGE_ERROR'.
+      WHEN GC_EVENT-CLOSE.    LV_NAME = 'ICON_LOCKED'.
+      WHEN GC_EVENT-INFO.     LV_NAME = 'ICON_INFORMATION'.
+      WHEN GC_EVENT-ERROR.    LV_NAME = 'ICON_MESSAGE_ERROR'.
+      WHEN GC_EVENT-REPLACED. LV_NAME = 'ICON_CHANGE'.
+    ENDCASE.
+
+    RV_ICON = ICON_BY_NAME( LV_NAME ).
+
+  ENDMETHOD.
+
+
+  METHOD GET_EVENT_TEXT.
+
+    CASE IV_EVENT.
+      WHEN GC_EVENT-CHANGE.   RV_TEXT = 'Order changed'(019).
+      WHEN GC_EVENT-START.    RV_TEXT = 'Workflow started'(020).
+      WHEN GC_EVENT-LEVEL.    RV_TEXT = 'Level in process'(021).
+      WHEN GC_EVENT-MAIL.     RV_TEXT = 'E-mail sent'(022).
+      WHEN GC_EVENT-MAIL_ERR. RV_TEXT = 'E-mail not sent'(023).
+      WHEN GC_EVENT-INBOX.    RV_TEXT = 'Sent to My Inbox'(024).
+      WHEN GC_EVENT-APPROVE.  RV_TEXT = 'Approved'(025).
+      WHEN GC_EVENT-REJECT.   RV_TEXT = 'Rejected'(026).
+      WHEN GC_EVENT-RELEASE.  RV_TEXT = 'Delivery block released'(027).
+      WHEN GC_EVENT-REL_ERR.  RV_TEXT = 'Release failed'(028).
+      WHEN GC_EVENT-CLOSE.    RV_TEXT = 'Closed - stays blocked'(029).
+      WHEN GC_EVENT-INFO.     RV_TEXT = 'Information'(030).
+      WHEN GC_EVENT-ERROR.    RV_TEXT = 'Error'(031).
+      WHEN GC_EVENT-REPLACED. RV_TEXT = 'Replaced by order change'(032).
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD GET_HEADER.
+
+    CLEAR RS_HEADER.
+
+    SELECT SINGLE * FROM ZSD_SO_CHG_LH INTO RS_HEADER
+      WHERE LOG_ID = IV_LOG_ID.
+
+  ENDMETHOD.
+
+
+  METHOD GET_LEVEL.
+
+    CLEAR RS_LEVEL.
+
+    SELECT SINGLE * FROM ZSD_SO_CHG_LL INTO RS_LEVEL
+      WHERE LOG_ID     = IV_LOG_ID
+        AND APPR_LEVEL = IV_LEVEL.
+
+  ENDMETHOD.
+
+
+  METHOD GET_LEVELS.
+
+    CLEAR RT_LEVELS.
+
+    SELECT * FROM ZSD_SO_CHG_LL INTO TABLE RT_LEVELS
+      WHERE LOG_ID = IV_LOG_ID
+      ORDER BY APPR_LEVEL.
+
+  ENDMETHOD.
+
+
+  METHOD GET_LEVEL_ICON.
+
+    DATA LV_NAME TYPE ICONNAME.
+
+    CASE IV_STATUS.
+      WHEN GC_LEVEL-WAITING.     LV_NAME = 'ICON_LIGHT_OUT'.
+      WHEN GC_LEVEL-PENDING.     LV_NAME = 'ICON_YELLOW_LIGHT'.
+      WHEN GC_LEVEL-APPROVED.    LV_NAME = 'ICON_GREEN_LIGHT'.
+      WHEN GC_LEVEL-REJECTED.    LV_NAME = 'ICON_RED_LIGHT'.
+      WHEN GC_LEVEL-NOT_REACHED. LV_NAME = 'ICON_LIGHT_OUT'.
+    ENDCASE.
+
+    RV_ICON = ICON_BY_NAME( LV_NAME ).
+
+  ENDMETHOD.
+
+
+  METHOD GET_LEVEL_TEXT.
+
+    CASE IV_STATUS.
+      WHEN GC_LEVEL-WAITING.     RV_TEXT = 'Waiting'(010).
+      WHEN GC_LEVEL-PENDING.     RV_TEXT = 'Pending decision'(011).
+      WHEN GC_LEVEL-APPROVED.    RV_TEXT = 'Approved'(012).
+      WHEN GC_LEVEL-REJECTED.    RV_TEXT = 'Rejected'(013).
+      WHEN GC_LEVEL-NOT_REACHED. RV_TEXT = 'Not reached'(014).
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD GET_STATUS_ICON.
+
+    DATA LV_NAME TYPE ICONNAME.
+
+    CASE IV_STATUS.
+      WHEN GC_STATUS-IN_PROCESS. LV_NAME = 'ICON_YELLOW_LIGHT'.
+      WHEN GC_STATUS-APPROVED.   LV_NAME = 'ICON_GREEN_LIGHT'.
+      WHEN GC_STATUS-REJECTED.   LV_NAME = 'ICON_RED_LIGHT'.
+      WHEN GC_STATUS-CANCELLED.  LV_NAME = 'ICON_LIGHT_OUT'.
+      WHEN GC_STATUS-ERROR.      LV_NAME = 'ICON_MESSAGE_ERROR'.
+      WHEN GC_STATUS-REPLACED.   LV_NAME = 'ICON_DELETE'.
+    ENDCASE.
+
+    RV_ICON = ICON_BY_NAME( LV_NAME ).
+
+  ENDMETHOD.
+
+
+  METHOD GET_STATUS_TEXT.
+
+    CASE IV_STATUS.
+      WHEN GC_STATUS-IN_PROCESS. RV_TEXT = 'In approval - order locked'(001).
+      WHEN GC_STATUS-APPROVED.   RV_TEXT = 'Approved - block released'(002).
+      WHEN GC_STATUS-REJECTED.   RV_TEXT = 'Rejected - still blocked'(003).
+      WHEN GC_STATUS-CANCELLED.  RV_TEXT = 'Cancelled'(004).
+      WHEN GC_STATUS-ERROR.      RV_TEXT = 'Error - still blocked'(005).
+      WHEN GC_STATUS-REPLACED.   RV_TEXT = 'Finished - replaced by change'(006).
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD ICON_BY_NAME.
+
+    DATA LS_ICON TYPE TY_ICON.
+
+    CLEAR RV_ICON.
+
+    IF IV_NAME IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    READ TABLE GT_ICON INTO LS_ICON WITH TABLE KEY NAME = IV_NAME.
+    IF SY-SUBRC = 0.
+      RV_ICON = LS_ICON-ID.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE ID FROM ICON INTO RV_ICON
+      WHERE NAME = IV_NAME.
+
+    LS_ICON-NAME = IV_NAME.
+    LS_ICON-ID   = RV_ICON.
+    INSERT LS_ICON INTO TABLE GT_ICON.
+
+  ENDMETHOD.
+
+
+  METHOD IS_RUNNING.
+
+    DATA LV_LOG_ID TYPE SYSUUID_C32.
+
+    RV_RUNNING = ABAP_FALSE.
+
+    SELECT SINGLE LOG_ID FROM ZSD_SO_CHG_LH INTO LV_LOG_ID
+      WHERE VBELN  = IV_VBELN
+        AND STATUS = GC_STATUS-IN_PROCESS.
+
+    IF SY-SUBRC = 0.
+      RV_RUNNING = ABAP_TRUE.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD SET_CURRENT_LEVEL.
+
+    UPDATE ZSD_SO_CHG_LH
+      SET CURR_LEVEL = IV_LEVEL
+          CHANGED_ON = SY-DATUM
+          CHANGED_AT = SY-UZEIT
+      WHERE LOG_ID = IV_LOG_ID.
+
+  ENDMETHOD.
+
+
+  METHOD SET_LEVEL_STATUS.
+
+    DATA LS_LEVEL TYPE ZSD_SO_CHG_LL.
+
+    SELECT SINGLE * FROM ZSD_SO_CHG_LL INTO LS_LEVEL
+      WHERE LOG_ID     = IV_LOG_ID
+        AND APPR_LEVEL = IV_LEVEL.
+
+    IF SY-SUBRC <> 0.
+      RETURN.
+    ENDIF.
+
+    LS_LEVEL-STATUS = IV_STATUS.
+
+    CASE IV_STATUS.
+      WHEN GC_LEVEL-PENDING.
+        LS_LEVEL-STARTED_ON = SY-DATUM.
+        LS_LEVEL-STARTED_AT = SY-UZEIT.
+      WHEN GC_LEVEL-APPROVED OR GC_LEVEL-REJECTED.
+        LS_LEVEL-DECIDED_ON = SY-DATUM.
+        LS_LEVEL-DECIDED_AT = SY-UZEIT.
+        IF IV_UNAME IS NOT INITIAL.
+          LS_LEVEL-DECIDED_BY = IV_UNAME.
+        ELSE.
+          LS_LEVEL-DECIDED_BY = LS_LEVEL-UNAME.
+        ENDIF.
+    ENDCASE.
+
+    UPDATE ZSD_SO_CHG_LL FROM LS_LEVEL.
+
+    TOUCH_HEADER( IV_LOG_ID ).
+
+  ENDMETHOD.
+
+
+  METHOD TOUCH_HEADER.
+
+    UPDATE ZSD_SO_CHG_LH
+      SET CHANGED_ON = SY-DATUM
+          CHANGED_AT = SY-UZEIT
+      WHERE LOG_ID = IV_LOG_ID.
+
+  ENDMETHOD.
+ENDCLASS.
