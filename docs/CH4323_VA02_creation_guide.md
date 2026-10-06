@@ -557,6 +557,14 @@ CLASS ZCL_SD_SO_CHG_LOG DEFINITION
       RETURNING
         VALUE(RV_RUNNING) TYPE ABAP_BOOL .
 
+    "--- latest run of the order rejected (or ended without approver):
+    "--- the order is open for change, but the delivery block stays
+    CLASS-METHODS IS_REJECTED
+      IMPORTING
+        !IV_VBELN          TYPE VBELN_VA
+      RETURNING
+        VALUE(RV_REJECTED) TYPE ABAP_BOOL .
+
     CLASS-METHODS GET_HEADER
       IMPORTING
         !IV_LOG_ID       TYPE SYSUUID_C32
@@ -1086,6 +1094,25 @@ CLASS ZCL_SD_SO_CHG_LOG IMPLEMENTATION.
 
     IF SY-SUBRC = 0.
       RV_RUNNING = ABAP_TRUE.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD IS_REJECTED.
+
+    DATA LV_STATUS TYPE ZSD_SO_WF_STATUS.
+
+    RV_REJECTED = ABAP_FALSE.
+
+    " status of the newest run of the order
+    SELECT STATUS FROM ZSD_SO_CHG_LH INTO LV_STATUS UP TO 1 ROWS
+      WHERE VBELN = IV_VBELN
+      ORDER BY CREATED_ON DESCENDING CREATED_AT DESCENDING.
+    ENDSELECT.
+
+    IF LV_STATUS = GC_STATUS-REJECTED OR LV_STATUS = GC_STATUS-ERROR.
+      RV_REJECTED = ABAP_TRUE.
     ENDIF.
 
   ENDMETHOD.
@@ -1951,6 +1978,12 @@ CLASS zcl_sd_so_chg_monitor DEFINITION
       IMPORTING iv_vbeln          TYPE vbak-vbeln
       RETURNING VALUE(rv_pending) TYPE abap_bool.
 
+    "! Last approval was rejected: order open for change, but the delivery
+    "! block cannot be removed until a new change is approved
+    CLASS-METHODS is_block_kept
+      IMPORTING iv_vbeln       TYPE vbak-vbeln
+      RETURNING VALUE(rv_kept) TYPE abap_bool.
+
     "! Characteristic values of a configuration as one comparable string
     CLASS-METHODS get_config_values
       IMPORTING iv_cuobj         TYPE vbap-cuobj
@@ -1973,13 +2006,17 @@ CLASS zcl_sd_so_chg_monitor DEFINITION
     CLASS-DATA gv_required       TYPE abap_bool.
     CLASS-DATA gv_pending_vbeln  TYPE vbak-vbeln.
     CLASS-DATA gv_pending        TYPE abap_bool.
+    CLASS-DATA gv_block_kept     TYPE abap_bool.
+
+    CLASS-METHODS read_status
+      IMPORTING iv_vbeln TYPE vbak-vbeln.
 ENDCLASS.
 
 
 CLASS zcl_sd_so_chg_monitor IMPLEMENTATION.
 
   METHOD take_snapshot.
-    CLEAR: gt_snapshot, gt_changes, gv_required, gv_pending_vbeln, gv_pending.
+    CLEAR: gt_snapshot, gt_changes, gv_required, gv_pending_vbeln, gv_pending, gv_block_kept.
     gv_snapshot_vbeln = iv_vbeln.
 
     LOOP AT it_xvbap INTO DATA(ls_item).
@@ -2118,20 +2155,32 @@ CLASS zcl_sd_so_chg_monitor IMPLEMENTATION.
     CLEAR: gt_changes, gv_required.
     gv_pending_vbeln = is_vbak-vbeln.
     gv_pending       = abap_true.
+    gv_block_kept    = abap_false.
   ENDMETHOD.
 
 
   METHOD is_approval_pending.
-    IF iv_vbeln IS INITIAL.
+    read_status( iv_vbeln ).
+    rv_pending = gv_pending.
+  ENDMETHOD.
+
+
+  METHOD is_block_kept.
+    read_status( iv_vbeln ).
+    rv_kept = gv_block_kept.
+  ENDMETHOD.
+
+
+  METHOD read_status.
+*   Buffered per order: called for every screen field in VA02
+    IF iv_vbeln IS INITIAL OR iv_vbeln = gv_pending_vbeln.
       RETURN.
     ENDIF.
 
-    IF iv_vbeln <> gv_pending_vbeln.
-      gv_pending_vbeln = iv_vbeln.
-      gv_pending       = zcl_sd_so_chg_log=>is_running( iv_vbeln ).
-    ENDIF.
-
-    rv_pending = gv_pending.
+    gv_pending_vbeln = iv_vbeln.
+    gv_pending       = zcl_sd_so_chg_log=>is_running( iv_vbeln ).
+    gv_block_kept    = xsdbool( gv_pending = abap_false
+                                AND zcl_sd_so_chg_log=>is_rejected( iv_vbeln ) = abap_true ).
   ENDMETHOD.
 
 
@@ -2529,6 +2578,10 @@ ENHANCEMENT 1 zsd_so_chg_snapshot.
     IF zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true.
       MESSAGE s398(00) WITH 'Order' vbak-vbeln
                             'is in the approval workflow - display only' ''.
+    ELSEIF zcl_sd_so_chg_monitor=>is_block_kept( vbak-vbeln ) = abap_true.
+      MESSAGE s398(00) WITH 'Change of order' vbak-vbeln
+                            'was rejected - delivery block stays until'
+                            'a new change is approved'.
     ENDIF.
   ENDIF.
 
@@ -2548,8 +2601,9 @@ MV45AFZZ → FORM `USEREXIT_SAVE_DOCUMENT_PREPARE` → implicit enhancement at t
 *&   - Compare the order with the snapshot taken when it was opened.
 *&   - At least one monitored change -> header delivery block XX and
 *&     "approval required" (one approval per save, however many fields).
-*&   - No monitored change but an approval is still pending -> keep the
-*&     delivery block (it cannot be removed manually while pending).
+*&   - No monitored change but an approval is still pending, or the last
+*&     approval was rejected -> keep the delivery block (it cannot be
+*&     removed manually; only an approved change releases it).
 *& No error message: the save always goes through.
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_chg_detect.
@@ -2566,7 +2620,8 @@ ENHANCEMENT 1 zsd_so_chg_detect.
     IF lt_zz_changes IS NOT INITIAL.
       vbak-lifsk = zcl_sd_so_chg_monitor=>gc_block.
       zcl_sd_so_chg_monitor=>set_approval_required( lt_zz_changes ).
-    ELSEIF zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true.
+    ELSEIF zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true
+        OR zcl_sd_so_chg_monitor=>is_block_kept( vbak-vbeln ) = abap_true.
       vbak-lifsk = zcl_sd_so_chg_monitor=>gc_block.
     ENDIF.
   ENDIF.
@@ -2627,6 +2682,8 @@ All input fields are closed in VA02 while the order is in approval.
 *& VA02: while the order is in the approval cycle (workflow log status P)
 *&   the whole order is closed for change (all fields display-only,
 *&   delivery block included).
+*&   After a rejection the order is open for change again, but the
+*&   delivery block VBAK-LIFSK stays closed until a new change is approved.
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 ZSD_SO_CON_FIELD_LOCK.    "active version
 *
@@ -2644,10 +2701,17 @@ ENHANCEMENT 1 ZSD_SO_CON_FIELD_LOCK.    "active version
         MODIFY SCREEN.
       ENDIF.
     WHEN 'V'.                                                 " change (VA02)
-      IF  SCREEN-INPUT = '1'
-      AND ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( VBAK-VBELN ) = ABAP_TRUE.
-        SCREEN-INPUT = LC_ZZ_OFF.
-        MODIFY SCREEN.
+      IF SCREEN-INPUT = '1'.
+        IF ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( VBAK-VBELN ) = ABAP_TRUE.
+          " in approval: whole order closed
+          SCREEN-INPUT = LC_ZZ_OFF.
+          MODIFY SCREEN.
+        ELSEIF SCREEN-NAME = 'VBAK-LIFSK'
+           AND ZCL_SD_SO_CHG_MONITOR=>IS_BLOCK_KEPT( VBAK-VBELN ) = ABAP_TRUE.
+          " rejected: order open, delivery block stays
+          SCREEN-INPUT = LC_ZZ_OFF.
+          MODIFY SCREEN.
+        ENDIF.
       ENDIF.
   ENDCASE.
 
@@ -3408,7 +3472,7 @@ START-OF-SELECTION.
 | 5 | Open the order in VA02 while status P | Message "display only"; all fields, Insert/Delete and configuration closed |
 | 6 | Level 1 approves (two levels) | Level 1 A, level 2 D, e-mail to level 2 |
 | 7 | Last level approves | Block removed, run A, RELEASE event, requester e-mail; VA02 open again |
-| 8 | A level rejects | Run R, remaining levels N, block stays, requester e-mail |
+| 8 | A level rejects | Run R, remaining levels N, block stays, requester e-mail. VA02: order open, delivery block field closed, block set again on save |
 | 9 | Change again after approval or rejection | New run, new workflow |
 | 10 | While status P: change by BAPI_SALESORDER_CHANGE | New run; old run F; old workflow cancelled; old work item gone from My Inbox |
 | 11 | No approver maintained | Run E, ERROR event, block stays, requester e-mail |

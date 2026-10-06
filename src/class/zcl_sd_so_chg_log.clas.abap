@@ -157,6 +157,14 @@ CLASS ZCL_SD_SO_CHG_LOG DEFINITION
       RETURNING
         VALUE(RV_RUNNING) TYPE ABAP_BOOL .
 
+    "--- latest run of the order rejected (or ended without approver):
+    "--- the order is open for change, but the delivery block stays
+    CLASS-METHODS IS_REJECTED
+      IMPORTING
+        !IV_VBELN          TYPE VBELN_VA
+      RETURNING
+        VALUE(RV_REJECTED) TYPE ABAP_BOOL .
+
     CLASS-METHODS GET_HEADER
       IMPORTING
         !IV_LOG_ID       TYPE SYSUUID_C32
@@ -686,6 +694,25 @@ CLASS ZCL_SD_SO_CHG_LOG IMPLEMENTATION.
 
     IF SY-SUBRC = 0.
       RV_RUNNING = ABAP_TRUE.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD IS_REJECTED.
+
+    DATA LV_STATUS TYPE ZSD_SO_WF_STATUS.
+
+    RV_REJECTED = ABAP_FALSE.
+
+    " status of the newest run of the order
+    SELECT STATUS FROM ZSD_SO_CHG_LH INTO LV_STATUS UP TO 1 ROWS
+      WHERE VBELN = IV_VBELN
+      ORDER BY CREATED_ON DESCENDING CREATED_AT DESCENDING.
+    ENDSELECT.
+
+    IF LV_STATUS = GC_STATUS-REJECTED OR LV_STATUS = GC_STATUS-ERROR.
+      RV_REJECTED = ABAP_TRUE.
     ENDIF.
 
   ENDMETHOD.

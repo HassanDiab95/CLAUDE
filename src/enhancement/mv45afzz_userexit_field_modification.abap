@@ -14,6 +14,8 @@
 *& VA02: while the order is in the approval cycle (workflow log status P)
 *&   the whole order is closed for change (all fields display-only,
 *&   delivery block included).
+*&   After a rejection the order is open for change again, but the
+*&   delivery block VBAK-LIFSK stays closed until a new change is approved.
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 ZSD_SO_CON_FIELD_LOCK.    "active version
 *
@@ -31,10 +33,17 @@ ENHANCEMENT 1 ZSD_SO_CON_FIELD_LOCK.    "active version
         MODIFY SCREEN.
       ENDIF.
     WHEN 'V'.                                                 " change (VA02)
-      IF  SCREEN-INPUT = '1'
-      AND ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( VBAK-VBELN ) = ABAP_TRUE.
-        SCREEN-INPUT = LC_ZZ_OFF.
-        MODIFY SCREEN.
+      IF SCREEN-INPUT = '1'.
+        IF ZCL_SD_SO_CHG_MONITOR=>IS_APPROVAL_PENDING( VBAK-VBELN ) = ABAP_TRUE.
+          " in approval: whole order closed
+          SCREEN-INPUT = LC_ZZ_OFF.
+          MODIFY SCREEN.
+        ELSEIF SCREEN-NAME = 'VBAK-LIFSK'
+           AND ZCL_SD_SO_CHG_MONITOR=>IS_BLOCK_KEPT( VBAK-VBELN ) = ABAP_TRUE.
+          " rejected: order open, delivery block stays
+          SCREEN-INPUT = LC_ZZ_OFF.
+          MODIFY SCREEN.
+        ENDIF.
       ENDIF.
   ENDCASE.
 

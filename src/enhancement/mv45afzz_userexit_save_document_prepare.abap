@@ -6,8 +6,9 @@
 *&   - Compare the order with the snapshot taken when it was opened.
 *&   - At least one monitored change -> header delivery block XX and
 *&     "approval required" (one approval per save, however many fields).
-*&   - No monitored change but an approval is still pending -> keep the
-*&     delivery block (it cannot be removed manually while pending).
+*&   - No monitored change but an approval is still pending, or the last
+*&     approval was rejected -> keep the delivery block (it cannot be
+*&     removed manually; only an approved change releases it).
 *& No error message: the save always goes through.
 *&---------------------------------------------------------------------*
 ENHANCEMENT 1 zsd_so_chg_detect.
@@ -24,7 +25,8 @@ ENHANCEMENT 1 zsd_so_chg_detect.
     IF lt_zz_changes IS NOT INITIAL.
       vbak-lifsk = zcl_sd_so_chg_monitor=>gc_block.
       zcl_sd_so_chg_monitor=>set_approval_required( lt_zz_changes ).
-    ELSEIF zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true.
+    ELSEIF zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true
+        OR zcl_sd_so_chg_monitor=>is_block_kept( vbak-vbeln ) = abap_true.
       vbak-lifsk = zcl_sd_so_chg_monitor=>gc_block.
     ENDIF.
   ENDIF.

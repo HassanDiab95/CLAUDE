@@ -25,6 +25,10 @@ ENHANCEMENT 1 zsd_so_chg_snapshot.
     IF zcl_sd_so_chg_monitor=>is_approval_pending( vbak-vbeln ) = abap_true.
       MESSAGE s398(00) WITH 'Order' vbak-vbeln
                             'is in the approval workflow - display only' ''.
+    ELSEIF zcl_sd_so_chg_monitor=>is_block_kept( vbak-vbeln ) = abap_true.
+      MESSAGE s398(00) WITH 'Change of order' vbak-vbeln
+                            'was rejected - delivery block stays until'
+                            'a new change is approved'.
     ENDIF.
   ENDIF.
 

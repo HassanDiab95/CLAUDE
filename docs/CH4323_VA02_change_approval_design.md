@@ -26,6 +26,8 @@ The log, e-mail and report follow the delivery credit approval workflow pattern 
    - the configuration
    - A message tells the user the order is in the approval workflow.
 6. After approval or rejection the order can be changed again. A new monitored change starts a new run and a new workflow.
+   - **After a rejection the delivery block stays.** The order is open for change, but the delivery block field is closed and is set again on every save.
+   - The block can only be removed by approving a new change.
 7. **Safety net:** a change that does not come through the VA02 screens (BAPI, IDoc, mass change) while a run is in process still creates a new run.
    The old run is closed as *Replaced*, and **its workflow is cancelled (killed)** with `SWW_WI_ADMIN_CANCEL`.
    An old approval can never release a newer change.
@@ -148,6 +150,15 @@ If the order is locked, the BAPI is rolled back, a `REL_ERR` event is logged, an
 | `USEREXIT_READ_DOCUMENT` | Status message "display only" |
 | `USEREXIT_SAVE_DOCUMENT_PREPARE` | Delivery block kept, even for a save without changes |
 
+After a **rejection** (latest run status R or E, `IS_BLOCK_KEPT`), the order is open for change. Only the delivery block is protected:
+
+| Where | Effect in VA02 after rejection |
+|-------|--------------------------------|
+| `USEREXIT_FIELD_MODIFICATION` | Only `VBAK-LIFSK` closed; all other fields open |
+| `USEREXIT_SAVE_DOCUMENT_PREPARE` | `LIFSK = XX` set again on every save |
+| `USEREXIT_READ_DOCUMENT` | Message "change was rejected - delivery block stays until a new change is approved" |
+| `CUA_SETZEN`, `CE_C_PROCESSING` | No lock (Insert/Delete and configuration open) |
+
 Changes that do not come through the VA02 screens (BAPI, IDoc, mass change) are not locked.
 For those, the safety net in section 1 point 7 applies: new run, old run replaced, old workflow killed.
 
@@ -222,7 +233,7 @@ The delivery block is removed only by FINISH_APPROVED, once, after the **last** 
 | 5 | Open the order in VA02 while run P | Message "display only"; all fields, Insert/Delete and configuration closed |
 | 6 | Level 1 approves (two levels) | Level 1 A, level 2 D, e-mail to level 2 |
 | 7 | All levels approve | Block removed, run A, RELEASE event, requester mail; VA02 open again |
-| 8 | Level 2 rejects | Run R, level 3 N, block stays, requester mail; VA02 open again |
+| 8 | Level 2 rejects | Run R, level 3 N, block stays, requester mail; VA02 open again except the delivery block field; block set again on save |
 | 9 | After approval or rejection, change again | New run, new workflow |
 | 10 | While run P: change via BAPI_SALESORDER_CHANGE (quantity) | New run, old run F (Replaced), old workflow cancelled, old work item gone from My Inbox |
 | 11 | Order open in VA02 when the last approver approves | REL_ERR event, step retried until the release succeeds |

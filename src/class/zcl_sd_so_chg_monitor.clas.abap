@@ -46,6 +46,12 @@ CLASS zcl_sd_so_chg_monitor DEFINITION
       IMPORTING iv_vbeln          TYPE vbak-vbeln
       RETURNING VALUE(rv_pending) TYPE abap_bool.
 
+    "! Last approval was rejected: order open for change, but the delivery
+    "! block cannot be removed until a new change is approved
+    CLASS-METHODS is_block_kept
+      IMPORTING iv_vbeln       TYPE vbak-vbeln
+      RETURNING VALUE(rv_kept) TYPE abap_bool.
+
     "! Characteristic values of a configuration as one comparable string
     CLASS-METHODS get_config_values
       IMPORTING iv_cuobj         TYPE vbap-cuobj
@@ -68,13 +74,17 @@ CLASS zcl_sd_so_chg_monitor DEFINITION
     CLASS-DATA gv_required       TYPE abap_bool.
     CLASS-DATA gv_pending_vbeln  TYPE vbak-vbeln.
     CLASS-DATA gv_pending        TYPE abap_bool.
+    CLASS-DATA gv_block_kept     TYPE abap_bool.
+
+    CLASS-METHODS read_status
+      IMPORTING iv_vbeln TYPE vbak-vbeln.
 ENDCLASS.
 
 
 CLASS zcl_sd_so_chg_monitor IMPLEMENTATION.
 
   METHOD take_snapshot.
-    CLEAR: gt_snapshot, gt_changes, gv_required, gv_pending_vbeln, gv_pending.
+    CLEAR: gt_snapshot, gt_changes, gv_required, gv_pending_vbeln, gv_pending, gv_block_kept.
     gv_snapshot_vbeln = iv_vbeln.
 
     LOOP AT it_xvbap INTO DATA(ls_item).
@@ -213,20 +223,32 @@ CLASS zcl_sd_so_chg_monitor IMPLEMENTATION.
     CLEAR: gt_changes, gv_required.
     gv_pending_vbeln = is_vbak-vbeln.
     gv_pending       = abap_true.
+    gv_block_kept    = abap_false.
   ENDMETHOD.
 
 
   METHOD is_approval_pending.
-    IF iv_vbeln IS INITIAL.
+    read_status( iv_vbeln ).
+    rv_pending = gv_pending.
+  ENDMETHOD.
+
+
+  METHOD is_block_kept.
+    read_status( iv_vbeln ).
+    rv_kept = gv_block_kept.
+  ENDMETHOD.
+
+
+  METHOD read_status.
+*   Buffered per order: called for every screen field in VA02
+    IF iv_vbeln IS INITIAL OR iv_vbeln = gv_pending_vbeln.
       RETURN.
     ENDIF.
 
-    IF iv_vbeln <> gv_pending_vbeln.
-      gv_pending_vbeln = iv_vbeln.
-      gv_pending       = zcl_sd_so_chg_log=>is_running( iv_vbeln ).
-    ENDIF.
-
-    rv_pending = gv_pending.
+    gv_pending_vbeln = iv_vbeln.
+    gv_pending       = zcl_sd_so_chg_log=>is_running( iv_vbeln ).
+    gv_block_kept    = xsdbool( gv_pending = abap_false
+                                AND zcl_sd_so_chg_log=>is_rejected( iv_vbeln ) = abap_true ).
   ENDMETHOD.
 
 
