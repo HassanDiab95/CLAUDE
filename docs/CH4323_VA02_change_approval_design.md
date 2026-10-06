@@ -77,6 +77,7 @@ COMMIT ─► workflow ZSD_SO_CHG_APPR
 | 12 | ZCL_SD_SO_CHG_MONITOR | Class | Snapshot, change detection, start run + event, "in approval" check | `src/class/zcl_sd_so_chg_monitor.clas.abap` |
 | 13 | ZCL_SD_SO_CHG_WF | Class (IF_WORKFLOW) | Workflow object, event, step methods | `src/class/zcl_sd_so_chg_wf.clas.abap` |
 | 14 | ZSD_SO_CHG_WF_LOG / ZSD_SOCHG_LOG | Report / transaction | Log monitor | `src/report/zsd_so_chg_wf_log.prog.abap` |
+| 14b | ZSD_SO_CHG_COCKPIT / ZSD_SOCHG_COCKPIT | Report / transaction | Cockpit: buttons for filter maintenance, approver maintenance, log report | `src/report/zsd_so_chg_cockpit.prog.abap` |
 | 15 | MV45AFZZ `USEREXIT_READ_DOCUMENT` (end) | Enhancement ZSD_SO_CHG_SNAPSHOT | Snapshot, "display only" message | `src/enhancement/mv45afzz_userexit_read_document.abap` |
 | 16 | MV45AFZZ `USEREXIT_SAVE_DOCUMENT_PREPARE` (start) | Enhancement ZSD_SO_CHG_DETECT | Detect changes, set / keep block | `src/enhancement/mv45afzz_userexit_save_document_prepare.abap` |
 | 17 | MV45AFZZ `USEREXIT_SAVE_DOCUMENT` (start) | Enhancement ZSD_SO_CHG_START_WF | Log run + workflow event | `src/enhancement/mv45afzz_userexit_save_document.abap` |
