@@ -1,8 +1,9 @@
-// Unit tests for the mood engine, run on a PC (no ESP32 needed):
+// Unit tests for the mood engine and the solar battery calculations, run on a PC (no ESP32 needed):
 //   g++ -std=c++17 -I../firmware/Rayy test_mood.cpp ../firmware/Rayy/mood.cpp -o test_mood && ./test_mood
 #include <cmath>
 #include <cstdio>
 #include "mood.h"
+#include "power_calc.h"
 
 static int failures = 0, checks = 0;
 #define CHECK(cond) do { checks++; if (!(cond)) { failures++; std::printf("FAIL line %d: %s\n", __LINE__, #cond); } } while (0)
@@ -61,6 +62,22 @@ int main() {
   CHECK(chooseTrack(MOOD_THIRSTY, MOOD_HAPPY, 0, 23, c) == TRACK_NONE);       // quiet hours
   PlantConfig muted = c; muted.muted = true;
   CHECK(chooseTrack(MOOD_THIRSTY, MOOD_HAPPY, 0, 12, muted) == TRACK_NONE);
+
+  // --- solar part: battery level, charging, saving mode ---
+  CHECK(batteryPercentFromVolts(4.25f) == 100);
+  CHECK(batteryPercentFromVolts(4.20f) == 100);
+  CHECK(batteryPercentFromVolts(3.70f) == 35);
+  CHECK(batteryPercentFromVolts(3.75f) == 45);
+  CHECK(batteryPercentFromVolts(3.30f) == 0);
+  CHECK(batteryPercentFromVolts(2.90f) == 0);
+  CHECK(batteryPercentFromVolts(NAN) == 0);
+  CHECK(solarIsCharging(6.0f, 3.8f));
+  CHECK(!solarIsCharging(4.0f, 3.8f));          // weak light
+  CHECK(!solarIsCharging(0.0f, 3.8f));          // night
+  CHECK(lowPowerMode(10, 15, false));
+  CHECK(!lowPowerMode(20, 15, false));
+  CHECK(lowPowerMode(20, 15, true));            // hysteresis: stay saving until 25 %
+  CHECK(!lowPowerMode(26, 15, true));
 
   std::printf("%d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

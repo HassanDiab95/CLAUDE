@@ -8,8 +8,10 @@ HTML/CSS/JavaScript.
 * **Login** with Firebase Authentication (email + password).
 * **Mood card:** big animated emoji, title and message. It turns orange when the plant needs something.
 * **Live cards:** soil moisture (with bar), temperature, air humidity, light (lux), Wi-Fi signal.
+* **Solar cards:** 🔋 battery % (bar + voltage + power-saving state) and 🔆 solar panel voltage with
+  "Charging from the sun ☀️ / Not charging now". They appear only when the plant sends battery data.
 * **Online / offline badge:** online if the plant sent data during the last 2 minutes.
-* **History chart (24 h)** with a selector: moisture / temperature / humidity / light (Chart.js).
+* **History chart (24 h)** with a selector: moisture / temperature / humidity / light / battery (Chart.js).
 * **Plant diary:** the last 30 mood changes, with time.
 * **Play a sound on the plant:** choose a melody → "Play". The plant's buzzer plays it within 30 s.
 * **Plant settings:** name, thresholds, quiet hours, mute. They are saved in Firebase and the ESP32 applies them.

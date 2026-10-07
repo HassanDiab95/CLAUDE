@@ -1,15 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 760" font-family="Arial, Helvetica, sans-serif" font-size="13">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 1060" font-family="Arial, Helvetica, sans-serif" font-size="13">
   <title>Rayy: wiring diagram (ESP32)</title>
-  <rect width="1300" height="760" fill="#ffffff"/>
-  <text x="650" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#1d2b22">Rayy: Wiring Diagram (ESP32 DevKit V1)</text>
+  <rect width="1300" height="1060" fill="#ffffff"/>
+  <text x="650" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#1d2b22">Rayy: Wiring Diagram (ESP32 DevKit V1 + solar part)</text>
   <text x="650" y="52" text-anchor="middle" fill="#5f6f64">Orange = 3.3 V · Black = GND · Coloured = signals · Every module's GND goes to the ESP32 GND</text>
 
   <!-- ===================== POWER ===================== -->
   <rect x="470" y="78" width="360" height="70" rx="10" fill="#e8f1fb" stroke="#2a7ab8" stroke-width="2"/>
-  <text x="650" y="104" text-anchor="middle" font-weight="bold">5 V USB power bank (or 5 V phone charger)</text>
-  <text x="650" y="126" text-anchor="middle" font-size="12">USB cable → ESP32 micro-USB / USB-C port</text>
+  <text x="650" y="104" text-anchor="middle" font-weight="bold">5.1 V from the MT3608 boost (solar part ↓) → VIN + GND</text>
+  <text x="650" y="126" text-anchor="middle" font-size="12">(while testing: a 5 V USB power bank in the USB port instead)</text>
   <line x1="650" y1="148" x2="650" y2="290" stroke="#d62828" stroke-width="4"/>
-  <text x="660" y="195" fill="#d62828" font-weight="bold">USB 5 V</text>
+  <text x="660" y="195" fill="#d62828" font-weight="bold">5 V (VIN)</text>
 
   <!-- Rails -->
   <line x1="200" y1="250" x2="1110" y2="250" stroke="#f39c12" stroke-width="4"/>
@@ -42,7 +42,7 @@
   <g fill="#fff" font-size="12" text-anchor="end">
     <text x="788" y="429">GPIO21 (SDA)</text>
     <text x="788" y="469">GPIO22 (SCL)</text>
-    <text x="788" y="669">GPIO2 = on-board LED</text>
+    <text x="788" y="629">GPIO2 = on-board LED</text>
   </g>
   <g fill="#f1c40f"><circle cx="800" cy="425" r="5"/><circle cx="800" cy="465" r="5"/></g>
 
@@ -88,6 +88,52 @@
   <text x="1000" y="600" font-size="12" fill="#5f6f64">No screen: the emoji face is shown</text>
   <text x="1000" y="617" font-size="12" fill="#5f6f64">in the web dashboard and Android app.</text>
 
-  <text x="30" y="725" font-size="12" fill="#5f6f64">Use only ADC1 pins (GPIO32–39) for analog sensors: ADC2 pins do not work while Wi-Fi is on.</text>
-  <text x="30" y="743" font-size="12" fill="#5f6f64">Choose a power bank without "auto power-off" at low current, or keep the project on a USB phone charger.</text>
+  <!-- ===================== SOLAR PART ===================== -->
+  <g fill="#f1c40f"><circle cx="590" cy="690" r="5"/><circle cx="710" cy="690" r="5"/></g>
+  <g fill="#fff" font-size="12" text-anchor="middle"><text x="590" y="680">GPIO35</text><text x="710" y="680">GPIO39 (VN)</text></g>
+
+  <rect x="20" y="770" width="1260" height="250" rx="12" fill="#fffaf0" stroke="#e67e22" stroke-width="2" stroke-dasharray="8 5"/>
+  <text x="40" y="795" font-size="16" font-weight="bold" fill="#e67e22">☀️ Solar part</text>
+
+  <rect x="40" y="815" width="170" height="80" rx="8" fill="#dbeafe" stroke="#1e40af" stroke-width="2"/>
+  <text x="125" y="845" text-anchor="middle" font-weight="bold">Solar panel</text>
+  <text x="125" y="865" text-anchor="middle" font-size="12">6 V · 6 W</text>
+  <text x="125" y="882" text-anchor="middle" font-size="12">(outside, in the sun)</text>
+
+  <rect x="280" y="815" width="180" height="80" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+  <text x="370" y="845" text-anchor="middle" font-weight="bold">CN3791 MPPT</text>
+  <text x="370" y="865" text-anchor="middle" font-size="12">solar Li-ion charger</text>
+  <text x="370" y="882" text-anchor="middle" font-size="12">IN ← panel · BAT → battery</text>
+
+  <rect x="530" y="815" width="200" height="80" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+  <text x="630" y="845" text-anchor="middle" font-weight="bold">2 × 18650 (parallel)</text>
+  <text x="630" y="865" text-anchor="middle" font-size="12">3.7 V · 6000 mAh</text>
+  <text x="630" y="882" text-anchor="middle" font-size="12">protected cells</text>
+
+  <rect x="800" y="830" width="90" height="50" rx="8" fill="#f6f6f6" stroke="#444" stroke-width="2"/>
+  <text x="845" y="860" text-anchor="middle" font-weight="bold">Switch</text>
+
+  <rect x="960" y="815" width="300" height="80" rx="8" fill="#fde8e8" stroke="#c0392b" stroke-width="2"/>
+  <text x="1110" y="845" text-anchor="middle" font-weight="bold">MT3608 boost converter</text>
+  <text x="1110" y="865" text-anchor="middle" font-size="12">set to 5.1 V with a multimeter FIRST</text>
+  <text x="1110" y="882" text-anchor="middle" font-size="12">VOUT+ → ESP32 VIN · VOUT− → GND</text>
+
+  <g stroke="#d62828" stroke-width="4" fill="none">
+    <polyline points="210,855 280,855"/><polyline points="460,855 530,855"/>
+    <polyline points="730,855 800,855"/><polyline points="890,855 960,855"/>
+  </g>
+  <polyline points="1260,855 1285,855 1285,90 830,90" fill="none" stroke="#d62828" stroke-width="4"/>
+  <text x="1278" y="500" font-size="12" fill="#d62828" font-weight="bold" transform="rotate(-90 1278 500)">5.1 V → VIN</text>
+
+  <!-- dividers -->
+  <g stroke="#b45309" stroke-width="3" fill="none"><polyline points="590,815 590,690"/></g>
+  <rect x="545" y="745" width="90" height="20" fill="#fff" stroke="#b45309" stroke-width="2"/>
+  <text x="590" y="760" text-anchor="middle" font-size="11">100k / 100k ÷2</text>
+  <g stroke="#1e40af" stroke-width="3" fill="none"><polyline points="125,895 125,950 760,950 760,720 710,720 710,690"/></g>
+  <rect x="705" y="935" width="130" height="20" fill="#fff" stroke="#1e40af" stroke-width="2"/>
+  <text x="770" y="950" text-anchor="middle" font-size="11">2×100k / 100k ÷3</text>
+
+  <text x="40" y="985" font-size="12" fill="#5f6f64">Battery (+) → 100 kΩ → GPIO35 → 100 kΩ → GND (4.2 V reads 2.1 V) · Panel (+) → 100 kΩ → 100 kΩ → GPIO39 → 100 kΩ → GND (7 V reads 2.33 V)</text>
+  <text x="40" y="1005" font-size="12" fill="#5f6f64">All grounds together (panel −, battery −, MT3608 −, ESP32 GND). Never use the USB cable and the MT3608 at the same time.</text>
+  <text x="30" y="1045" font-size="12" fill="#5f6f64">Use only ADC1 pins (GPIO32–39) for analog inputs: ADC2 pins do not work while Wi-Fi is on.</text>
 </svg>

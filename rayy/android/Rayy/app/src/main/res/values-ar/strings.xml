@@ -60,4 +60,11 @@
     <string name="track_7">شكراً</string>
     <string name="track_8">تصبحون على خير</string>
     <string name="track_9">مرحباً</string>
+    <!-- Solar part -->
+    <string name="battery">البطارية</string>
+    <string name="solar">اللوح الشمسي</string>
+    <string name="charging">يشحن من الشمس ☀️</string>
+    <string name="not_charging">لا يشحن الآن</string>
+    <string name="power_saving">وضع توفير الطاقة</string>
+    <string name="power_normal">طاقة طبيعية</string>
 </resources>

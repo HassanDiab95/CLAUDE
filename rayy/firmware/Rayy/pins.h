@@ -5,6 +5,8 @@
 
 // Analog input: ADC1 pin only (ADC2 cannot be used while Wi-Fi is on)
 #define PIN_SOIL        34   // capacitive soil moisture sensor AOUT
+#define PIN_BATTERY     35   // battery voltage through a 100k/100k divider (solar part)
+#define PIN_SOLAR       39   // solar panel voltage through a 200k/100k divider (pin "VN")
 
 // Digital
 #define PIN_DHT         4    // DHT22 data

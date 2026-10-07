@@ -69,7 +69,8 @@ fun MainScreen(vm: PlantViewModel) {
     LaunchedEffect(Unit) {
         while (true) { delay(15_000); now = System.currentTimeMillis() }
     }
-    val online = live != null && now - live!!.ts < 120_000
+    // Power-saving mode uploads every 2 min, so allow 5 min before "offline"
+    val online = live != null && now - live!!.ts < (if (live!!.saving) 300_000 else 120_000)
 
     Scaffold(
         topBar = {
@@ -164,6 +165,21 @@ private fun HomeTab(live: PlantLive?, muted: Boolean, moistureMin: Double, vm: P
                 stringResource(if (it > -60) R.string.signal_good else if (it > -75) R.string.signal_ok else R.string.signal_bad)
             })
 
+        // Solar part: shown only when the plant sends battery data
+        val power = live
+        val pct = power?.batteryPct
+        if (power != null && pct != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Metric(if (power.charging) "⚡" else if (pct < 20) "🪫" else "🔋", stringResource(R.string.battery),
+                    pct.show(), "%", Modifier.weight(1f),
+                    progress = pct / 100, progressColor = if (pct < 20) AlertRed else null,
+                    note = power.batteryV.show(2) + " V · " +
+                        stringResource(if (power.saving) R.string.power_saving else R.string.power_normal))
+                Metric("🔆", stringResource(R.string.solar), power.solarV.show(1), "V", Modifier.weight(1f),
+                    note = stringResource(if (power.charging) R.string.charging else R.string.not_charging))
+            }
+        }
+
         SpeakCard(muted, vm)
     }
 }
@@ -238,6 +254,7 @@ private fun HistoryTab(history: List<HistoryPoint>) {
         R.string.temperature to { p: HistoryPoint -> p.temperature },
         R.string.humidity to { p: HistoryPoint -> p.humidity },
         R.string.light to { p: HistoryPoint -> p.lux },
+        R.string.battery to { p: HistoryPoint -> p.batteryPct },
     )
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val pick = metrics[selected].second

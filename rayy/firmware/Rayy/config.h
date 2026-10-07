@@ -32,5 +32,17 @@
 #define SOIL_RAW_DRY          3000
 #define SOIL_RAW_WET          1300
 
+// ---------- Solar power (see docs/11-solar-power.md) -----------------
+// 1 = solar panel + 18650 battery (measures battery and panel voltage)
+// 0 = simple 5 V USB power bank / phone charger (nothing to measure)
+#define SOLAR_ENABLED         1
+// Voltage divider ratios: (R_top + R_bottom) / R_bottom
+#define BATTERY_DIVIDER       2.0f        // 100k + 100k  -> 4.2 V reads as 2.1 V
+#define SOLAR_DIVIDER         3.0f        // 200k + 100k  -> 7 V reads as 2.33 V
+// Below this battery level the plant saves energy: melodies are muted
+// and the cloud upload is slower (LOW_POWER_UPLOAD_MS)
+#define LOW_BATTERY_PCT       15
+#define LOW_POWER_UPLOAD_MS   120000UL    // upload every 2 min in saving mode
+
 // ---------- Time zone (Saudi Arabia = UTC+3, no daylight saving) ------
 #define TZ_INFO               "<+03>-3"

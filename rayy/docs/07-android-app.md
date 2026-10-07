@@ -8,8 +8,8 @@ automatically, following the phone language.
 | Screen | Contents |
 |---|---|
 | **Login** | Email + password (the same accounts as the web) |
-| **🏠 Plant** | Big emoji + mood message, last update, online/offline, moisture, temperature, humidity, light, Wi-Fi signal; **Play** button with the melody list; **Mute** switch |
-| **📈 History** | Last 24 hours line chart. Choose moisture / temp / humidity / light. Min / average / max |
+| **🏠 Plant** | Big emoji + mood message, last update, online/offline, moisture, temperature, humidity, light, Wi-Fi signal, **🔋 battery and 🔆 solar panel** (solar part); **Play** button with the melody list; **Mute** switch |
+| **📈 History** | Last 24 hours line chart. Choose moisture / temp / humidity / light / battery. Min / average / max |
 | **📔 Diary** | List of mood changes with emoji and time |
 
 Minimum Android version: **7.0 (API 24)**. Target: API 34.

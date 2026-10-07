@@ -3,8 +3,9 @@
 //  emoji faces (in the web dashboard and the Android app) and
 //  sound alerts (buzzer melodies).
 //
-//  Board  : ESP32 Dev Module (ESP32 DevKit V1), powered by a 5 V USB
-//           power bank or a 5 V USB phone charger
+//  Board  : ESP32 Dev Module (ESP32 DevKit V1)
+//  Power  : solar panel + MPPT charger + 18650 battery + 5 V boost
+//           (SOLAR_ENABLED 1), or a 5 V USB power bank (SOLAR_ENABLED 0)
 //  Core   : esp32 by Espressif Systems 3.x (Arduino IDE Boards Manager)
 //  Libs   : DHT sensor library, Adafruit Unified Sensor,
 //           BH1750 (Christopher Laws), ArduinoJson 7
@@ -20,6 +21,7 @@
 #include "status.h"
 #include "sound.h"
 #include "cloud.h"
+#include "power.h"
 
 static PlantConfig cfg;
 static Status      st;
@@ -58,6 +60,7 @@ static Track trackForMood(Mood m) {
 
 static void readAndEvaluate() {
   sensorsRead(st.reading);
+  powerRead(st.power);
   int hour = localHour();
   Mood m = evaluateMood(st.reading, cfg, hour, prevMood);
   st.mood = m;
@@ -74,7 +77,8 @@ static void readAndEvaluate() {
 
   uint32_t minutesSinceSound = (millis() - lastSound) / 60000UL;
   Track t = chooseTrack(m, prevMood, minutesSinceSound, hour, cfg);
-  if (t != TRACK_NONE) { soundPlay(t); lastSound = millis(); }
+  // Battery-saving mode: no automatic melodies (the button still works)
+  if (t != TRACK_NONE && !st.power.lowBattery) { soundPlay(t); lastSound = millis(); }
 
   if (m != prevMood) {
     Serial.printf("[mood] %s -> %s\n", moodName(prevMood), moodName(m));
@@ -115,6 +119,7 @@ void setup() {
   Wire.begin(PIN_SDA, PIN_SCL);
 
   sensorsBegin();
+  powerBegin();
   soundBegin();
   soundPlay(TRACK_HELLO);
   cloudBegin();
@@ -146,10 +151,15 @@ void loop() {
     Serial.printf("soil=%d%% (raw %d)  temp=%.1fC  hum=%.0f%%  lux=%.0f  mood=%s  wifi=%d cloud=%d\n",
                   (int)st.reading.moisture, soilRaw(), st.reading.temperature, st.reading.humidity,
                   st.reading.lux, moodName(st.mood), st.wifi, st.cloud);
+    if (st.power.enabled)
+      Serial.printf("power: battery=%.2fV (%d%%)  solar=%.2fV  charging=%d  saving=%d\n",
+                    st.power.batteryV, st.power.batteryPct, st.power.solarV,
+                    st.power.charging, st.power.lowBattery);
   }
 
   // Cloud sync waits until a melody has finished (HTTPS requests take ~1 s)
-  if (now - lastUpload >= UPLOAD_INTERVAL_MS && !soundBusy()) {
+  uint32_t uploadEvery = st.power.lowBattery ? LOW_POWER_UPLOAD_MS : UPLOAD_INTERVAL_MS;
+  if (now - lastUpload >= uploadEvery && !soundBusy()) {
     lastUpload = now;
     bool history = now - lastHistory >= HISTORY_INTERVAL_MS;
     if (history) lastHistory = now;

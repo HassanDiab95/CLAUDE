@@ -51,9 +51,14 @@ plants/
       rssi: -61                (Wi-Fi signal)
       ip: "192.168.1.23"
       uptime_s: 86400
+      battery_pct: 69          (solar part: battery %)
+      battery_v: 3.92          (battery voltage)
+      solar_v: 6.1             (panel voltage, 0 at night)
+      charging: true           (the sun is charging the battery)
+      saving: false            (power-saving mode below 15 %)
       ts: 1767000000000        (server time, milliseconds)
     history/
-      -Nx1a2b3.../  { moisture, temperature, humidity, lux, mood, ts }   ← every 5 min
+      -Nx1a2b3.../  { moisture, temperature, humidity, lux, mood, battery_pct, ..., ts }   ← every 5 min
     events/
       -Nx9z8y7.../  { mood: "thirsty", message: "I am thirsty, please water me!", ts }  ← on mood change
     config/                    ← written by the web / Android app, read by the ESP32
@@ -65,7 +70,10 @@ plants/
       muted: false
     command/                   ← "Play" button (melody 1..9); deleted by the ESP32 after playing
       play: 1
+    ai/                        ← RESERVED for the future AI part (chapter 12), empty for now
 ```
+
+> The battery / solar fields exist only when `SOLAR_ENABLED 1` in `config.h`.
 
 ## 4.3 Step-by-step setup (≈ 20 minutes)
 

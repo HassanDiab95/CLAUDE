@@ -1,7 +1,9 @@
 // =====================================================================
 //  Rayy: web dashboard
 //  Reads the plant data from Firebase Realtime Database:
-//    plants/<PLANT_ID>/live      latest readings (updated every 30 s)
+//    plants/<PLANT_ID>/live      latest readings (updated every 30 s),
+//                                including battery_pct, battery_v, solar_v,
+//                                charging, saving when the solar part is used
 //    plants/<PLANT_ID>/history   one point every 5 minutes
 //    plants/<PLANT_ID>/events    mood changes ("plant diary")
 //    plants/<PLANT_ID>/config    settings written by this page
@@ -29,6 +31,8 @@ const TEXT = {
     muted: "كتم الصوت", save: "حفظ", saved: "تم الحفظ ✔", sent: "تم إرسال الطلب، سيعمل الصوت خلال 30 ثانية",
     signalGood: "ممتازة", signalOk: "جيدة", signalBad: "ضعيفة", noEvents: "لا توجد أحداث بعد", footer: "ري · مشروع تخرج في إنترنت الأشياء",
     loginFailed: "فشل تسجيل الدخول: تحقق من البريد وكلمة المرور", other: "English",
+    battery: "البطارية", solar: "اللوح الشمسي", charging: "يشحن من الشمس ☀️", notCharging: "لا يشحن الآن",
+    saving: "وضع توفير الطاقة", normalPower: "طاقة طبيعية",
     moods: {
       happy: ["سعيدة", "كل شيء ممتاز، شكراً لاهتمامك!"],
       thirsty: ["عطشانة", "أنا عطشانة! أرجوك اسقني ماء."],
@@ -54,6 +58,8 @@ const TEXT = {
     muted: "Mute sound", save: "Save", saved: "Saved ✔", sent: "Request sent, the plant will play it within 30 s",
     signalGood: "excellent", signalOk: "good", signalBad: "weak", noEvents: "No events yet", footer: "Rayy · IoT graduation project",
     loginFailed: "Sign-in failed: check the email and password", other: "العربية",
+    battery: "Battery", solar: "Solar panel", charging: "Charging from the sun ☀️", notCharging: "Not charging now",
+    saving: "Power-saving mode", normalPower: "Normal power",
     moods: {
       happy: ["Happy", "Everything is perfect, thank you!"],
       thirsty: ["Thirsty", "I am thirsty! Please water me."],
@@ -124,6 +130,7 @@ function demoSource() {
       temperature: +(22 + sun * 12 + Math.random()).toFixed(1),
       humidity: Math.round(45 - sun * 15),
       lux: Math.round(sun * 9000 + 5),
+      battery_pct: Math.round(Math.min(100, 55 + sun * 40)),
     });
   }
   const last = history[history.length - 1];
@@ -140,7 +147,10 @@ function demoSource() {
     : night() ? "sleepy" : r.lux < config.lux_min ? "need_light" : "happy";
   const tick = () => {
     const r = { ...last, ts: Date.now(), moisture: Math.max(0, last.moisture + Math.round(Math.random() * 2 - 1)) };
-    h.live({ ...r, mood: mood(r), rssi: -58 });
+    const hr = new Date().getHours() + new Date().getMinutes() / 60;
+    const sunV = Math.max(0, Math.sin(((hr - 6) / 12) * Math.PI)) * 6.4;
+    h.live({ ...r, mood: mood(r), rssi: -58, battery_pct: r.battery_pct, battery_v: 3.95,
+             solar_v: +sunV.toFixed(1), charging: sunV > 4.5, saving: false });
   };
   return {
     demo: true,
@@ -199,8 +209,23 @@ function renderLive() {
   bm.className = l.moisture < (state.config.moisture_min ?? 30) ? "low"
     : l.moisture > (state.config.moisture_max ?? 85) ? "high" : "";
 
-  // "Online" if the plant sent data during the last 2 minutes
-  const online = l.ts && Date.now() - l.ts < 120000;
+  // Solar part: shown only when the plant sends battery data
+  const hasPower = l.battery_pct !== undefined;
+  document.querySelectorAll(".power-only").forEach((el) => el.classList.toggle("hidden", !hasPower));
+  if (hasPower) {
+    $("vBattery").textContent = show(l.battery_pct);
+    $("vBatteryV").textContent = show(l.battery_v, 2);
+    $("vSolar").textContent = show(l.solar_v, 1);
+    $("vCharging").textContent = t(l.charging ? "charging" : "notCharging");
+    $("vSaving").textContent = t(l.saving ? "saving" : "normalPower");
+    $("batteryIcon").textContent = l.charging ? "⚡" : l.battery_pct < 20 ? "🪫" : "🔋";
+    const bb = $("barBattery");
+    bb.style.width = `${l.battery_pct}%`;
+    bb.className = l.battery_pct < 20 ? "low" : "";
+  }
+
+  // "Online" if the plant sent data recently (slower uploads in power-saving mode)
+  const online = l.ts && Date.now() - l.ts < (l.saving ? 300000 : 120000);
   const badge = $("onlineBadge");
   badge.textContent = online ? t("online") : t("offline");
   badge.className = `badge ${online ? "on" : "off"}`;
