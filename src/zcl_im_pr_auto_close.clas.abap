@@ -26,6 +26,10 @@ CLASS ZCL_IM_PR_AUTO_CLOSE IMPLEMENTATION.
 * +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD IF_EX_ME_PROCESS_PO_CUST~CHECK.
     IF SY-UNAME = 'HASSAN.C'. BREAK-POINT.ENDIF.
+*   PR Z306/Z307 -> PO Z406/Z407: expected value vs. PR valuation price
+    ZCL_PO_PR_PREIS_CHECK=>GET_INSTANCE( )->EXECUTE_FOR_PO(
+  EXPORTING IO_HEADER = IM_HEADER
+  CHANGING  CV_FAILED = CH_FAILED ).
     ZCL_PO_PR_LIMIT_CHECK=>GET_INSTANCE( )->EXECUTE_FOR_PO(
   EXPORTING IO_HEADER = IM_HEADER
   CHANGING  CV_FAILED = CH_FAILED ).
@@ -38,6 +42,7 @@ CLASS ZCL_IM_PR_AUTO_CLOSE IMPLEMENTATION.
 * | [--->] IM_HEADER                      TYPE REF TO IF_PURCHASE_ORDER_MM
 * +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD IF_EX_ME_PROCESS_PO_CUST~CLOSE.
+    ZCL_PO_PR_PREIS_CHECK=>GET_INSTANCE( )->RESET( ).
   ENDMETHOD.
 
 
@@ -159,6 +164,8 @@ ENDMETHOD.
 * +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD IF_EX_ME_PROCESS_PO_CUST~PROCESS_ITEM.
     IF SY-UNAME = 'HASSAN.C'. BREAK-POINT.ENDIF.
+*   PR Z306/Z307 -> PO Z406/Z407: EBAN-PREIS -> EKPO-EXPECTED_VALUE + check
+    ZCL_PO_PR_PREIS_CHECK=>GET_INSTANCE( )->EXECUTE_FOR_ITEM( IM_ITEM ).
     ZCL_PO_PR_LIMIT_CHECK=>GET_INSTANCE( )->EXECUTE_FOR_ITEM( IM_ITEM ).
   ENDMETHOD.
 
