@@ -221,8 +221,10 @@ CLASS ZCL_PR_AUTO_CLOSE IMPLEMENTATION.
     CHECK SY-SUBRC = 0.
 
     RV_VALUE = LS_EBAN-EXPECTED_VALUE.
-*   PR Z306/Z307: the valuation price is the PR value
+*   PR Z306/Z307 -> PO Z406/Z407 only: the valuation price is the PR value
+*   (all other documents keep the original logic unchanged)
     IF RV_VALUE IS INITIAL
+    AND ZCL_PO_PR_PREIS_CHECK=>IS_PO_TYPE( MV_BSART ) = ABAP_TRUE
     AND ZCL_PO_PR_PREIS_CHECK=>IS_PR_TYPE( LS_EBAN-BSART ) = ABAP_TRUE.
       RV_VALUE = LS_EBAN-PREIS.
     ENDIF.
