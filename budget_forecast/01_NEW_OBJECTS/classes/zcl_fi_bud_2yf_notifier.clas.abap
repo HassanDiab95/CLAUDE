@@ -182,6 +182,13 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
       ELSE `تم تعديل موازنة تقديرية مقدمة، وتظهر القيم المعدلة أدناه.` ).
 
     DATA(lv_years) = |{ is_header-fyear_from }-{ is_header-fyear_to }|.
+
+    " company code name (released CDS view I_CompanyCode)
+    SELECT SINGLE companycodename
+      FROM i_companycode
+      WHERE companycode = @is_header-bukrs
+      INTO @DATA(lv_company_name).
+
     DATA(lv_total) = |<span style="color:{ c_color-blue };font-weight:bold;font-size:12pt">| &&
                      |{ is_header-total_amount NUMBER = USER } { is_header-waers }</span>|.
 
@@ -214,7 +221,8 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
       |<table role="presentation" width="100%" cellpadding="0" cellspacing="0" | &&
       |style="border:1px solid #dcdde6;border-collapse:collapse;font-size:10pt">| &&
       detail_row( iv_label_en = `Company`               iv_label_ar = zif_fi_bud_2yf_types=>c_text_ar-bukrs
-                  iv_value    = CONV #( is_header-bukrs ) ) &&
+                  iv_value    = COND #( WHEN lv_company_name IS INITIAL THEN CONV string( is_header-bukrs )
+                                        ELSE |{ is_header-bukrs } - { html( lv_company_name ) }| ) ) &&
       detail_row( iv_label_en = `Cost Center Code`      iv_label_ar = zif_fi_bud_2yf_types=>c_text_ar-dept_code
                   iv_value    = |{ is_header-kostl ALPHA = OUT } - { html( iv_cost_center_text ) }| ) &&
       detail_row( iv_label_en = `Forecast Budget Years` iv_label_ar = zif_fi_bud_2yf_types=>c_text_ar-years
