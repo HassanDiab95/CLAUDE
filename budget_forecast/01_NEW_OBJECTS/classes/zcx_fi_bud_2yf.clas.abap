@@ -1,5 +1,5 @@
-"! <p class="shorttext synchronized">Budget Forecast - exception (messages of class ZBUD_2YF)</p>
-"! Raised with RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE eNNN(zbud_2yf) WITH ...
+"! <p class="shorttext synchronized">Budget Forecast - exception (messages of class ZBUD_FCST)</p>
+"! Raised with RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE eNNN(zbud_fcst) WITH ...
 "! FIELDNAME / ITEM_INDEX tell the screen which item cell to put the cursor on.
 CLASS zcx_fi_bud_2yf DEFINITION
   PUBLIC

@@ -58,12 +58,12 @@ CLASS ltc_forecast DEFINITION FINAL FOR TESTING
     METHODS key
       RETURNING VALUE(rs_key) TYPE zcl_fi_bud_2yf=>ty_key.
     METHODS item
-      IMPORTING iv_item_no     TYPE z2yf_item_no
-                iv_amount      TYPE z2yf_amount
+      IMPORTING iv_item_no     TYPE zfcst_item_no
+                iv_amount      TYPE zfcst_amount
       RETURNING VALUE(rs_item) TYPE zif_fi_bud_2yf_types=>ty_item.
     METHODS header
       IMPORTING iv_ernam         TYPE ernam DEFAULT c_creator
-                iv_change_count  TYPE z2yf_change_cnt DEFAULT 0
+                iv_change_count  TYPE zfcst_change_cnt DEFAULT 0
                 iv_erdat         TYPE d DEFAULT c_today
       RETURNING VALUE(rs_header) TYPE zcl_fi_bud_2yf=>ty_header.
 ENDCLASS.

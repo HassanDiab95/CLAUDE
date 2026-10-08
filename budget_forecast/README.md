@@ -4,7 +4,7 @@
 A **new, separate** application for the two-year forecast budget. It is attached to the Budget Preparation application (`ZFI_BUDGET_PREPERATION` / `ZFI_BUDGET_PRE`) **only through new buttons on its screen 0001**.
 
 > **Nothing existing is changed or reused by name.**
-> * The existing program `ZFI_BUDGET_FORECAST` and its cycle are **not touched**. All new objects use their own prefix **`2YF`** (two-year forecast), e.g. `ZFI_BUD_2YF_ENTRY`, so no name collides with existing objects.
+> * The existing program `ZFI_BUDGET_FORECAST` and its cycle are **not touched**. The new programs, classes and transactions use their own prefix **`2YF`** (two-year forecast), e.g. `ZFI_BUD_2YF_ENTRY`, so no name collides with existing objects. The dictionary objects and the message class keep the names **already created** in the system: tables `ZFI_BUD_FCST_H/_I/_LOG`, domains and data elements `ZFCST_*`, message class `ZBUD_FCST`.
 > * The existing screens of `ZFI_BUDGET_PREPERATION` (including screen 0100) are **not changed**. Only screen 0001 gets 3 new buttons.
 > * The existing logic and workflow of Budget Preparation are **not changed**. The new forecast has its own tables, does not use the workflow, and only reads the existing role tables (`ZBUD_CREATORS`, `ZFI_BUD_WF_AGENT`, `ZFIBUD_ASSISTANT`).
 
@@ -12,7 +12,7 @@ A **new, separate** application for the two-year forecast budget. It is attached
 
 | Folder | What | You do |
 |---|---|---|
-| `01_NEW_OBJECTS/` | Everything new: DDIC (section 3), message class, interfaces and classes, the new module pool `ZFI_BUD_2YF_ENTRY` with its **new screen 0100**, report `ZFI_BUD_2YF_REPORT` | Create these as new objects |
+| `01_NEW_OBJECTS/` | Everything new: interfaces and classes, the new module pool `ZFI_BUD_2YF_ENTRY` with its **new screen 0100**, report `ZFI_BUD_2YF_REPORT` | Create these as new objects (the DDIC objects and message class of section 3 are already created) |
 | `02_CHANGES_TO_EXISTING_ZFI_BUDGET_PREPERATION/` | The **only** changes to the existing program: (1) screen 0001 with 3 extra buttons, (2) one block in `HIDE_BUTTONS_0001`, (3) three `WHEN` branches in `USER_COMMAND_0001` | Add these manually |
 
 ### New object names
@@ -22,14 +22,14 @@ A **new, separate** application for the two-year forecast budget. It is attached
 | Module pool (entry screen 0100) | `ZFI_BUD_2YF_ENTRY` + includes `ZFI_BUD_2YF_ENTRY_TOP`, `_C01`, `_PBO`, `_PAI` |
 | Report | `ZFI_BUD_2YF_REPORT` |
 | Transactions | `ZFI_BUD_2YF_C` (create), `ZFI_BUD_2YF_M` (modify), `ZFI_BUD_2YF_R` (report) |
-| Tables | `ZFI_BUD_2YF_H` (header), `ZFI_BUD_2YF_I` (items), `ZFI_BUD_2YF_LOG` (change log) |
+| Tables | `ZFI_BUD_FCST_H` (header), `ZFI_BUD_FCST_I` (items), `ZFI_BUD_FCST_LOG` (change log) |
 | Classes | `ZCL_FI_BUD_2YF`, `ZCL_FI_BUD_2YF_REPOSITORY`, `ZCL_FI_BUD_2YF_AUTH`, `ZCL_FI_BUD_2YF_NOTIFIER`, `ZCL_FI_BUD_2YF_REPORT` |
 | Interfaces | `ZIF_FI_BUD_2YF_TYPES`, `ZIF_FI_BUD_2YF_REPOSITORY`, `ZIF_FI_BUD_2YF_AUTH`, `ZIF_FI_BUD_2YF_NOTIFIER` |
 | Exception class | `ZCX_FI_BUD_2YF` |
-| Message class | `ZBUD_2YF` |
-| Domains / data elements | `Z2YF_*` |
+| Message class | `ZBUD_FCST` |
+| Domains / data elements | `ZFCST_*` |
 
-Check in SE80/SE11 that these names are free in your system before creating them. If one is taken, rename that object and search/replace it in the sources.
+The tables, domains, data elements and message class are already created with these names. For the programs, classes, interfaces and transactions, check in SE80 / SE24 / SE93 that the names are free. If one is taken, rename that object and search-and-replace it in the sources.
 
 | | |
 |---|---|
@@ -54,7 +54,7 @@ The full step-by-step guide with all source code is the Word document `TSD - Bud
 | 2 | Only the **creator** may modify | `VALIDATE_HEADER` / `CHECK_CHANGE_ALLOWED` |
 | 2 | No change once the year after creation starts | `CHECK_CHANGE_ALLOWED` (message 022) |
 | 3 | Consolidated report, Excel, FR + assistants only | `ZCL_FI_BUD_2YF_REPORT` / `ZFI_BUD_2YF_R` |
-| 3 | **New:** change history on double-click | Every update writes `ZFI_BUD_2YF_LOG`; double-click in the report shows who changed it, the date, the time, the item, the field, the old value and the new value |
+| 3 | **New:** change history on double-click | Every update writes `ZFI_BUD_FCST_LOG`; double-click in the report shows who changed it, the date, the time, the item, the field, the old value and the new value |
 | 4 | E-mail to all FR + assistants on create / change | `ZCL_FI_BUD_2YF_NOTIFIER` |
 | 5 | No duplicate Company + Department + Years | Primary key + `VALIDATE_HEADER` (message 006) |
 
@@ -81,7 +81,7 @@ The full step-by-step guide with all source code is the Word document `TSD - Bud
 | Object | Type | Responsibility |
 |---|---|---|
 | `ZIF_FI_BUD_2YF_TYPES` | Interface | Shared types and constants (max. changes, year offset, currency, modes, transaction codes) |
-| `ZCX_FI_BUD_2YF` | Exception class | All errors as T100 messages of `ZBUD_2YF` (`IF_T100_DYN_MSG`), with the item field / line to place the cursor |
+| `ZCX_FI_BUD_2YF` | Exception class | All errors as T100 messages of `ZBUD_FCST` (`IF_T100_DYN_MSG`), with the item field / line to place the cursor |
 | `ZIF_FI_BUD_2YF_REPOSITORY` / `ZCL_FI_BUD_2YF_REPOSITORY` | Interface / class | Reads and writes the Z tables. Company and cost center data come from the released CDS views `I_CompanyCode`, `I_CostCenter`, `I_CostCenterText`. Never commits |
 | `ZIF_FI_BUD_2YF_AUTH` / `ZCL_FI_BUD_2YF_AUTH` | Interface / class | Creator, Final Reviewer / assistant checks, list of e-mail recipients |
 | `ZIF_FI_BUD_2YF_NOTIFIER` / `ZCL_FI_BUD_2YF_NOTIFIER` | Interface / class | HTML e-mail via BCS; addresses from `BAPI_USER_GET_DETAIL` |
@@ -123,7 +123,7 @@ Limits to be aware of:
 
 ### 2.2 Change history
 
-On every successful update, `ZCL_FI_BUD_2YF->BUILD_CHANGE_LOG` compares the saved version with the new one and writes one `ZFI_BUD_2YF_LOG` line per difference:
+On every successful update, `ZCL_FI_BUD_2YF->BUILD_CHANGE_LOG` compares the saved version with the new one and writes one `ZFI_BUD_FCST_LOG` line per difference:
 
 | Case | CHG_IND | FIELD_TEXT | VALUE_OLD → VALUE_NEW |
 |---|---|---|---|
@@ -144,47 +144,47 @@ In the report, the user **double-clicks any line** of a forecast with *Updates U
 
 | Domain | Type | Fixed values |
 |---|---|---|
-| `Z2YF_PRIORITY` | CHAR 10 | `BASIS` Basis, `EXISTING` Existing, `SECONDARY` Secondary |
-| `Z2YF_BUD_TYPE` | CHAR 5 | `OPEX` Opex, `CAPEX` Capex |
-| `Z2YF_PROJ_TYPE` | CHAR 12 | `STRATEGIC` Strategic, `OPERATIONAL` Operational |
-| `Z2YF_CHG_IND` | CHAR 1 | `I` Item added, `U` Changed, `D` Item deleted |
-| `Z2YF_AMOUNT` | DEC 15,2 | – |
-| `Z2YF_ITEM_NO` | NUMC 4 | – |
-| `Z2YF_TEXT100` | CHAR 100, lower case | – |
-| `Z2YF_TEXT255` | CHAR 255, lower case | – |
+| `ZFCST_PRIORITY` | CHAR 10 | `BASIS` Basis, `EXISTING` Existing, `SECONDARY` Secondary |
+| `ZFCST_BUD_TYPE` | CHAR 5 | `OPEX` Opex, `CAPEX` Capex |
+| `ZFCST_PROJ_TYPE` | CHAR 12 | `STRATEGIC` Strategic, `OPERATIONAL` Operational |
+| `ZFCST_CHG_IND` | CHAR 1 | `I` Item added, `U` Changed, `D` Item deleted |
+| `ZFCST_AMOUNT` | DEC 15,2 | – |
+| `ZFCST_ITEM_NO` | NUMC 4 | – |
+| `ZFCST_TEXT100` | CHAR 100, lower case | – |
+| `ZFCST_TEXT255` | CHAR 255, lower case | – |
 
 ### 3.2 Data elements
 
 | Data element | Domain | Label |
 |---|---|---|
-| `Z2YF_YEAR_FROM` / `Z2YF_YEAR_TO` / `Z2YF_BUDGET_YEAR` | `GJAHR` | Forecast Year From / To / Budget Year |
-| `Z2YF_ITEM_NO` | `Z2YF_ITEM_NO` | Sequence |
-| `Z2YF_LOG_NO` | `Z2YF_ITEM_NO` | Log Line |
-| `Z2YF_PROJ_NAME` | `Z2YF_TEXT100` | Project Name |
-| `Z2YF_PROJ_DESC` | `Z2YF_TEXT255` | Project Description |
-| `Z2YF_PRIORITY` | `Z2YF_PRIORITY` | Project Priority |
-| `Z2YF_AMOUNT` | `Z2YF_AMOUNT` | Project Budget |
-| `Z2YF_TOTAL_AMOUNT` | `Z2YF_AMOUNT` | Total Forecast Amount |
-| `Z2YF_BUD_TYPE` | `Z2YF_BUD_TYPE` | Opex / Capex |
-| `Z2YF_PROJ_TYPE` | `Z2YF_PROJ_TYPE` | Project Type |
-| `Z2YF_CHANGE_CNT` | `INT1` | Updates Used / Update No. |
-| `Z2YF_CHG_IND` | `Z2YF_CHG_IND` | Action |
-| `Z2YF_FIELD_TEXT` | `Z2YF_TEXT100` | Changed Field |
-| `Z2YF_VALUE_OLD` / `Z2YF_VALUE_NEW` | `Z2YF_TEXT255` | Old Value / New Value |
+| `ZFCST_YEAR_FROM` / `ZFCST_YEAR_TO` / `ZFCST_BUDGET_YEAR` | `GJAHR` | Forecast Year From / To / Budget Year |
+| `ZFCST_ITEM_NO` | `ZFCST_ITEM_NO` | Sequence |
+| `ZFCST_LOG_NO` | `ZFCST_ITEM_NO` | Log Line |
+| `ZFCST_PROJ_NAME` | `ZFCST_TEXT100` | Project Name |
+| `ZFCST_PROJ_DESC` | `ZFCST_TEXT255` | Project Description |
+| `ZFCST_PRIORITY` | `ZFCST_PRIORITY` | Project Priority |
+| `ZFCST_AMOUNT` | `ZFCST_AMOUNT` | Project Budget |
+| `ZFCST_TOTAL_AMOUNT` | `ZFCST_AMOUNT` | Total Forecast Amount |
+| `ZFCST_BUD_TYPE` | `ZFCST_BUD_TYPE` | Opex / Capex |
+| `ZFCST_PROJ_TYPE` | `ZFCST_PROJ_TYPE` | Project Type |
+| `ZFCST_CHANGE_CNT` | `INT1` | Updates Used / Update No. |
+| `ZFCST_CHG_IND` | `ZFCST_CHG_IND` | Action |
+| `ZFCST_FIELD_TEXT` | `ZFCST_TEXT100` | Changed Field |
+| `ZFCST_VALUE_OLD` / `ZFCST_VALUE_NEW` | `ZFCST_TEXT255` | Old Value / New Value |
 
 ### 3.3 Tables (delivery class A, data class APPL1, size 0, display/maintenance with restrictions)
 
-**`ZFI_BUD_2YF_H` – Forecast header.** Key: `MANDT`, `BUKRS`, `KOSTL`, `FYEAR_FROM`, `FYEAR_TO`. Other fields:
+**`ZFI_BUD_FCST_H` – Forecast header.** Key: `MANDT`, `BUKRS`, `KOSTL`, `FYEAR_FROM`, `FYEAR_TO`. Other fields:
 
 * `WAERS`
-* `TOTAL_AMOUNT` (`Z2YF_TOTAL_AMOUNT`)
-* `CHANGE_COUNT` (`Z2YF_CHANGE_CNT`)
+* `TOTAL_AMOUNT` (`ZFCST_TOTAL_AMOUNT`)
+* `CHANGE_COUNT` (`ZFCST_CHANGE_CNT`)
 * `ERNAM`, `ERDAT`, `ERZET`
 * `AENAM`, `AEDAT`, `AEZET` (use `UZEIT` if `AEZET` does not exist)
 
 Add index `Z01` on `MANDT, ERNAM`.
 
-**`ZFI_BUD_2YF_I` – Forecast items.** Key: `MANDT`, `BUKRS`, `KOSTL`, `FYEAR_FROM`, `FYEAR_TO`, `ITEM_NO`. Other fields:
+**`ZFI_BUD_FCST_I` – Forecast items.** Key: `MANDT`, `BUKRS`, `KOSTL`, `FYEAR_FROM`, `FYEAR_TO`, `ITEM_NO`. Other fields:
 
 * `BUDGET_YEAR`
 * `PROJ_NAME`, `PROJ_DESC`
@@ -192,15 +192,15 @@ Add index `Z01` on `MANDT, ERNAM`.
 * `AMOUNT`, `WAERS`
 * `BUD_TYPE`, `PROJ_TYPE`
 
-**`ZFI_BUD_2YF_LOG` – Forecast change log (new).** Key: `MANDT`, `BUKRS`, `KOSTL`, `FYEAR_FROM`, `FYEAR_TO`, `CHANGE_NO` (`Z2YF_CHANGE_CNT`), `LOG_NO` (`Z2YF_LOG_NO`). Other fields:
+**`ZFI_BUD_FCST_LOG` – Forecast change log (new).** Key: `MANDT`, `BUKRS`, `KOSTL`, `FYEAR_FROM`, `FYEAR_TO`, `CHANGE_NO` (`ZFCST_CHANGE_CNT`), `LOG_NO` (`ZFCST_LOG_NO`). Other fields:
 
-* `ITEM_NO` (`Z2YF_ITEM_NO`)
-* `CHG_IND` (`Z2YF_CHG_IND`)
-* `FIELDNAME` (`FIELDNAME`), `FIELD_TEXT` (`Z2YF_FIELD_TEXT`)
-* `VALUE_OLD` (`Z2YF_VALUE_OLD`), `VALUE_NEW` (`Z2YF_VALUE_NEW`)
+* `ITEM_NO` (`ZFCST_ITEM_NO`)
+* `CHG_IND` (`ZFCST_CHG_IND`)
+* `FIELDNAME` (`FIELDNAME`), `FIELD_TEXT` (`ZFCST_FIELD_TEXT`)
+* `VALUE_OLD` (`ZFCST_VALUE_OLD`), `VALUE_NEW` (`ZFCST_VALUE_NEW`)
 * `CHANGED_BY` (`AENAM`), `CHANGED_ON` (`AEDAT`), `CHANGED_AT` (`AEZET` or `UZEIT`)
 
-### 3.4 Message class `ZBUD_2YF`
+### 3.4 Message class `ZBUD_FCST`
 
 | No | Text |
 |---|---|
@@ -259,8 +259,8 @@ Add index `Z01` on `MANDT, ERNAM`.
 
 **Part A – new objects (`01_NEW_OBJECTS`)**
 
-1. **SE11:** domains → data elements → tables `ZFI_BUD_2YF_H`, `ZFI_BUD_2YF_I`, `ZFI_BUD_2YF_LOG` → activate.
-2. **SE91:** message class `ZBUD_2YF`.
+1. **SE11:** domains, data elements and tables `ZFI_BUD_FCST_H`, `ZFI_BUD_FCST_I`, `ZFI_BUD_FCST_LOG` are **already created**. Only compare them with section 3 (field names and types must match the code).
+2. **SE91:** message class `ZBUD_FCST` is **already created**. Check that messages 001–027 of section 3.4 exist (027 is the newest one, for the change history).
 3. **SE24 / ADT**, in this order:
    1. `ZIF_FI_BUD_2YF_TYPES`
    2. `ZCX_FI_BUD_2YF`

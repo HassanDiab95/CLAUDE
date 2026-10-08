@@ -306,7 +306,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     IF confirm( |Submit the forecast budget { gv_fcst_years } for cost center | &&
                 |{ gs_head-kostl ALPHA = OUT }? It can be updated at most | &&
                 |{ zif_fi_bud_2yf_types=>c_max_changes } times afterwards.| ) = abap_false.
-      MESSAGE s019(zbud_2yf).
+      MESSAGE s019(zbud_fcst).
       RETURN.
     ENDIF.
 
@@ -317,9 +317,9 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
         RETURN.
     ENDTRY.
 
-    MESSAGE i012(zbud_2yf) WITH gs_head-bukrs gs_head-kostl gv_fcst_years.
+    MESSAGE i012(zbud_fcst) WITH gs_head-bukrs gs_head-kostl gv_fcst_years.
     IF ls_result-mail_error IS NOT INITIAL.
-      MESSAGE s018(zbud_2yf) WITH ls_result-mail_error DISPLAY LIKE 'W'.
+      MESSAGE s018(zbud_fcst) WITH ls_result-mail_error DISPLAY LIKE 'W'.
     ENDIF.
     LEAVE TO SCREEN 0.
   ENDMETHOD.
@@ -327,7 +327,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
 
   METHOD save_change.
     IF mv_readonly = abap_true.
-      MESSAGE s026(zbud_2yf) DISPLAY LIKE 'E'.
+      MESSAGE s026(zbud_fcst) DISPLAY LIKE 'E'.
       RETURN.
     ENDIF.
 
@@ -343,7 +343,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     IF mo_forecast->has_changes( is_key       = key( )
                                  it_items_old = mt_items_db
                                  it_items_new = lt_items ) = abap_false.
-      MESSAGE s014(zbud_2yf).
+      MESSAGE s014(zbud_fcst).
       RETURN.
     ENDIF.
 
@@ -353,7 +353,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     IF confirm( |This is update { lv_next } of { zif_fi_bud_2yf_types=>c_max_changes } for this forecast. | &&
                 COND string( WHEN lv_left = 0 THEN `No further updates will be possible. Save?`
                              ELSE |{ lv_left } update(s) will remain. Save?| ) ) = abap_false.
-      MESSAGE s019(zbud_2yf).
+      MESSAGE s019(zbud_fcst).
       RETURN.
     ENDIF.
 
@@ -366,9 +366,9 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
         RETURN.
     ENDTRY.
 
-    MESSAGE i013(zbud_2yf) WITH ls_result-header-change_count zif_fi_bud_2yf_types=>c_max_changes.
+    MESSAGE i013(zbud_fcst) WITH ls_result-header-change_count zif_fi_bud_2yf_types=>c_max_changes.
     IF ls_result-mail_error IS NOT INITIAL.
-      MESSAGE s018(zbud_2yf) WITH ls_result-mail_error DISPLAY LIKE 'W'.
+      MESSAGE s018(zbud_fcst) WITH ls_result-mail_error DISPLAY LIKE 'W'.
     ENDIF.
     LEAVE TO SCREEN 0.
   ENDMETHOD.

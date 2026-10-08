@@ -31,7 +31,7 @@
 *&---------------------------------------------------------------------*
 REPORT zfi_bud_2yf_report.
 
-DATA gs_selection TYPE zfi_bud_2yf_h.  "only for the SELECT-OPTIONS types
+DATA gs_selection TYPE zfi_bud_fcst_h.  "only for the SELECT-OPTIONS types
 
 SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-b01.
   SELECT-OPTIONS: s_bukrs FOR gs_selection-bukrs,
@@ -46,7 +46,7 @@ SELECTION-SCREEN END OF BLOCK b02.
 
 INITIALIZATION.
   IF CAST zif_fi_bud_2yf_auth( NEW zcl_fi_bud_2yf_auth( ) )->is_final_reviewer( ) = abap_false.
-    MESSAGE s023(zbud_2yf) DISPLAY LIKE 'E'.
+    MESSAGE s023(zbud_fcst) DISPLAY LIKE 'E'.
     LEAVE PROGRAM.
   ENDIF.
 

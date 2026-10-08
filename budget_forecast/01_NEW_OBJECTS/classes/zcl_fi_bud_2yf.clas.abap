@@ -13,7 +13,7 @@
 "!   - one forecast per company / cost center / years (duplicate check)
 "!   - change only by the creator, at most c_max_changes times, and only
 "!     in the calendar year the forecast was created in
-"!   - every change writes a field level change log (ZFI_BUD_2YF_LOG)
+"!   - every change writes a field level change log (ZFI_BUD_FCST_LOG)
 "!   - every create / change notifies all Final Reviewers + assistants
 CLASS zcl_fi_bud_2yf DEFINITION
   PUBLIC
@@ -45,8 +45,8 @@ CLASS zcl_fi_bud_2yf DEFINITION
 
     "! '2028-2029'
     CLASS-METHODS years_text
-      IMPORTING iv_from        TYPE z2yf_year_from
-                iv_to          TYPE z2yf_year_to
+      IMPORTING iv_from        TYPE zfcst_year_from
+                iv_to          TYPE zfcst_year_to
       RETURNING VALUE(rv_text) TYPE string.
 
     "! '2028-2029' -> 2028 / 2029 (message 003 when invalid)
@@ -123,7 +123,7 @@ CLASS zcl_fi_bud_2yf DEFINITION
 
     CLASS-METHODS total_amount
       IMPORTING it_items        TYPE tt_items
-      RETURNING VALUE(rv_total) TYPE z2yf_amount.
+      RETURNING VALUE(rv_total) TYPE zfcst_amount.
 
   PRIVATE SECTION.
     "! Item columns compared for the change log (and required on save)
@@ -184,7 +184,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
     IF strlen( lv_from ) <> 4 OR lv_from CN '0123456789' OR
        strlen( lv_to )   <> 4 OR lv_to   CN '0123456789' OR
        lv_to <> lv_from + 1.
-      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e003(zbud_2yf).
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e003(zbud_fcst).
     ENDIF.
 
     rs_years = VALUE #( fyear_from = lv_from fyear_to = lv_to ).
@@ -219,14 +219,14 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
     DATA lv_creator TYPE ernam.
 
     IF mo_repository->company_exists( is_key-bukrs ) = abap_false.
-      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e001(zbud_2yf) WITH is_key-bukrs.
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e001(zbud_fcst) WITH is_key-bukrs.
     ENDIF.
 
     IF mo_repository->cost_center_exists( iv_bukrs = is_key-bukrs
                                           iv_kostl = is_key-kostl
                                           iv_date  = mv_today ) = abap_false.
       DATA(lv_kokrs) = mo_repository->get_controlling_area( is_key-bukrs ).
-      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e002(zbud_2yf) WITH is_key-kostl lv_kokrs.
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e002(zbud_fcst) WITH is_key-kostl lv_kokrs.
     ENDIF.
 
     DATA(lv_years) = years_text( iv_from = is_key-fyear_from iv_to = is_key-fyear_to ).
@@ -237,30 +237,30 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
         DATA(ls_window) = get_forecast_window( ).
         IF is_key-fyear_from <> ls_window-fyear_from.
           DATA(lv_window) = years_text( iv_from = ls_window-fyear_from iv_to = ls_window-fyear_to ).
-          RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e004(zbud_2yf) WITH lv_window.
+          RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e004(zbud_fcst) WITH lv_window.
         ENDIF.
 
         IF mo_auth->is_creator( is_key-kostl ) = abap_false.
-          RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e005(zbud_2yf) WITH is_key-kostl.
+          RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e005(zbud_fcst) WITH is_key-kostl.
         ENDIF.
 
         " duplicate prevention: Company + Department + Years
         lv_creator = mo_repository->get_creator( is_key ).
         IF lv_creator IS NOT INITIAL.
           RAISE EXCEPTION TYPE zcx_fi_bud_2yf
-            MESSAGE e006(zbud_2yf) WITH is_key-bukrs is_key-kostl lv_years lv_creator.
+            MESSAGE e006(zbud_fcst) WITH is_key-bukrs is_key-kostl lv_years lv_creator.
         ENDIF.
 
       WHEN zif_fi_bud_2yf_types=>c_mode-modify.
         lv_creator = mo_repository->get_creator( is_key ).
         IF lv_creator IS INITIAL.
           RAISE EXCEPTION TYPE zcx_fi_bud_2yf
-            MESSAGE e007(zbud_2yf) WITH is_key-bukrs is_key-kostl lv_years.
+            MESSAGE e007(zbud_fcst) WITH is_key-bukrs is_key-kostl lv_years.
         ENDIF.
 
         " only the creator of the forecast request may open it here
         IF lv_creator <> mv_user.
-          RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e008(zbud_2yf) WITH lv_creator.
+          RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e008(zbud_fcst) WITH lv_creator.
         ENDIF.
 
     ENDCASE.
@@ -281,7 +281,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
 
   METHOD validate_items.
     IF it_items IS INITIAL.
-      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e009(zbud_2yf).
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e009(zbud_fcst).
     ENDIF.
 
     LOOP AT it_items INTO DATA(ls_item).
@@ -289,7 +289,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
 
       IF ls_item-budget_year <> is_key-fyear_from AND ls_item-budget_year <> is_key-fyear_to.
         RAISE EXCEPTION TYPE zcx_fi_bud_2yf
-          MESSAGE e025(zbud_2yf) WITH ls_item-item_no is_key-fyear_from is_key-fyear_to
+          MESSAGE e025(zbud_fcst) WITH ls_item-item_no is_key-fyear_from is_key-fyear_to
           EXPORTING fieldname = 'BUDGET_YEAR' item_index = lv_index.
       ENDIF.
 
@@ -304,13 +304,13 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
         ASSIGN COMPONENT lv_missing OF STRUCTURE ls_item TO FIELD-SYMBOL(<lv_value>).
         DATA(lv_label) = field_text( iv_fieldname = lv_missing ia_value = <lv_value> ).
         RAISE EXCEPTION TYPE zcx_fi_bud_2yf
-          MESSAGE e010(zbud_2yf) WITH ls_item-item_no lv_label
+          MESSAGE e010(zbud_fcst) WITH ls_item-item_no lv_label
           EXPORTING fieldname = lv_missing item_index = lv_index.
       ENDIF.
 
       IF ls_item-amount <= 0.
         RAISE EXCEPTION TYPE zcx_fi_bud_2yf
-          MESSAGE e011(zbud_2yf) WITH ls_item-item_no
+          MESSAGE e011(zbud_fcst) WITH ls_item-item_no
           EXPORTING fieldname = 'AMOUNT' item_index = lv_index.
       ENDIF.
     ENDLOOP.
@@ -328,7 +328,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
     DATA(ls_window) = get_forecast_window( ).
     IF is_key-fyear_from <> ls_window-fyear_from.
       DATA(lv_window) = years_text( iv_from = ls_window-fyear_from iv_to = ls_window-fyear_to ).
-      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e004(zbud_2yf) WITH lv_window.
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e004(zbud_fcst) WITH lv_window.
     ENDIF.
 
     validate_items( is_key = is_key it_items = it_items ).
@@ -375,7 +375,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
     DATA(lt_new) = normalize_items( is_key = ls_key it_items = it_items ).
 
     IF lt_old = lt_new.
-      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e014(zbud_2yf).
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e014(zbud_fcst).
     ENDIF.
 
     rs_result-header = VALUE #( BASE is_header_db
@@ -493,7 +493,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
 
 
   METHOD total_amount.
-    rv_total = REDUCE #( INIT lv_sum TYPE z2yf_amount
+    rv_total = REDUCE #( INIT lv_sum TYPE zfcst_amount
                          FOR ls_item IN it_items
                          NEXT lv_sum = lv_sum + ls_item-amount ).
   ENDMETHOD.

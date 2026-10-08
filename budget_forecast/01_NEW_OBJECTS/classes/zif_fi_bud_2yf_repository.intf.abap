@@ -62,7 +62,7 @@ INTERFACE zif_fi_bud_2yf_repository PUBLIC.
   "! write its change log. Changed in between -> message 015
   METHODS update_forecast
     IMPORTING is_header           TYPE zif_fi_bud_2yf_types=>ty_header
-              iv_old_change_count TYPE z2yf_change_cnt
+              iv_old_change_count TYPE zfcst_change_cnt
               it_items            TYPE zif_fi_bud_2yf_types=>tt_items
               it_log              TYPE zif_fi_bud_2yf_types=>tt_log
     RAISING   zcx_fi_bud_2yf.

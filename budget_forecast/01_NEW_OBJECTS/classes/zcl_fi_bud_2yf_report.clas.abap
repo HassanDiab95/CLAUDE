@@ -17,44 +17,44 @@ CLASS zcl_fi_bud_2yf_report DEFINITION
   PUBLIC SECTION.
     TYPES tt_bukrs_range TYPE RANGE OF bukrs.
     TYPES tt_kostl_range TYPE RANGE OF kostl.
-    TYPES tt_fyear_range TYPE RANGE OF z2yf_year_from.
+    TYPES tt_fyear_range TYPE RANGE OF zfcst_year_from.
     TYPES tt_ernam_range TYPE RANGE OF ernam.
 
     TYPES: BEGIN OF ty_out,
-             bukrs        TYPE zfi_bud_2yf_h-bukrs,
-             kostl        TYPE zfi_bud_2yf_h-kostl,
+             bukrs        TYPE zfi_bud_fcst_h-bukrs,
+             kostl        TYPE zfi_bud_fcst_h-kostl,
              ktext        TYPE kltxt,
              fcst_years   TYPE c LENGTH 9,
-             item_no      TYPE zfi_bud_2yf_i-item_no,
-             budget_year  TYPE zfi_bud_2yf_i-budget_year,
-             proj_name    TYPE zfi_bud_2yf_i-proj_name,
-             proj_desc    TYPE zfi_bud_2yf_i-proj_desc,
-             priority     TYPE zfi_bud_2yf_i-priority,
-             amount       TYPE zfi_bud_2yf_i-amount,
-             waers        TYPE zfi_bud_2yf_i-waers,
-             bud_type     TYPE zfi_bud_2yf_i-bud_type,
-             proj_type    TYPE zfi_bud_2yf_i-proj_type,
-             change_count TYPE zfi_bud_2yf_h-change_count,
-             ernam        TYPE zfi_bud_2yf_h-ernam,
-             erdat        TYPE zfi_bud_2yf_h-erdat,
-             aenam        TYPE zfi_bud_2yf_h-aenam,
-             aedat        TYPE zfi_bud_2yf_h-aedat,
-             fyear_from   TYPE zfi_bud_2yf_h-fyear_from,
-             fyear_to     TYPE zfi_bud_2yf_h-fyear_to,
+             item_no      TYPE zfi_bud_fcst_i-item_no,
+             budget_year  TYPE zfi_bud_fcst_i-budget_year,
+             proj_name    TYPE zfi_bud_fcst_i-proj_name,
+             proj_desc    TYPE zfi_bud_fcst_i-proj_desc,
+             priority     TYPE zfi_bud_fcst_i-priority,
+             amount       TYPE zfi_bud_fcst_i-amount,
+             waers        TYPE zfi_bud_fcst_i-waers,
+             bud_type     TYPE zfi_bud_fcst_i-bud_type,
+             proj_type    TYPE zfi_bud_fcst_i-proj_type,
+             change_count TYPE zfi_bud_fcst_h-change_count,
+             ernam        TYPE zfi_bud_fcst_h-ernam,
+             erdat        TYPE zfi_bud_fcst_h-erdat,
+             aenam        TYPE zfi_bud_fcst_h-aenam,
+             aedat        TYPE zfi_bud_fcst_h-aedat,
+             fyear_from   TYPE zfi_bud_fcst_h-fyear_from,
+             fyear_to     TYPE zfi_bud_fcst_h-fyear_to,
            END OF ty_out,
            tt_out TYPE STANDARD TABLE OF ty_out WITH EMPTY KEY.
 
     TYPES: BEGIN OF ty_log_out,
-             change_no  TYPE zfi_bud_2yf_log-change_no,
-             changed_by TYPE zfi_bud_2yf_log-changed_by,
+             change_no  TYPE zfi_bud_fcst_log-change_no,
+             changed_by TYPE zfi_bud_fcst_log-changed_by,
              user_name  TYPE ad_namtext,
-             changed_on TYPE zfi_bud_2yf_log-changed_on,
-             changed_at TYPE zfi_bud_2yf_log-changed_at,
-             item_no    TYPE zfi_bud_2yf_log-item_no,
+             changed_on TYPE zfi_bud_fcst_log-changed_on,
+             changed_at TYPE zfi_bud_fcst_log-changed_at,
+             item_no    TYPE zfi_bud_fcst_log-item_no,
              action     TYPE c LENGTH 10,
-             field_text TYPE zfi_bud_2yf_log-field_text,
-             value_old  TYPE zfi_bud_2yf_log-value_old,
-             value_new  TYPE zfi_bud_2yf_log-value_new,
+             field_text TYPE zfi_bud_fcst_log-field_text,
+             value_old  TYPE zfi_bud_fcst_log-value_old,
+             value_new  TYPE zfi_bud_fcst_log-value_new,
            END OF ty_log_out,
            tt_log_out TYPE STANDARD TABLE OF ty_log_out WITH EMPTY KEY.
 
@@ -125,12 +125,12 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
 
   METHOD run.
     IF mo_auth->is_final_reviewer( ) = abap_false.
-      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e023(zbud_2yf).
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e023(zbud_fcst).
     ENDIF.
 
     select_data( ).
     IF mt_out IS INITIAL.
-      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e024(zbud_2yf).
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e024(zbud_fcst).
     ENDIF.
 
     TRY.
@@ -161,8 +161,8 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
            h~ernam, h~erdat, h~aenam, h~aedat,
            i~item_no, i~budget_year, i~proj_name, i~proj_desc, i~priority,
            i~amount, i~waers, i~bud_type, i~proj_type
-      FROM zfi_bud_2yf_h AS h
-      INNER JOIN zfi_bud_2yf_i AS i
+      FROM zfi_bud_fcst_h AS h
+      INNER JOIN zfi_bud_fcst_i AS i
         ON  i~bukrs      = h~bukrs
         AND i~kostl      = h~kostl
         AND i~fyear_from = h~fyear_from
@@ -258,7 +258,7 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
     ENDIF.
 
     IF ls_out-change_count = 0.
-      MESSAGE s027(zbud_2yf) WITH ls_out-bukrs ls_out-kostl ls_out-fcst_years.
+      MESSAGE s027(zbud_fcst) WITH ls_out-bukrs ls_out-kostl ls_out-fcst_years.
       RETURN.
     ENDIF.
 
@@ -272,7 +272,7 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
                                                             fyear_from = is_out-fyear_from
                                                             fyear_to   = is_out-fyear_to ) ).
     IF lt_log IS INITIAL.
-      MESSAGE s027(zbud_2yf) WITH is_out-bukrs is_out-kostl is_out-fcst_years.
+      MESSAGE s027(zbud_fcst) WITH is_out-bukrs is_out-kostl is_out-fcst_years.
       RETURN.
     ENDIF.
 

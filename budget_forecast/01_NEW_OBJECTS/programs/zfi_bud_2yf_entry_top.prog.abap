@@ -7,7 +7,7 @@
 *&---------------------------------------------------------------------*
 
 " ---------------- screen 0100 fields ----------------
-DATA gs_head            TYPE zfi_bud_2yf_h.  "header block
+DATA gs_head            TYPE zfi_bud_fcst_h.  "header block
 DATA gv_fcst_years      TYPE c LENGTH 9.      "listbox, e.g. '2028-2029'
 DATA gv_ktext           TYPE kltxt.           "cost center text
 DATA gv_changes_text    TYPE char20.          "e.g. '1 of 2 used'
@@ -15,7 +15,7 @@ DATA gv_proceed_to_items TYPE c LENGTH 50.    "icon pushbutton
 
 DATA: BEGIN OF gs_item,
         selected TYPE c LENGTH 1.
-        INCLUDE STRUCTURE zfi_bud_2yf_i.
+        INCLUDE STRUCTURE zfi_bud_fcst_i.
 DATA  END OF gs_item.
 
 DATA gt_item LIKE STANDARD TABLE OF gs_item WITH EMPTY KEY.
