@@ -49,6 +49,11 @@ CLASS zcl_fi_bud_2yf DEFINITION
                 iv_to          TYPE zfcst_year_to
       RETURNING VALUE(rv_text) TYPE string.
 
+    "! Project type text from the domain fixed values (e.g. OPRATIONAL -> Operational)
+    CLASS-METHODS proj_type_text
+      IMPORTING iv_proj_type   TYPE zfi_bud_fcst_i-proj_type
+      RETURNING VALUE(rv_text) TYPE zif_fi_bud_2yf_types=>ty_text.
+
     "! '2028-2029' -> 2028 / 2029 (message 003 when invalid)
     CLASS-METHODS split_years
       IMPORTING iv_years        TYPE csequence
@@ -172,6 +177,26 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
                             ELSE NEW zcl_fi_bud_2yf_auth( iv_user = mv_user iv_date = mv_today ) ).
     mo_notifier   = COND #( WHEN io_notifier IS BOUND THEN io_notifier
                             ELSE NEW zcl_fi_bud_2yf_notifier( mo_auth ) ).
+  ENDMETHOD.
+
+
+  METHOD proj_type_text.
+    DATA lt_values TYPE ddfixvalues.
+
+    rv_text = iv_proj_type.
+
+    CAST cl_abap_elemdescr( cl_abap_typedescr=>describe_by_data( iv_proj_type ) )->get_ddic_fixed_values(
+      EXPORTING  p_langu        = sy-langu
+      RECEIVING  p_fixed_values = lt_values
+      EXCEPTIONS OTHERS         = 1 ).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_text) = VALUE val_text( lt_values[ low = iv_proj_type ]-ddtext OPTIONAL ).
+    IF lv_text IS NOT INITIAL.
+      rv_text = lv_text.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -467,8 +492,12 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
                           chg_ind    = zif_fi_bud_2yf_types=>c_chg_ind-update
                           fieldname  = lv_field
                           field_text = field_text( iv_fieldname = CONV #( lv_field ) ia_value = <lv_new> )
-                          value_old  = value_text( <lv_old> )
-                          value_new  = value_text( <lv_new> ) ) TO rt_log.
+                          value_old  = COND #( WHEN lv_field = 'PROJ_TYPE'
+                                               THEN proj_type_text( CONV #( <lv_old> ) )
+                                               ELSE value_text( <lv_old> ) )
+                          value_new  = COND #( WHEN lv_field = 'PROJ_TYPE'
+                                               THEN proj_type_text( CONV #( <lv_new> ) )
+                                               ELSE value_text( <lv_new> ) ) ) TO rt_log.
         ENDIF.
       ENDLOOP.
     ENDLOOP.
@@ -557,7 +586,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
 
   METHOD item_summary.
     rv_text = |{ is_item-budget_year } / { is_item-proj_name } / { is_item-priority } / | &&
-              |{ value_text( is_item-amount ) } { is_item-waers } / { is_item-bud_type } / { is_item-proj_type }|.
+              |{ value_text( is_item-amount ) } { is_item-waers } / { is_item-bud_type } / { proj_type_text( is_item-proj_type ) }|.
   ENDMETHOD.
 
 

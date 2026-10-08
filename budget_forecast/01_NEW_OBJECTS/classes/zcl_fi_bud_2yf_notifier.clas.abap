@@ -328,7 +328,7 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
         |<div style="color:#8a8a8a;font-size:8.5pt">{ html( ls_item-proj_desc ) }</div></td>| &&
         |<td { lv_cell }>{ ls_item-priority }</td>| &&
         |<td { lv_cell }>{ ls_item-bud_type }</td>| &&
-        |<td { lv_cell }>{ ls_item-proj_type }</td>| &&
+        |<td { lv_cell }>{ zcl_fi_bud_2yf=>proj_type_text( ls_item-proj_type ) }</td>| &&
         |<td { lv_cell } align="right" nowrap>{ ls_item-amount NUMBER = USER }</td></tr>|.
     ENDLOOP.
 

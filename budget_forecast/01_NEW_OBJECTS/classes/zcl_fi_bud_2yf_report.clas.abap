@@ -33,7 +33,7 @@ CLASS zcl_fi_bud_2yf_report DEFINITION
              amount       TYPE zfi_bud_fcst_i-amount,
              waers        TYPE zfi_bud_fcst_i-waers,
              bud_type     TYPE zfi_bud_fcst_i-bud_type,
-             proj_type    TYPE zfi_bud_fcst_i-proj_type,
+             proj_type    TYPE zif_fi_bud_2yf_types=>ty_text,
              change_count TYPE zfi_bud_fcst_h-change_count,
              ernam        TYPE zfi_bud_fcst_h-ernam,
              erdat        TYPE zfi_bud_fcst_h-erdat,
@@ -179,6 +179,7 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
     LOOP AT mt_out ASSIGNING FIELD-SYMBOL(<ls_out>).
       <ls_out>-fcst_years = zcl_fi_bud_2yf=>years_text( iv_from = <ls_out>-fyear_from
                                                          iv_to   = <ls_out>-fyear_to ).
+      <ls_out>-proj_type  = zcl_fi_bud_2yf=>proj_type_text( CONV #( <ls_out>-proj_type ) ).
 
       READ TABLE lt_texts REFERENCE INTO lr_text
            WITH TABLE KEY bukrs = <ls_out>-bukrs kostl = <ls_out>-kostl.
