@@ -39,6 +39,10 @@ CLASS zcl_fi_bud_2yf_notifier DEFINITION
                  label_bg   TYPE string VALUE `#EEEEF4`,
                END OF c_color.
 
+    "! Link of the Fiori app for the reviewers - fill it when the Fiori
+    "! tile is available; while empty, no link / button is shown
+    CONSTANTS c_fiori_url TYPE string VALUE ``.
+
     "! Max. number of change lines listed in the mail
     CONSTANTS c_max_log_lines TYPE i VALUE 30.
 
@@ -254,16 +258,13 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
                         |<span style="float:right" dir="rtl">التغييرات</span></div>| &&
                         |</td></tr><tr><td style="padding:4px 28px 12px 28px">{ change_table( it_log ) }</td></tr>| ) &&
 
-      " call to action
-      |<tr><td style="padding:10px 28px 22px 28px">| &&
-      |<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>| &&
-      |<td style="background:#EAF6F5;border-left:4px solid { c_color-teal };padding:12px 14px;font-size:10pt">| &&
-      |Review the submission and its change history in SAP, transaction | &&
-      |<b style="color:{ c_color-navy }">{ zif_fi_bud_2yf_types=>c_tcode-report }</b> | &&
-      |(Consolidated Budget Forecast Report).| &&
-      |<div dir="rtl" align="right" style="padding-top:4px">للمراجعة: المعاملة | &&
-      |{ zif_fi_bud_2yf_types=>c_tcode-report } في نظام SAP.</div>| &&
-      |</td></tr></table></td></tr>| &&
+      " link to the Fiori app (shown only when C_FIORI_URL is filled)
+      COND string( WHEN c_fiori_url IS NOT INITIAL
+                   THEN |<tr><td align="center" style="padding:10px 28px 22px 28px">| &&
+                        |<a href="{ c_fiori_url }" style="display:inline-block;background:{ c_color-teal };| &&
+                        |color:#ffffff;text-decoration:none;font-weight:bold;font-size:10.5pt;| &&
+                        |padding:10px 26px;border-radius:4px">Open Budget Forecast &nbsp;\|&nbsp; فتح الموازنة التقديرية</a>| &&
+                        |</td></tr>| ) &&
 
       " footer
       |<tr><td style="background:{ c_color-navy_dark };padding:12px 28px;color:#c9cadb;font-size:8.5pt">| &&
