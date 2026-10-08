@@ -14,28 +14,28 @@ Create / Modify Budget Forecast
 %_FIELDS																																
 HEADER_FRAME		CHAR	 70	00	00	00	30	00	  1	  2		  0	  0	  0		  9	R				  0	  0	102							Forecast_Header_______________________________________________________		
 INFO_FRAME		CHAR	 62	00	00	00	30	00	  1	 74		  0	  0	  0		  9	R				  0	  0	103							Submission_Information________________________________________		
-TXT_BUKRS	0	CHAR	 12	00	00	00	30	00	  2	  4		  0	  0	  0		  0					  0	  0								Company_Code	                                                                                                                                                                                                                                                        X	
+GS_LBL-BUKRS	C	CHAR	 60	80	00	80	30	00	  2	  4		  0	  0	  0		 25					  0	  0								____________________________________________________________		
 GS_HEAD-BUKRS	C	CHAR	  4	80	08	A0	00	00	  2	 30		  0	  0	  0		  0			BUK		  0	  0				1				?___		
-TXT_KOSTL	0	CHAR	 29	00	00	00	30	00	  3	  4		  0	  0	  0		  0					  0	  0								Department_Code_(Cost_Center)	                                                                                                                                                                                                                                                        X	
+GS_LBL-KOSTL	C	CHAR	 60	80	00	80	30	00	  3	  4		  0	  0	  0		 25					  0	  0								____________________________________________________________		
 GS_HEAD-KOSTL	C	CHAR	 10	80	00	A0	00	08	  3	 30		  0	  0	  0		  0				ALPHA	  0	  0			KOST	1				?_________		
 GV_KTEXT	C	CHAR	 30	80	00	80	30	00	  3	 41		  0	  0	  0		  0					  0	  0								______________________________		
-TXT_YEARS	0	CHAR	 21	00	00	00	30	00	  4	  4		  0	  0	  0		  0					  0	  0								Forecast_Budget_Years	                                                                                                                                                                                                                                                        X	
+GS_LBL-YEARS	C	CHAR	 60	80	00	80	30	00	  4	  4		  0	  0	  0		 25					  0	  0								____________________________________________________________		
 GV_FCST_YEARS	C	CHAR	  9	80	00	A0	00	00	  4	 30		  0	  0	  0		 12					  0	  0				1				?________	 DL	
 GV_PROCEED_TO_ITEMS	C	CHAR	 28	80	00	80	30	00	  7	  4		  0	  0	  0		 26	P				  0	  0	104			1				@00@________________________	                                                                                                                                                                        PROCESS	
 OTHER_FCST		CHAR	 26	00	00	00	30	00	  7	 34		  0	  0	  0		  0	P				  0	  0	105			3				Other_Forecast____________	                                                                                                                                                                        OTHER	
-TXT_ERNAM	0	CHAR	 10	00	00	00	30	00	  2	 76		  0	  0	  0		  0					  0	  0								Created_By	                                                                                                                                                                                                                                                        X	
+GS_LBL-ERNAM	C	CHAR	 60	80	00	80	30	00	  2	 76		  0	  0	  0		 21					  0	  0								____________________________________________________________		
 GS_HEAD-ERNAM	C	CHAR	 12	80	00	80	30	00	  2	 98		  0	  0	  0		  0					  0	  0								____________		
-TXT_ERDAT	0	CHAR	 10	00	00	00	30	00	  3	 76		  0	  0	  0		  0					  0	  0								Created_On	                                                                                                                                                                                                                                                        X	
+GS_LBL-ERDAT	C	CHAR	 60	80	00	80	30	00	  3	 76		  0	  0	  0		 21					  0	  0								____________________________________________________________		
 GS_HEAD-ERDAT	D	DATS	 10	80	00	80	30	00	  3	 98		  0	  0	  0		  0					  0	  0								__________		
 GS_HEAD-ERZET	T	TIMS	  8	80	00	80	30	00	  3	110		  0	  0	  0		  0					  0	  0								________		
-TXT_AENAM	0	CHAR	 15	00	00	00	30	00	  4	 76		  0	  0	  0		  0					  0	  0								Last_Changed_By	                                                                                                                                                                                                                                                        X	
+GS_LBL-AENAM	C	CHAR	 60	80	00	80	30	00	  4	 76		  0	  0	  0		 21					  0	  0								____________________________________________________________		
 GS_HEAD-AENAM	C	CHAR	 12	80	00	80	30	00	  4	 98		  0	  0	  0		  0					  0	  0								____________		
-TXT_AEDAT	0	CHAR	 15	00	00	00	30	00	  5	 76		  0	  0	  0		  0					  0	  0								Last_Changed_On	                                                                                                                                                                                                                                                        X	
+GS_LBL-AEDAT	C	CHAR	 60	80	00	80	30	00	  5	 76		  0	  0	  0		 21					  0	  0								____________________________________________________________		
 GS_HEAD-AEDAT	D	DATS	 10	80	00	80	30	00	  5	 98		  0	  0	  0		  0					  0	  0								__________		
 GS_HEAD-AEZET	T	TIMS	  8	80	00	80	30	00	  5	110		  0	  0	  0		  0					  0	  0								________		
-TXT_CHANGES	0	CHAR	 12	00	00	00	30	00	  6	 76		  0	  0	  0		  0					  0	  0								Updates_Used	                                                                                                                                                                                                                                                        X	
+GS_LBL-CHANGES	C	CHAR	 60	80	00	80	30	00	  6	 76		  0	  0	  0		 21					  0	  0								____________________________________________________________		
 GV_CHANGES_TEXT	C	CHAR	 20	80	00	80	30	00	  6	 98		  0	  0	  0		  0					  0	  0								____________________		
-TXT_TOTAL	0	CHAR	 21	00	00	00	30	00	  7	 76		  0	  0	  0		  0					  0	  0								Total_Forecast_Amount	                                                                                                                                                                                                                                                        X	
+GS_LBL-TOTAL	C	CHAR	 60	80	00	80	30	00	  7	 76		  0	  0	  0		 21					  0	  0								____________________________________________________________		
 GS_HEAD-TOTAL_AMOUNT	P	DEC	 20	80	00	80	30	00	  7	 98		  0	  0	  0		  0					  0	  0								____________________		
 GS_HEAD-WAERS	C	CHAR	  5	80	00	80	30	00	  7	120		  0	  0	  0		  0					  0	  0								_____		
 ITEMS_FRAME		CHAR	154	00	00	00	30	00	 10	  2		  0	  0	  0		 19	R				  0	  0	106							Forecast_Items_(Mandatory:_Priority_Basis/Existing/Secondary,_Opex/Capex,_Strategic/Operational)__________________________________________________________		
@@ -44,16 +44,16 @@ DELETE_LINE		CHAR	  4	00	00	08	30	00	 11	  8		  0	  0	  0		  3	P				  0	  0	108	
 SEL_ALL		CHAR	  4	00	00	08	30	00	 11	 14		  0	  0	  0		  3	P				  0	  0	109			2				@4B@	                                                                                                                                                                        SEL_ALL	
 DESEL_ALL		CHAR	  4	00	00	08	30	00	 11	 18		  0	  0	  0		  3	P				  0	  0	110			2				@4D@	                                                                                                                                                                        DESEL_ALL	
 CT_FCST			150	F8	F8	00	00	00	 13	  3	E	101	  1	  1		 15	T				  2	 15										
-HDR_ITEM_NO		CHAR	  4	00	00	08	30	80	  1	  1	T	101	  1	  1		  6					  0	  0								Seq.		
-HDR_BUDGET_YEAR		CHAR	 11	00	00	08	30	80	  1	  2	T	101	  1	  1		 11					  0	  0								Budget_Year		
-HDR_KOSTL		CHAR	 10	00	00	08	30	80	  1	  3	T	101	  1	  1		 11					  0	  0								Dept._Code		
-HDR_PROJ_NAME		CHAR	 12	00	00	08	30	80	  1	  4	T	101	  1	  1		 30					  0	  0								Project_Name		
-HDR_PROJ_DESC		CHAR	 19	00	00	08	30	80	  1	  5	T	101	  1	  1		 45					  0	  0								Project_Description		
-HDR_PRIORITY		CHAR	 16	00	00	08	30	80	  1	  6	T	101	  1	  1		 16					  0	  0								Project_Priority		
-HDR_AMOUNT		CHAR	 14	00	00	08	30	80	  1	  7	T	101	  1	  1		 20					  0	  0								Project_Budget		
-HDR_WAERS		CHAR	  5	00	00	08	30	80	  1	  8	T	101	  1	  1		  6					  0	  0								Curr.		
-HDR_BUD_TYPE		CHAR	 10	00	00	08	30	80	  1	  9	T	101	  1	  1		 11					  0	  0								Opex/Capex		
-HDR_PROJ_TYPE		CHAR	 12	00	00	08	30	80	  1	 10	T	101	  1	  1		 15					  0	  0								Project_Type		
+GS_LBL-HDR_ITEM_NO	C	CHAR	 60	81	00	88	31	80	  1	  1	T	101	  1	  1		  6					  0	  0								____________________________________________________________		
+GS_LBL-HDR_BUDGET_YEAR	C	CHAR	 60	81	00	88	31	80	  1	  2	T	101	  1	  1		 11					  0	  0								____________________________________________________________		
+GS_LBL-HDR_KOSTL	C	CHAR	 60	81	00	88	31	80	  1	  3	T	101	  1	  1		 11					  0	  0								____________________________________________________________		
+GS_LBL-HDR_PROJ_NAME	C	CHAR	 60	81	00	88	31	80	  1	  4	T	101	  1	  1		 30					  0	  0								____________________________________________________________		
+GS_LBL-HDR_PROJ_DESC	C	CHAR	 60	81	00	88	31	80	  1	  5	T	101	  1	  1		 45					  0	  0								____________________________________________________________		
+GS_LBL-HDR_PRIORITY	C	CHAR	 60	81	00	88	31	80	  1	  6	T	101	  1	  1		 16					  0	  0								____________________________________________________________		
+GS_LBL-HDR_AMOUNT	C	CHAR	 60	81	00	88	31	80	  1	  7	T	101	  1	  1		 20					  0	  0								____________________________________________________________		
+GS_LBL-HDR_WAERS	C	CHAR	 60	81	00	88	31	80	  1	  8	T	101	  1	  1		  6					  0	  0								____________________________________________________________		
+GS_LBL-HDR_BUD_TYPE	C	CHAR	 60	81	00	88	31	80	  1	  9	T	101	  1	  1		 11					  0	  0								____________________________________________________________		
+GS_LBL-HDR_PROJ_TYPE	C	CHAR	 60	81	00	88	31	80	  1	 10	T	101	  1	  1		 15					  0	  0								____________________________________________________________		
 GS_ITEM-SELECTED		CHAR	  1	80	00	88	00	20	  1	  0	T	101	  1	  1		  1	C				  0	  0	111			2		1				
 GS_ITEM-ITEM_NO		NUMC	  4	80	00	88	30	00	  1	  1	T	101	  1	  1		  6	0				  0	  0								____		
 GS_ITEM-BUDGET_YEAR		NUMC	  4	80	00	88	00	00	  1	  2	T	101	  1	  1		 11					  0	  0								____	 DL	

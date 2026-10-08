@@ -36,7 +36,7 @@ The tables, domains, data elements and message class are already created with th
 | Technical Consultant | Hassan Diab |
 | Functional Consultant | Ahmed Tawfik |
 | Package | `ZFI` |
-| Version | 2.1 – 08.10.2026 (separate 2YF objects, OOP, change history) |
+| Version | 2.2 – 08.10.2026 (Arabic texts, action icons, corporate e-mail design) – see `CHANGES_v2.2.md` |
 
 The full step-by-step guide with all source code is the Word document `TSD - Budget Forecast 2YF (ZFI_BUD_2YF).docx`.
 
@@ -236,7 +236,7 @@ Add index `Z01` on `MANDT, ERNAM`.
 * Status `GUI_0100`:
   * `ENTER`, `SAVE` (Ctrl+S), `BACK` (F3), `EXIT` (Shift+F3), `CANCEL` (F12).
   * `BACK`, `EXIT` and `CANCEL` are of type **E**.
-* Title `TITLE_0100`: `&1 Budget Forecast`.
+* Title `TITLE_0100`: `&1` (the Arabic title text comes from the program).
 
 ### 3.6 Report texts
 

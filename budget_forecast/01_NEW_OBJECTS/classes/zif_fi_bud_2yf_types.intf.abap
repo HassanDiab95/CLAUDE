@@ -69,4 +69,50 @@ INTERFACE zif_fi_bud_2yf_types PUBLIC.
                report TYPE sytcode VALUE 'ZFI_BUD_2YF_R',
              END OF c_tcode.
 
+  "! Arabic texts of the screen, the report and the change log
+  "! (one place to change the wording; filled at runtime like the
+  "! existing Arabic column texts of ZFI_BUDGET_PREPERATION)
+  TYPES ty_text TYPE c LENGTH 60.
+  CONSTANTS: BEGIN OF c_text_ar,
+               bukrs        TYPE ty_text VALUE 'الشركة',
+               kostl        TYPE ty_text VALUE 'القطاع / الإدارة',
+               dept_code    TYPE ty_text VALUE 'كود الإدارة',
+               dept_name    TYPE ty_text VALUE 'اسم الإدارة',
+               years        TYPE ty_text VALUE 'سنوات الميزانية التقديرية',
+               item_no      TYPE ty_text VALUE 'التسلسل',
+               budget_year  TYPE ty_text VALUE 'سنة الميزانية',
+               proj_name    TYPE ty_text VALUE 'اسم المشروع',
+               proj_desc    TYPE ty_text VALUE 'وصف المشروع',
+               priority     TYPE ty_text VALUE 'أولوية المشروع',
+               amount       TYPE ty_text VALUE 'ميزانية المشروع',
+               waers        TYPE ty_text VALUE 'العملة',
+               bud_type     TYPE ty_text VALUE 'تشغيلية / رأسمالية',
+               proj_type    TYPE ty_text VALUE 'نوع المشروع',
+               total_amount TYPE ty_text VALUE 'إجمالي الموازنة التقديرية',
+               ernam        TYPE ty_text VALUE 'أنشئ بواسطة',
+               erdat        TYPE ty_text VALUE 'تاريخ الإنشاء',
+               aenam        TYPE ty_text VALUE 'آخر تعديل بواسطة',
+               aedat        TYPE ty_text VALUE 'تاريخ آخر تعديل',
+               change_count TYPE ty_text VALUE 'عدد التعديلات',
+               change_no    TYPE ty_text VALUE 'رقم التعديل',
+               changed_by   TYPE ty_text VALUE 'عُدّل بواسطة',
+               user_name    TYPE ty_text VALUE 'الاسم',
+               changed_on   TYPE ty_text VALUE 'التاريخ',
+               changed_at   TYPE ty_text VALUE 'الوقت',
+               action       TYPE ty_text VALUE 'الإجراء',
+               field        TYPE ty_text VALUE 'الحقل',
+               value_old    TYPE ty_text VALUE 'القيمة السابقة',
+               value_new    TYPE ty_text VALUE 'القيمة الجديدة',
+               act_insert   TYPE ty_text VALUE 'إضافة بند',
+               act_update   TYPE ty_text VALUE 'تعديل',
+               act_delete   TYPE ty_text VALUE 'حذف بند',
+               of_updates   TYPE ty_text VALUE 'من',
+               used         TYPE ty_text VALUE 'مستخدمة',
+               btn_create   TYPE ty_text VALUE 'إدخال البنود',
+               btn_change   TYPE ty_text VALUE 'تعديل البنود',
+               title_create TYPE ty_text VALUE 'إنشاء الموازنة التقديرية',
+               title_modify TYPE ty_text VALUE 'تعديل الموازنة التقديرية',
+               title_display TYPE ty_text VALUE 'عرض الموازنة التقديرية',
+             END OF c_text_ar.
+
 ENDINTERFACE.

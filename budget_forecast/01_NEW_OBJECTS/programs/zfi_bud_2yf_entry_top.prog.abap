@@ -22,6 +22,30 @@ DATA gt_item LIKE STANDARD TABLE OF gs_item WITH EMPTY KEY.
 
 CONTROLS ct_fcst TYPE TABLEVIEW USING SCREEN 0100.
 
+" Arabic labels and column headers of screen 0100 (output fields,
+" filled at runtime from ZIF_FI_BUD_2YF_TYPES=>C_TEXT_AR)
+DATA: BEGIN OF gs_lbl,
+        bukrs            TYPE zif_fi_bud_2yf_types=>ty_text,
+        kostl            TYPE zif_fi_bud_2yf_types=>ty_text,
+        years            TYPE zif_fi_bud_2yf_types=>ty_text,
+        ernam            TYPE zif_fi_bud_2yf_types=>ty_text,
+        erdat            TYPE zif_fi_bud_2yf_types=>ty_text,
+        aenam            TYPE zif_fi_bud_2yf_types=>ty_text,
+        aedat            TYPE zif_fi_bud_2yf_types=>ty_text,
+        changes          TYPE zif_fi_bud_2yf_types=>ty_text,
+        total            TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_item_no      TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_budget_year  TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_kostl        TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_proj_name    TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_proj_desc    TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_priority     TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_amount       TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_waers        TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_bud_type     TYPE zif_fi_bud_2yf_types=>ty_text,
+        hdr_proj_type    TYPE zif_fi_bud_2yf_types=>ty_text,
+      END OF gs_lbl.
+
 DATA gv_ucomm TYPE sy-ucomm.
 
 
@@ -71,6 +95,7 @@ CLASS lcl_screen_0100 DEFINITION FINAL.
     DATA mt_items_db   TYPE zif_fi_bud_2yf_types=>tt_items.
 
     METHODS reset.
+    METHODS set_labels.
     METHODS process_header.
     METHODS insert_row.
     METHODS delete_row.

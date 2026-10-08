@@ -45,13 +45,14 @@ CLASS zcl_fi_bud_2yf_report DEFINITION
            tt_out TYPE STANDARD TABLE OF ty_out WITH EMPTY KEY.
 
     TYPES: BEGIN OF ty_log_out,
+             icon       TYPE icon_d,
              change_no  TYPE zfi_bud_fcst_log-change_no,
              changed_by TYPE zfi_bud_fcst_log-changed_by,
              user_name  TYPE ad_namtext,
              changed_on TYPE zfi_bud_fcst_log-changed_on,
              changed_at TYPE zfi_bud_fcst_log-changed_at,
              item_no    TYPE zfi_bud_fcst_log-item_no,
-             action     TYPE c LENGTH 10,
+             action     TYPE zif_fi_bud_2yf_types=>ty_text,
              field_text TYPE zfi_bud_fcst_log-field_text,
              value_old  TYPE zfi_bud_fcst_log-value_old,
              value_new  TYPE zfi_bud_fcst_log-value_new,
@@ -214,24 +215,24 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
     lo_columns->set_optimize( abap_true ).
 
     set_column_texts( io_columns = lo_columns
-                      it_texts   = VALUE #( ( `BUKRS=Company Code` )
-                                            ( `KOSTL=Cost Center` )
-                                            ( `KTEXT=Department` )
-                                            ( `FCST_YEARS=Forecast Years` )
-                                            ( `ITEM_NO=Sequence` )
-                                            ( `BUDGET_YEAR=Budget Year` )
-                                            ( `PROJ_NAME=Project Name` )
-                                            ( `PROJ_DESC=Project Description` )
-                                            ( `PRIORITY=Project Priority` )
-                                            ( `AMOUNT=Project Budget` )
-                                            ( `WAERS=Currency` )
-                                            ( `BUD_TYPE=Opex / Capex` )
-                                            ( `PROJ_TYPE=Project Type` )
-                                            ( `CHANGE_COUNT=Updates Used` )
-                                            ( `ERNAM=Created By` )
-                                            ( `ERDAT=Created On` )
-                                            ( `AENAM=Last Changed By` )
-                                            ( `AEDAT=Last Changed On` ) ) ).
+                      it_texts   = VALUE #( ( |BUKRS={ zif_fi_bud_2yf_types=>c_text_ar-bukrs }| )
+                                            ( |KOSTL={ zif_fi_bud_2yf_types=>c_text_ar-dept_code }| )
+                                            ( |KTEXT={ zif_fi_bud_2yf_types=>c_text_ar-dept_name }| )
+                                            ( |FCST_YEARS={ zif_fi_bud_2yf_types=>c_text_ar-years }| )
+                                            ( |ITEM_NO={ zif_fi_bud_2yf_types=>c_text_ar-item_no }| )
+                                            ( |BUDGET_YEAR={ zif_fi_bud_2yf_types=>c_text_ar-budget_year }| )
+                                            ( |PROJ_NAME={ zif_fi_bud_2yf_types=>c_text_ar-proj_name }| )
+                                            ( |PROJ_DESC={ zif_fi_bud_2yf_types=>c_text_ar-proj_desc }| )
+                                            ( |PRIORITY={ zif_fi_bud_2yf_types=>c_text_ar-priority }| )
+                                            ( |AMOUNT={ zif_fi_bud_2yf_types=>c_text_ar-amount }| )
+                                            ( |WAERS={ zif_fi_bud_2yf_types=>c_text_ar-waers }| )
+                                            ( |BUD_TYPE={ zif_fi_bud_2yf_types=>c_text_ar-bud_type }| )
+                                            ( |PROJ_TYPE={ zif_fi_bud_2yf_types=>c_text_ar-proj_type }| )
+                                            ( |CHANGE_COUNT={ zif_fi_bud_2yf_types=>c_text_ar-change_count }| )
+                                            ( |ERNAM={ zif_fi_bud_2yf_types=>c_text_ar-ernam }| )
+                                            ( |ERDAT={ zif_fi_bud_2yf_types=>c_text_ar-erdat }| )
+                                            ( |AENAM={ zif_fi_bud_2yf_types=>c_text_ar-aenam }| )
+                                            ( |AEDAT={ zif_fi_bud_2yf_types=>c_text_ar-aedat }| ) ) ).
 
     " technical key fields, only needed for the double-click
     lo_columns->get_column( 'FYEAR_FROM' )->set_technical( abap_true ).
@@ -279,11 +280,16 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
     mt_log_out = VALUE #(
       FOR ls_log IN lt_log
       ( VALUE #( BASE CORRESPONDING ty_log_out( ls_log )
+                 " icon per action: added / deleted / changed
+                 icon      = SWITCH #( ls_log-chg_ind
+                               WHEN zif_fi_bud_2yf_types=>c_chg_ind-insert THEN icon_create
+                               WHEN zif_fi_bud_2yf_types=>c_chg_ind-delete THEN icon_delete
+                               ELSE icon_change )
                  user_name = user_name( ls_log-changed_by )
                  action    = SWITCH #( ls_log-chg_ind
-                               WHEN zif_fi_bud_2yf_types=>c_chg_ind-insert THEN 'Added'
-                               WHEN zif_fi_bud_2yf_types=>c_chg_ind-delete THEN 'Deleted'
-                               ELSE 'Changed' ) ) ) ).
+                               WHEN zif_fi_bud_2yf_types=>c_chg_ind-insert THEN zif_fi_bud_2yf_types=>c_text_ar-act_insert
+                               WHEN zif_fi_bud_2yf_types=>c_chg_ind-delete THEN zif_fi_bud_2yf_types=>c_text_ar-act_delete
+                               ELSE zif_fi_bud_2yf_types=>c_text_ar-act_update ) ) ) ).
 
     TRY.
         cl_salv_table=>factory( IMPORTING r_salv_table = DATA(lo_popup)
@@ -302,17 +308,24 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
 
         DATA(lo_columns) = lo_popup->get_columns( ).
         lo_columns->set_optimize( abap_true ).
+
+        " action icon column
+        DATA(lo_icon) = CAST cl_salv_column_table( lo_columns->get_column( 'ICON' ) ).
+        lo_icon->set_icon( if_salv_c_bool_sap=>true ).
+        lo_icon->set_alignment( if_salv_c_alignment=>centered ).
+
         set_column_texts( io_columns = lo_columns
-                          it_texts   = VALUE #( ( `CHANGE_NO=Update No.` )
-                                                ( `CHANGED_BY=Changed By` )
-                                                ( `USER_NAME=Name` )
-                                                ( `CHANGED_ON=Date` )
-                                                ( `CHANGED_AT=Time` )
-                                                ( `ITEM_NO=Item` )
-                                                ( `ACTION=Action` )
-                                                ( `FIELD_TEXT=Field` )
-                                                ( `VALUE_OLD=Old Value` )
-                                                ( `VALUE_NEW=New Value` ) ) ).
+                          it_texts   = VALUE #( ( |ICON={ zif_fi_bud_2yf_types=>c_text_ar-action }| )
+                                                ( |CHANGE_NO={ zif_fi_bud_2yf_types=>c_text_ar-change_no }| )
+                                                ( |CHANGED_BY={ zif_fi_bud_2yf_types=>c_text_ar-changed_by }| )
+                                                ( |USER_NAME={ zif_fi_bud_2yf_types=>c_text_ar-user_name }| )
+                                                ( |CHANGED_ON={ zif_fi_bud_2yf_types=>c_text_ar-changed_on }| )
+                                                ( |CHANGED_AT={ zif_fi_bud_2yf_types=>c_text_ar-changed_at }| )
+                                                ( |ITEM_NO={ zif_fi_bud_2yf_types=>c_text_ar-item_no }| )
+                                                ( |ACTION={ zif_fi_bud_2yf_types=>c_text_ar-action }| )
+                                                ( |FIELD_TEXT={ zif_fi_bud_2yf_types=>c_text_ar-field }| )
+                                                ( |VALUE_OLD={ zif_fi_bud_2yf_types=>c_text_ar-value_old }| )
+                                                ( |VALUE_NEW={ zif_fi_bud_2yf_types=>c_text_ar-value_new }| ) ) ).
 
         DATA(lo_sorts) = lo_popup->get_sorts( ).
         lo_sorts->add_sort( columnname = 'CHANGE_NO' ).
@@ -372,6 +385,7 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
   METHOD set_column_texts.
     LOOP AT it_texts INTO DATA(lv_entry).
       SPLIT lv_entry AT '=' INTO DATA(lv_name) DATA(lv_text).
+      lv_text = condense( lv_text ).
       TRY.
           DATA(lo_column) = io_columns->get_column( CONV #( lv_name ) ).
           lo_column->set_long_text( CONV #( lv_text ) ).

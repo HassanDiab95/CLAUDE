@@ -151,6 +151,7 @@ CLASS zcl_fi_bud_2yf DEFINITION
       IMPORTING is_header       TYPE ty_header
                 iv_mode         TYPE ty_mode
                 iv_item_count   TYPE i
+                it_log          TYPE tt_log OPTIONAL
       RETURNING VALUE(rv_error) TYPE string.
 
 ENDCLASS.
@@ -408,7 +409,8 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
 
     rs_result-mail_error = notify( is_header     = rs_result-header
                                    iv_mode       = zif_fi_bud_2yf_types=>c_mode-modify
-                                   iv_item_count = lines( lt_new ) ).
+                                   iv_item_count = lines( lt_new )
+                                   it_log        = lt_log ).
   ENDMETHOD.
 
 
@@ -448,7 +450,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
                         item_no    = ls_new-item_no
                         chg_ind    = zif_fi_bud_2yf_types=>c_chg_ind-insert
                         fieldname  = '*'
-                        field_text = `Item added`
+                        field_text = zif_fi_bud_2yf_types=>c_text_ar-act_insert
                         value_new  = item_summary( ls_new ) ) TO rt_log.
         CONTINUE.
       ENDIF.
@@ -475,7 +477,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
                         item_no    = ls_old-item_no
                         chg_ind    = zif_fi_bud_2yf_types=>c_chg_ind-delete
                         fieldname  = '*'
-                        field_text = `Item deleted`
+                        field_text = zif_fi_bud_2yf_types=>c_text_ar-act_delete
                         value_old  = item_summary( ls_old ) ) TO rt_log.
       ENDIF.
     ENDLOOP.
@@ -509,6 +511,21 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
   METHOD field_text.
     DATA ls_dfies TYPE dfies.
 
+    " Arabic label first (same texts as the screen and the report)
+    rv_text = condense( SWITCH zif_fi_bud_2yf_types=>ty_text( iv_fieldname
+                WHEN 'BUDGET_YEAR'  THEN zif_fi_bud_2yf_types=>c_text_ar-budget_year
+                WHEN 'PROJ_NAME'    THEN zif_fi_bud_2yf_types=>c_text_ar-proj_name
+                WHEN 'PROJ_DESC'    THEN zif_fi_bud_2yf_types=>c_text_ar-proj_desc
+                WHEN 'PRIORITY'     THEN zif_fi_bud_2yf_types=>c_text_ar-priority
+                WHEN 'AMOUNT'       THEN zif_fi_bud_2yf_types=>c_text_ar-amount
+                WHEN 'BUD_TYPE'     THEN zif_fi_bud_2yf_types=>c_text_ar-bud_type
+                WHEN 'PROJ_TYPE'    THEN zif_fi_bud_2yf_types=>c_text_ar-proj_type
+                WHEN 'TOTAL_AMOUNT' THEN zif_fi_bud_2yf_types=>c_text_ar-total_amount ) ).
+    IF rv_text IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+    " otherwise the Data Dictionary label, otherwise the field name
     rv_text = iv_fieldname.
 
     TRY.
@@ -546,6 +563,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
       is_header           = is_header
       iv_mode             = iv_mode
       iv_item_count       = iv_item_count
+      it_log              = it_log
       iv_cost_center_text = mo_repository->get_cost_center_text( iv_bukrs = is_header-bukrs
                                                                  iv_kostl = is_header-kostl ) ).
   ENDMETHOD.

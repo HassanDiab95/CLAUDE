@@ -24,7 +24,34 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
       LEAVE PROGRAM.
     ENDIF.
 
+    set_labels( ).
     reset( ).
+  ENDMETHOD.
+
+
+  METHOD set_labels.
+    " Arabic texts of screen 0100 - change the wording only in
+    " ZIF_FI_BUD_2YF_TYPES=>C_TEXT_AR
+    gs_lbl = VALUE #(
+      bukrs           = zif_fi_bud_2yf_types=>c_text_ar-bukrs
+      kostl           = zif_fi_bud_2yf_types=>c_text_ar-kostl
+      years           = zif_fi_bud_2yf_types=>c_text_ar-years
+      ernam           = zif_fi_bud_2yf_types=>c_text_ar-ernam
+      erdat           = zif_fi_bud_2yf_types=>c_text_ar-erdat
+      aenam           = zif_fi_bud_2yf_types=>c_text_ar-aenam
+      aedat           = zif_fi_bud_2yf_types=>c_text_ar-aedat
+      changes         = zif_fi_bud_2yf_types=>c_text_ar-change_count
+      total           = zif_fi_bud_2yf_types=>c_text_ar-total_amount
+      hdr_item_no     = zif_fi_bud_2yf_types=>c_text_ar-item_no
+      hdr_budget_year = zif_fi_bud_2yf_types=>c_text_ar-budget_year
+      hdr_kostl       = zif_fi_bud_2yf_types=>c_text_ar-dept_code
+      hdr_proj_name   = zif_fi_bud_2yf_types=>c_text_ar-proj_name
+      hdr_proj_desc   = zif_fi_bud_2yf_types=>c_text_ar-proj_desc
+      hdr_priority    = zif_fi_bud_2yf_types=>c_text_ar-priority
+      hdr_amount      = zif_fi_bud_2yf_types=>c_text_ar-amount
+      hdr_waers       = zif_fi_bud_2yf_types=>c_text_ar-waers
+      hdr_bud_type    = zif_fi_bud_2yf_types=>c_text_ar-bud_type
+      hdr_proj_type   = zif_fi_bud_2yf_types=>c_text_ar-proj_type ).
   ENDMETHOD.
 
 
@@ -41,15 +68,12 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
                                                    iv_to   = ls_window-fyear_to ).
     ENDIF.
 
-    DATA(lv_text) = COND string( WHEN mv_mode = zif_fi_bud_2yf_types=>c_mode-create
-                                 THEN `Create Items` ELSE `Change Items` ).
-    CALL FUNCTION 'ICON_CREATE'
-      EXPORTING
-        name   = 'ICON_BOM_SUB_ITEM'
-        text   = lv_text
-        info   = lv_text
-      IMPORTING
-        result = gv_proceed_to_items.
+    DATA(lv_text) = condense( COND zif_fi_bud_2yf_types=>ty_text(
+                      WHEN mv_mode = zif_fi_bud_2yf_types=>c_mode-create
+                      THEN zif_fi_bud_2yf_types=>c_text_ar-btn_create
+                      ELSE zif_fi_bud_2yf_types=>c_text_ar-btn_change ) ).
+    " icon + Arabic text on the pushbutton (icon code from type group ICON)
+    gv_proceed_to_items = |{ icon_bom_sub_item } { lv_text }|.
 
     ct_fcst-top_line = 1.
   ENDMETHOD.
@@ -63,10 +87,11 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     ENDIF.
     SET PF-STATUS 'GUI_0100' EXCLUDING lt_excluded.
 
-    DATA(lv_title) = COND string(
-      WHEN mv_mode = zif_fi_bud_2yf_types=>c_mode-create THEN `Create`
-      WHEN mv_readonly = abap_true                         THEN `Display`
-      ELSE `Modify` ).
+    " title text in SE41 is just "&1" - the whole title comes from here
+    DATA(lv_title) = COND zif_fi_bud_2yf_types=>ty_text(
+      WHEN mv_mode = zif_fi_bud_2yf_types=>c_mode-create THEN zif_fi_bud_2yf_types=>c_text_ar-title_create
+      WHEN mv_readonly = abap_true                         THEN zif_fi_bud_2yf_types=>c_text_ar-title_display
+      ELSE zif_fi_bud_2yf_types=>c_text_ar-title_modify ).
     SET TITLEBAR 'TITLE_0100' WITH lv_title.
 
     set_listboxes( ).
@@ -109,7 +134,8 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
 
     gv_changes_text = COND #( WHEN mv_mode = zif_fi_bud_2yf_types=>c_mode-modify
                                AND mv_status = c_status-entered
-                              THEN |{ ms_header_db-change_count } of { zif_fi_bud_2yf_types=>c_max_changes } used| ).
+                              THEN |{ ms_header_db-change_count } { condense( zif_fi_bud_2yf_types=>c_text_ar-of_updates ) } | &&
+                                   |{ zif_fi_bud_2yf_types=>c_max_changes } { condense( zif_fi_bud_2yf_types=>c_text_ar-used ) }| ).
   ENDMETHOD.
 
 
