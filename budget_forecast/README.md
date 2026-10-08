@@ -36,9 +36,9 @@ The tables, domains, data elements and message class are already created with th
 | Technical Consultant | Hassan Diab |
 | Functional Consultant | Ahmed Tawfik |
 | Package | `ZFI` |
-| Version | 2.2 – 08.10.2026 (Arabic texts, action icons, corporate e-mail design) – see `CHANGES_v2.2.md` |
+| Version | 2.3 – 08.10.2026 (final) |
 
-The full step-by-step guide with all source code is the Word document `TSD - Budget Forecast 2YF (ZFI_BUD_2YF).docx`.
+The full step-by-step guide with all source code is the Word document `TSD - Budget Forecast 2YF (ZFI_BUD_2YF).docx`. The manual changes to the existing program are in `Change Document - Existing Budget Preparation Cycle (ZFI_BUDGET_PREPERATION).docx`. A sample of the notification e-mail is `email_preview.png`.
 
 ---
 
