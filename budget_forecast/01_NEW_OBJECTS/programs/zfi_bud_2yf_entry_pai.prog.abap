@@ -26,3 +26,13 @@ MODULE user_command_0100 INPUT.
   CLEAR sy-ucomm.
   go_screen->pai_user_command( gv_ucomm ).
 ENDMODULE.
+
+MODULE exit_0001 INPUT.
+  LEAVE PROGRAM.
+ENDMODULE.
+
+MODULE user_command_0001 INPUT.
+  gv_ucomm = sy-ucomm.
+  CLEAR sy-ucomm.
+  go_menu->pai( gv_ucomm ).
+ENDMODULE.

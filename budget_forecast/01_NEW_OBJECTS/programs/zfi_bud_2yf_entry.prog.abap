@@ -10,20 +10,25 @@
 *& Technical Consultant  : Hassan Diab
 *& Functional Consultant : Ahmed Tawfik
 *&---------------------------------------------------------------------*
-*& Purpose        : UI of the Budget Forecast application (screen 0100).
+*& Purpose        : UI of the Budget Forecast application: menu screen
+*&                   0001 (Create / Display-Modify / Report by role) and
+*&                   entry screen 0100.
 *&                   The program only holds the screen fields and a
 *&                   local screen controller (LCL_SCREEN_0100). All
 *&                   business rules, persistence, authorization and the
 *&                   e-mail notification are in the global classes
 *&                   ZCL_FI_BUD_2YF* (see ZCL_FI_BUD_2YF).
-*&                   Called from screen 0001 of ZFI_BUDGET_PREPERATION.
+*&                   Called from the single Budget Forecast button on
+*&                   screen 0001 of ZFI_BUDGET_PREPERATION.
 *&---------------------------------------------------------------------*
-*& Screens        : 0100 - Create / Modify Budget Forecast
+*& Screens        : 0001 - Menu (called by the Budget Forecast button
+*&                         of ZFI_BUDGET_PREPERATION, transaction ZFI_BUD_2YF)
+*&                  0100 - Create / Modify Budget Forecast
 *&---------------------------------------------------------------------*
 *& Created By     : Hassan Diab
 *& Created On     : 07.10.2026
 *& Request No.    : <TBD>
-*& Version        : 2.0
+*& Version        : 2.4
 *&---------------------------------------------------------------------*
 *& Change History
 *&---------------------------------------------------------------------*
@@ -32,6 +37,8 @@
 *& 1.0 | 07.10.2026 | Hassan Diab   | <TBD>        | Initial creation.
 *& 2.0 | 08.10.2026 | Hassan Diab   | <TBD>        | OOP redesign, change
 *&     |            |               |              | log of every update.
+*& 2.4 | 08.10.2026 | Hassan Diab   | <TBD>        | Menu screen 0001 with
+*&     |            |               |              | role-based buttons.
 *&---------------------------------------------------------------------*
 PROGRAM zfi_bud_2yf_entry.
 

@@ -27,3 +27,10 @@ ENDMODULE.
 MODULE get_texts OUTPUT.
   go_screen->pbo_texts( ).
 ENDMODULE.
+
+MODULE status_0001 OUTPUT.
+  IF go_menu IS NOT BOUND.
+    go_menu = NEW #( ).
+  ENDIF.
+  go_menu->pbo( ).
+ENDMODULE.

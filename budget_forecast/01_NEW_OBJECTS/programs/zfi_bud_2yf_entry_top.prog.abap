@@ -56,7 +56,10 @@ DATA gv_ucomm TYPE sy-ucomm.
 CLASS lcl_screen_0100 DEFINITION FINAL.
 
   PUBLIC SECTION.
-    METHODS constructor.
+    "! IV_MODE from the menu (screen 0001); initial = derive from the
+    "! transaction code (direct start with ZFI_BUD_2YF_C / _M)
+    METHODS constructor
+      IMPORTING iv_mode TYPE zif_fi_bud_2yf_types=>ty_mode OPTIONAL.
 
     " PBO
     METHODS pbo_status.
@@ -124,3 +127,28 @@ CLASS lcl_screen_0100 DEFINITION FINAL.
 ENDCLASS.
 
 DATA go_screen TYPE REF TO lcl_screen_0100.
+
+
+*----------------------------------------------------------------------*
+* Menu controller of screen 0001: three buttons, each shown according
+* to the role of the user (creator / own forecasts / Final Reviewer)
+*----------------------------------------------------------------------*
+CLASS lcl_menu_0001 DEFINITION FINAL.
+
+  PUBLIC SECTION.
+    METHODS constructor.
+    METHODS pbo.
+    METHODS pai
+      IMPORTING iv_ucomm TYPE sy-ucomm.
+
+  PRIVATE SECTION.
+    DATA mv_can_create TYPE abap_bool.
+    DATA mv_can_change TYPE abap_bool.
+    DATA mv_can_report TYPE abap_bool.
+
+    METHODS start_entry
+      IMPORTING iv_mode TYPE zif_fi_bud_2yf_types=>ty_mode.
+
+ENDCLASS.
+
+DATA go_menu TYPE REF TO lcl_menu_0001.

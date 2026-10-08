@@ -63,7 +63,11 @@ INTERFACE zif_fi_bud_2yf_types PUBLIC.
                delete TYPE zfcst_chg_ind VALUE 'D',
              END OF c_chg_ind.
 
+  "! MENU = entry point (screen 0001 with the three buttons), called
+  "! from the single "Budget Forecast" button of ZFI_BUDGET_PREPERATION.
+  "! CREATE / MODIFY / REPORT can still be used directly (optional).
   CONSTANTS: BEGIN OF c_tcode,
+               menu   TYPE sytcode VALUE 'ZFI_BUD_2YF',
                create TYPE sytcode VALUE 'ZFI_BUD_2YF_C',
                modify TYPE sytcode VALUE 'ZFI_BUD_2YF_M',
                report TYPE sytcode VALUE 'ZFI_BUD_2YF_R',

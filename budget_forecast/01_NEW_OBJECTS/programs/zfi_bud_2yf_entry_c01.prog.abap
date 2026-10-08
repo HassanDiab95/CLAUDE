@@ -11,7 +11,9 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
   METHOD constructor.
     mo_forecast = NEW #( ).
 
-    mv_mode = COND #( WHEN sy-tcode = zif_fi_bud_2yf_types=>c_tcode-modify
+    mv_mode = COND #( WHEN iv_mode IS NOT INITIAL
+                      THEN iv_mode
+                      WHEN sy-tcode = zif_fi_bud_2yf_types=>c_tcode-modify
                       THEN zif_fi_bud_2yf_types=>c_mode-modify
                       ELSE zif_fi_bud_2yf_types=>c_mode-create ).
 
@@ -488,6 +490,79 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
         answer                = lv_answer.
 
     rv_yes = xsdbool( lv_answer = '1' ).
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+*----------------------------------------------------------------------*
+* Menu screen 0001
+*----------------------------------------------------------------------*
+CLASS lcl_menu_0001 IMPLEMENTATION.
+
+  METHOD constructor.
+    DATA(lo_forecast) = NEW zcl_fi_bud_2yf( ).
+
+    mv_can_create = lo_forecast->mo_auth->is_creator( ).
+    mv_can_change = xsdbool( mv_can_create = abap_true
+                          OR lo_forecast->mo_repository->user_has_forecast( sy-uname ) = abap_true ).
+    mv_can_report = lo_forecast->mo_auth->is_final_reviewer( ).
+
+    IF mv_can_create = abap_false AND mv_can_change = abap_false AND mv_can_report = abap_false.
+      CALL FUNCTION 'POPUP_TO_INFORM'
+        EXPORTING
+          titel = 'Authorization'
+          txt1  = 'You are not authorized to access'
+          txt2  = 'the Budget Forecast application.'.
+      LEAVE PROGRAM.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD pbo.
+    SET PF-STATUS 'GUI_0001'.
+    SET TITLEBAR 'TITLE_0001'.
+
+    " show only the buttons of the user's role
+    LOOP AT SCREEN INTO DATA(ls_screen).
+      DATA(lv_visible) = SWITCH abap_bool( ls_screen-name
+                           WHEN 'FCST_CREATE' THEN mv_can_create
+                           WHEN 'FCST_CHANGE' THEN mv_can_change
+                           WHEN 'FCST_REPORT' THEN mv_can_report
+                           ELSE abap_true ).
+      IF lv_visible = abap_false.
+        ls_screen-active = '0'.
+        MODIFY SCREEN FROM ls_screen.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD pai.
+    CASE iv_ucomm.
+      WHEN 'FCST_CREATE'.
+        IF mv_can_create = abap_true.
+          start_entry( zif_fi_bud_2yf_types=>c_mode-create ).
+        ENDIF.
+
+      WHEN 'FCST_CHANGE'.
+        IF mv_can_change = abap_true.
+          start_entry( zif_fi_bud_2yf_types=>c_mode-modify ).
+        ENDIF.
+
+      WHEN 'FCST_REPORT'.
+        IF mv_can_report = abap_true.
+          SUBMIT zfi_bud_2yf_report VIA SELECTION-SCREEN AND RETURN.
+        ENDIF.
+    ENDCASE.
+  ENDMETHOD.
+
+
+  METHOD start_entry.
+    " fresh controller for every call; Back / Save return to this menu
+    go_screen = NEW #( iv_mode ).
+    CALL SCREEN 0100.
+    CLEAR go_screen.
   ENDMETHOD.
 
 ENDCLASS.

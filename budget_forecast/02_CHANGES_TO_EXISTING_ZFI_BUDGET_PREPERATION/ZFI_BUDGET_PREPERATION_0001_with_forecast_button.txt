@@ -8,7 +8,7 @@ ZFI_BUDGET_PREPERATION
 755																																
              40																																
 %_HEADER																																
-ZFI_BUDGET_PREPERATION                  0001 0001     17 62192 37  0  0 17 62  0G E                              20261007120000																																
+ZFI_BUDGET_PREPERATION                  0001 0001     17 62192 37  0  0 17 62  0G E                              20261008120000																																
 %_DESCRIPTION																																
 Main Screen																																
 %_FIELDS																																
@@ -23,13 +23,9 @@ Main Screen
 %#AUTOTEXT005		CHAR	 21	00	00	00	30	00	 12	  7		  0	  0	  0		 19	P				  0	  0	109							@0X@_Print_Budget____	                                                                                                                                                                        PRINT_BUD	
 		CHAR	 23	00	00	00	30	00	 14	  5		  0	  0	  0		  3	R				  0	  0	110							______________________		
 %#AUTOTEXT006		CHAR	 29	00	00	00	30	00	 15	  7		  0	  0	  0		 19	P				  0	  0	111							@AL\QReport@_Budget_Report___	                                                                                                                                                                        REPORT_BUD	
-FCST_FRAME		CHAR	 29	00	00	00	30	00	  1	 33		  0	  0	  0		 17	R				  0	  0	112							Budget_Forecast______________		
+FCST_FRAME		CHAR	 29	00	00	00	30	00	  1	 33		  0	  0	  0		  5	R				  0	  0	112							Budget_Forecast______________		
 		CHAR	 23	00	00	00	30	00	  2	 36		  0	  0	  0		  3	R				  0	  0	113							______________________		
-FCST_CREATE		CHAR	 24	00	00	00	30	00	  3	 38		  0	  0	  0		 19	P				  0	  0	114							@0Y@_Create_Forecast____	                                                                                                                                                                        FCST_CREATE	
-		CHAR	 23	00	00	00	30	00	  5	 36		  0	  0	  0		  3	R				  0	  0	115							______________________		
-FCST_CHANGE		CHAR	 24	00	00	00	30	00	  6	 38		  0	  0	  0		 19	P				  0	  0	116							@0Z@_Change_Forecast____	                                                                                                                                                                        FCST_CHANGE	
-		CHAR	 23	00	00	00	30	00	  8	 36		  0	  0	  0		  3	R				  0	  0	117							______________________		
-FCST_REPORT		CHAR	 40	00	00	00	30	00	  9	 38		  0	  0	  0		 19	P				  0	  0	118							@AL\QForecast_Report@_Forecast_Report___	                                                                                                                                                                        FCST_REPORT	
+FCST_MAIN		CHAR	 25	00	00	00	30	00	  3	 38		  0	  0	  0		 19	P				  0	  0	114							@0Y@_Budget_Forecast_____	                                                                                                                                                                        FCST_MAIN	
 		CHAR	 20	80	10	00	00	00	255	  1	O	  0	  0	  0		  0					  0	  0								____________________		
 %_FLOWLOGIC																																
 PROCESS BEFORE OUTPUT.																																

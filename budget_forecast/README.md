@@ -1,11 +1,11 @@
 
 # Budget Forecast (2-Year Forecast) – Technical Design & Setup (v2.1)
 
-A **new, separate** application for the two-year forecast budget. It is attached to the Budget Preparation application (`ZFI_BUDGET_PREPERATION` / `ZFI_BUDGET_PRE`) **only through new buttons on its screen 0001**.
+A **new, separate** application for the two-year forecast budget. It is attached to the Budget Preparation application (`ZFI_BUDGET_PREPERATION` / `ZFI_BUDGET_PRE`) **only through one new button "Budget Forecast" on its screen 0001**. That button opens the menu screen 0001 of the new program, which shows the buttons **Create Budget Forecast**, **Display / Modify Budget Forecast** and **Forecast Report** according to the user's role.
 
 > **Nothing existing is changed or reused by name.**
 > * The existing program `ZFI_BUDGET_FORECAST` and its cycle are **not touched**. The new programs, classes and transactions use their own prefix **`2YF`** (two-year forecast), e.g. `ZFI_BUD_2YF_ENTRY`, so no name collides with existing objects. The dictionary objects and the message class keep the names **already created** in the system: tables `ZFI_BUD_FCST_H/_I/_LOG`, domains and data elements `ZFCST_*`, message class `ZBUD_FCST`.
-> * The existing screens of `ZFI_BUDGET_PREPERATION` (including screen 0100) are **not changed**. Only screen 0001 gets 3 new buttons.
+> * The existing screens of `ZFI_BUDGET_PREPERATION` (including screen 0100) are **not changed**. Only screen 0001 gets **one** new button.
 > * The existing logic and workflow of Budget Preparation are **not changed**. The new forecast has its own tables, does not use the workflow, and only reads the existing role tables (`ZBUD_CREATORS`, `ZFI_BUD_WF_AGENT`, `ZFIBUD_ASSISTANT`).
 
 ## 0. Package contents – two separate parts
@@ -13,15 +13,15 @@ A **new, separate** application for the two-year forecast budget. It is attached
 | Folder | What | You do |
 |---|---|---|
 | `01_NEW_OBJECTS/` | Everything new: interfaces and classes, the new module pool `ZFI_BUD_2YF_ENTRY` with its **new screen 0100**, report `ZFI_BUD_2YF_REPORT` | Create these as new objects (the DDIC objects and message class of section 3 are already created) |
-| `02_CHANGES_TO_EXISTING_ZFI_BUDGET_PREPERATION/` | The **only** changes to the existing program: (1) screen 0001 with 3 extra buttons, (2) one block in `HIDE_BUTTONS_0001`, (3) three `WHEN` branches in `USER_COMMAND_0001` | Add these manually |
+| `02_CHANGES_TO_EXISTING_ZFI_BUDGET_PREPERATION/` | The **only** changes to the existing program: (1) screen 0001 with one extra button `FCST_MAIN`, (2) one small block in `HIDE_BUTTONS_0001`, (3) one `WHEN` branch in `USER_COMMAND_0001` | Add these manually |
 
 ### New object names
 
 | Kind | Name |
 |---|---|
-| Module pool (entry screen 0100) | `ZFI_BUD_2YF_ENTRY` + includes `ZFI_BUD_2YF_ENTRY_TOP`, `_C01`, `_PBO`, `_PAI` |
+| Module pool (menu screen 0001 + entry screen 0100) | `ZFI_BUD_2YF_ENTRY` + includes `ZFI_BUD_2YF_ENTRY_TOP`, `_C01`, `_PBO`, `_PAI` |
 | Report | `ZFI_BUD_2YF_REPORT` |
-| Transactions | `ZFI_BUD_2YF_C` (create), `ZFI_BUD_2YF_M` (modify), `ZFI_BUD_2YF_R` (report) |
+| Transactions | `ZFI_BUD_2YF` (menu – required); optional direct entries `ZFI_BUD_2YF_C` (create), `ZFI_BUD_2YF_M` (modify), `ZFI_BUD_2YF_R` (report) |
 | Tables | `ZFI_BUD_FCST_H` (header), `ZFI_BUD_FCST_I` (items), `ZFI_BUD_FCST_LOG` (change log) |
 | Classes | `ZCL_FI_BUD_2YF`, `ZCL_FI_BUD_2YF_REPOSITORY`, `ZCL_FI_BUD_2YF_AUTH`, `ZCL_FI_BUD_2YF_NOTIFIER`, `ZCL_FI_BUD_2YF_REPORT` |
 | Interfaces | `ZIF_FI_BUD_2YF_TYPES`, `ZIF_FI_BUD_2YF_REPOSITORY`, `ZIF_FI_BUD_2YF_AUTH`, `ZIF_FI_BUD_2YF_NOTIFIER` |
@@ -36,7 +36,7 @@ The tables, domains, data elements and message class are already created with th
 | Technical Consultant | Hassan Diab |
 | Functional Consultant | Ahmed Tawfik |
 | Package | `ZFI` |
-| Version | 2.3 – 08.10.2026 (final) |
+| Version | 2.4 – 08.10.2026 (final: one button on the existing screen + menu screen in the new program) |
 
 The full step-by-step guide with all source code is the Word document `TSD - Budget Forecast 2YF (ZFI_BUD_2YF).docx`. The manual changes to the existing program are in `Change Document - Existing Budget Preparation Cycle (ZFI_BUDGET_PREPERATION).docx`. A sample of the notification e-mail is `email_preview.png`.
 
@@ -49,7 +49,7 @@ The full step-by-step guide with all source code is the Word document `TSD - Bud
 | 1 | Header: Company, Department Code, Forecast Years; item grid as in the Excel template | Screen 0100 of `ZFI_BUD_2YF_ENTRY` |
 | 1.1 | Entry only for Budget Preparation **creators** | `ZCL_FI_BUD_2YF_AUTH->IS_CREATOR` (`ZBUD_CREATORS`, roles `CRE`, `C&M`, `CMD`, `ALL`) |
 | 1.2 | Years dropdown = next two years | `ZCL_FI_BUD_2YF->GET_FORECAST_WINDOW` (current year + `C_YEAR_OFFSET`) |
-| 2 | Modification screen | Transaction `ZFI_BUD_2YF_M`, button **Change Forecast** |
+| 2 | Modification screen | Menu button **Display / Modify Budget Forecast** (screen 0100 in modify mode) |
 | 2 | Max. **two** updates | `CHECK_CHANGE_ALLOWED` + optimistic `UPDATE … WHERE CHANGE_COUNT = <old>` |
 | 2 | Only the **creator** may modify | `VALIDATE_HEADER` / `CHECK_CHANGE_ALLOWED` |
 | 2 | No change once the year after creation starts | `CHECK_CHANGE_ALLOWED` (message 022) |
@@ -63,7 +63,9 @@ The full step-by-step guide with all source code is the Word document `TSD - Bud
 ## 2. Architecture (OOP)
 
 ```
- Screen 0001 (existing ZFI_BUDGET_PREPERATION)   new buttons -> ZFI_BUD_2YF_C / _M / _R
+ Screen 0001 (existing ZFI_BUDGET_PREPERATION)   ONE button 'Budget Forecast' -> ZFI_BUD_2YF
+            |
+ ZFI_BUD_2YF_ENTRY menu screen 0001 (LCL_MENU_0001): Create / Display-Modify / Report by role
             |
  ZFI_BUD_2YF_ENTRY (module pool)        ZFI_BUD_2YF_REPORT (report)
    screen fields + LCL_SCREEN_0100           selection screen only
@@ -233,6 +235,7 @@ Add index `Z01` on `MANDT, ERNAM`.
 
 ### 3.5 GUI status / title (program `ZFI_BUD_2YF_ENTRY`)
 
+* Status `GUI_0001` (menu): `BACK` (F3), `EXIT` (Shift+F3), `CANCEL` (F12), all type **E**. Title `TITLE_0001`: `Budget Forecast`.
 * Status `GUI_0100`:
   * `ENTER`, `SAVE` (Ctrl+S), `BACK` (F3), `EXIT` (Shift+F3), `CANCEL` (F12).
   * `BACK`, `EXIT` and `CANCEL` are of type **E**.
@@ -250,10 +253,19 @@ Add index `Z01` on `MANDT, ERNAM`.
 ## 4. Screens
 
 * **New** screen 0100 of the new program `ZFI_BUD_2YF_ENTRY`: upload `01_NEW_OBJECTS/screens/ZFI_BUD_2YF_ENTRY_0100.txt` in SE51. The flow logic is also in `ZFI_BUD_2YF_ENTRY_0100_flowlogic.txt`. The existing screen 0100 of `ZFI_BUDGET_PREPERATION` is **not** touched.
-* **Existing** screen 0001 of `ZFI_BUDGET_PREPERATION`: `02_CHANGES_TO_EXISTING_ZFI_BUDGET_PREPERATION/ZFI_BUDGET_PREPERATION_0001_with_forecast_buttons.txt`.
-  * It is your current screen 0001 unchanged, plus frame `FCST_FRAME` and buttons `FCST_CREATE`, `FCST_CHANGE`, `FCST_REPORT` to the right of "Select Process".
+* **New** menu screen 0001 of `ZFI_BUD_2YF_ENTRY`: upload `01_NEW_OBJECTS/screens/ZFI_BUD_2YF_ENTRY_0001.txt`. It has one frame and three pushbuttons:
+
+  | Element / function code | Text | Shown for |
+  |---|---|---|
+  | `FCST_CREATE` | Create Budget Forecast | Creators |
+  | `FCST_CHANGE` | Display / Modify Budget Forecast | Creators or users who created a forecast |
+  | `FCST_REPORT` | Forecast Report (Final Reviewer) | Final Reviewers and assistants |
+
+  The flow logic is also in `ZFI_BUD_2YF_ENTRY_0001_flowlogic.txt`.
+* **Existing** screen 0001 of `ZFI_BUDGET_PREPERATION`: `02_CHANGES_TO_EXISTING_ZFI_BUDGET_PREPERATION/ZFI_BUDGET_PREPERATION_0001_with_forecast_button.txt`.
+  * It is your current screen 0001 unchanged, plus frame `FCST_FRAME` and **one** button `FCST_MAIN` ("Budget Forecast", function code `FCST_MAIN`) to the right of "Select Process".
   * Download a backup first.
-  * You can also add the frame and 3 buttons by hand instead (function code = element name).
+  * You can also add the frame and the button by hand instead.
 
 ## 5. Installation sequence
 
@@ -272,25 +284,27 @@ Add index `Z01` on `MANDT, ERNAM`.
    Activate them together, then run the unit tests.
 4. **Module pool** `ZFI_BUD_2YF_ENTRY`:
    1. Create the program with includes `_TOP`, `_C01`, `_PBO`, `_PAI`.
-   2. Upload the new screen 0100.
-   3. Create status `GUI_0100` and title `TITLE_0100`.
+   2. Upload the new screens 0001 (menu) and 0100.
+   3. Create statuses `GUI_0001` and `GUI_0100`, and titles `TITLE_0001` and `TITLE_0100`.
    4. Activate.
 5. **Report** `ZFI_BUD_2YF_REPORT`: add its text symbols and selection texts, then activate.
 6. **SE93:**
-   * `ZFI_BUD_2YF_C` and `ZFI_BUD_2YF_M`: dialog transactions, `ZFI_BUD_2YF_ENTRY` / 0100.
-   * `ZFI_BUD_2YF_R`: report transaction, `ZFI_BUD_2YF_REPORT`.
-   * Test the three transactions directly before connecting them.
+   * `ZFI_BUD_2YF` (**required**): dialog transaction, `ZFI_BUD_2YF_ENTRY` / **0001** (menu).
+   * Optional direct entries:
+     * `ZFI_BUD_2YF_C` and `ZFI_BUD_2YF_M`: dialog transactions, `ZFI_BUD_2YF_ENTRY` / 0100;
+     * `ZFI_BUD_2YF_R`: report transaction, `ZFI_BUD_2YF_REPORT`.
+   * Test `ZFI_BUD_2YF` directly before connecting it.
 
 **Part B – connect to the existing program (`02_CHANGES_TO_EXISTING_ZFI_BUDGET_PREPERATION`)**
 
-7. Screen 0001: add the frame and 3 buttons (upload or by hand).
+7. Screen 0001: add the frame and the one button `FCST_MAIN` (upload or by hand).
 8. `ZFI_BUDGET_PREPER_INCLUDE_PBO` → `HIDE_BUTTONS_0001`: paste `1_PBO_add_to_HIDE_BUTTONS_0001.abap` before `ENDMODULE`.
 9. `ZFI_BUDGET_PREPER_INCLUDE_PAI` → `USER_COMMAND_0001`: paste `2_PAI_add_to_USER_COMMAND_0001.abap` after `WHEN 'REPORT_BUD'`.
 10. Activate `ZFI_BUDGET_PREPERATION`. Nothing else in it changes.
 
 **Part C – basis**
 
-11. **PFCG:** add the 3 transactions to the Budget Preparation role(s). **SU01 / SCOT:** e-mail addresses and the SMTP node.
+11. **PFCG:** add `ZFI_BUD_2YF` (plus the optional direct transactions, if used) to the Budget Preparation role(s). **SU01 / SCOT:** e-mail addresses and the SMTP node.
 
 ## 6. Assumptions to confirm
 
