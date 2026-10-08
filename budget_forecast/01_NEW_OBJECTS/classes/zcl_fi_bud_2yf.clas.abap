@@ -152,6 +152,7 @@ CLASS zcl_fi_bud_2yf DEFINITION
                 iv_mode         TYPE ty_mode
                 iv_item_count   TYPE i
                 it_log          TYPE tt_log OPTIONAL
+                it_items        TYPE tt_items OPTIONAL
       RETURNING VALUE(rv_error) TYPE string.
 
 ENDCLASS.
@@ -359,7 +360,8 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
 
     rs_result-mail_error = notify( is_header     = rs_result-header
                                    iv_mode       = zif_fi_bud_2yf_types=>c_mode-create
-                                   iv_item_count = lines( lt_items ) ).
+                                   iv_item_count = lines( lt_items )
+                                   it_items      = lt_items ).
   ENDMETHOD.
 
 
@@ -410,7 +412,8 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
     rs_result-mail_error = notify( is_header     = rs_result-header
                                    iv_mode       = zif_fi_bud_2yf_types=>c_mode-modify
                                    iv_item_count = lines( lt_new )
-                                   it_log        = lt_log ).
+                                   it_log        = lt_log
+                                   it_items      = lt_new ).
   ENDMETHOD.
 
 
@@ -564,6 +567,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
       iv_mode             = iv_mode
       iv_item_count       = iv_item_count
       it_log              = it_log
+      it_items            = it_items
       iv_cost_center_text = mo_repository->get_cost_center_text( iv_bukrs = is_header-bukrs
                                                                  iv_kostl = is_header-kostl ) ).
   ENDMETHOD.

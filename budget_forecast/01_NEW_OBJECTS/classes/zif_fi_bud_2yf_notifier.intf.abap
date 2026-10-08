@@ -11,6 +11,7 @@ INTERFACE zif_fi_bud_2yf_notifier PUBLIC.
               iv_item_count       TYPE i
               iv_cost_center_text TYPE kltxt
               it_log              TYPE zif_fi_bud_2yf_types=>tt_log OPTIONAL
+              it_items            TYPE zif_fi_bud_2yf_types=>tt_items OPTIONAL
     RETURNING VALUE(rv_error)     TYPE string.
 
 ENDINTERFACE.

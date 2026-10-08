@@ -49,7 +49,14 @@ CLASS zcl_fi_bud_2yf_notifier DEFINITION
                 iv_item_count       TYPE i
                 iv_cost_center_text TYPE kltxt
                 it_log              TYPE zif_fi_bud_2yf_types=>tt_log
+                it_items            TYPE zif_fi_bud_2yf_types=>tt_items
       RETURNING VALUE(rv_html)      TYPE string.
+
+    "! Budget line items table (all items of the forecast)
+    CLASS-METHODS item_table
+      IMPORTING it_items       TYPE zif_fi_bud_2yf_types=>tt_items
+                iv_currency    TYPE waers
+      RETURNING VALUE(rv_html) TYPE string.
 
     "! One row of the details table: English label / Arabic label / value
     CLASS-METHODS detail_row
@@ -107,7 +114,8 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
       iv_actor            = lv_actor
       iv_item_count       = iv_item_count
       iv_cost_center_text = iv_cost_center_text
-      it_log              = it_log ).
+      it_log              = it_log
+      it_items            = it_items ).
 
     TRY.
         DATA(lo_send) = cl_bcs=>create_persistent( ).
@@ -223,6 +231,14 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
                   iv_value    = |{ lv_today DATE = USER } { lv_now TIME = USER }| ) &&
       |</table></td></tr>| &&
 
+      " budget line items (create and change)
+      COND string( WHEN it_items IS NOT INITIAL
+                   THEN |<tr><td style="padding:8px 28px 4px 28px">| &&
+                        |<div style="font-size:11pt;font-weight:bold;color:{ c_color-navy }">Budget Line Items| &&
+                        |<span style="float:right" dir="rtl">بنود الموازنة</span></div>| &&
+                        |</td></tr><tr><td style="padding:4px 28px 12px 28px">| &&
+                        |{ item_table( it_items = it_items iv_currency = is_header-waers ) }</td></tr>| ) &&
+
       " what changed (updates only)
       COND string( WHEN lv_is_new = abap_false AND it_log IS NOT INITIAL
                    THEN |<tr><td style="padding:8px 28px 4px 28px">| &&
@@ -258,6 +274,44 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
               |<td width="26%" dir="rtl" align="right" style="background:{ c_color-label_bg };| &&
               |color:{ c_color-navy_dark };font-weight:bold;padding:8px 10px;border-bottom:1px solid #dcdde6">| &&
               |{ condense( CONV string( iv_label_ar ) ) }</td></tr>|.
+  ENDMETHOD.
+
+
+  METHOD item_table.
+    DATA(lv_head) = |style="background:{ c_color-teal };color:#ffffff;padding:6px 8px;text-align:left;font-size:9pt"|.
+    DATA(lv_num)  = |style="background:{ c_color-teal };color:#ffffff;padding:6px 8px;text-align:right;font-size:9pt"|.
+
+    rv_html = |<table role="presentation" width="100%" cellpadding="0" cellspacing="0" | &&
+              |style="border:1px solid #dcdde6;border-collapse:collapse;font-size:9pt">| &&
+              |<tr><th { lv_head }>#</th><th { lv_head }>Year</th><th { lv_head }>Project</th>| &&
+              |<th { lv_head }>Priority</th><th { lv_head }>Opex/Capex</th><th { lv_head }>Type</th>| &&
+              |<th { lv_num }>Budget</th></tr>|.
+
+    LOOP AT it_items INTO DATA(ls_item).
+      " light striping for readability
+      DATA(lv_bg)   = COND string( WHEN sy-tabix MOD 2 = 0 THEN `#F7F8FB` ELSE `#ffffff` ).
+      DATA(lv_cell) = |style="padding:6px 8px;border-bottom:1px solid #eeeeee;background:{ lv_bg }"|.
+
+      rv_html = rv_html &&
+        |<tr><td { lv_cell }>{ ls_item-item_no ALPHA = OUT }</td>| &&
+        |<td { lv_cell }>{ ls_item-budget_year }</td>| &&
+        |<td { lv_cell } dir="auto"><b>{ html( ls_item-proj_name ) }</b>| &&
+        |<div style="color:#8a8a8a;font-size:8.5pt">{ html( ls_item-proj_desc ) }</div></td>| &&
+        |<td { lv_cell }>{ ls_item-priority }</td>| &&
+        |<td { lv_cell }>{ ls_item-bud_type }</td>| &&
+        |<td { lv_cell }>{ ls_item-proj_type }</td>| &&
+        |<td { lv_cell } align="right" nowrap>{ ls_item-amount NUMBER = USER }</td></tr>|.
+    ENDLOOP.
+
+    " total line
+    DATA(lv_total) = REDUCE zfcst_amount( INIT lv_sum TYPE zfcst_amount
+                                          FOR ls_line IN it_items
+                                          NEXT lv_sum = lv_sum + ls_line-amount ).
+    rv_html = rv_html &&
+      |<tr><td colspan="6" style="padding:7px 8px;background:{ c_color-label_bg };font-weight:bold;| &&
+      |color:{ c_color-navy_dark }">Total</td>| &&
+      |<td align="right" nowrap style="padding:7px 8px;background:{ c_color-label_bg };font-weight:bold;| &&
+      |color:{ c_color-blue }">{ lv_total NUMBER = USER } { iv_currency }</td></tr></table>|.
   ENDMETHOD.
 
 
