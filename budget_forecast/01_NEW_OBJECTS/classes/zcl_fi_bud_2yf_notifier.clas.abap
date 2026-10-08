@@ -6,26 +6,26 @@
 "! BAPI_USER_GET_DETAIL (no direct read of USR21 / ADR6).
 "! Sending uses BCS (CL_BCS). On S/4HANA 2022 or later this class is
 "! the only place to switch to the released API CL_BCS_MAIL_MESSAGE.
-CLASS zcl_fi_bud_fcst_notifier DEFINITION
+CLASS zcl_fi_bud_2yf_notifier DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC.
 
   PUBLIC SECTION.
-    INTERFACES zif_fi_bud_fcst_notifier.
+    INTERFACES zif_fi_bud_2yf_notifier.
 
     METHODS constructor
-      IMPORTING io_auth TYPE REF TO zif_fi_bud_fcst_auth.
+      IMPORTING io_auth TYPE REF TO zif_fi_bud_2yf_auth.
 
   PRIVATE SECTION.
-    DATA mo_auth TYPE REF TO zif_fi_bud_fcst_auth.
+    DATA mo_auth TYPE REF TO zif_fi_bud_2yf_auth.
 
     METHODS get_address
       IMPORTING iv_user           TYPE syuname
       RETURNING VALUE(rs_address) TYPE bapiaddr3.
 
     METHODS build_body
-      IMPORTING is_header           TYPE zif_fi_bud_fcst_types=>ty_header
+      IMPORTING is_header           TYPE zif_fi_bud_2yf_types=>ty_header
                 iv_action           TYPE string
                 iv_actor_label      TYPE string
                 iv_actor            TYPE string
@@ -41,14 +41,14 @@ ENDCLASS.
 
 
 
-CLASS zcl_fi_bud_fcst_notifier IMPLEMENTATION.
+CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
 
   METHOD constructor.
     mo_auth = io_auth.
   ENDMETHOD.
 
 
-  METHOD zif_fi_bud_fcst_notifier~notify.
+  METHOD zif_fi_bud_2yf_notifier~notify.
     DATA(lt_users) = mo_auth->get_notification_recipients( ).
     IF lt_users IS INITIAL.
       RETURN.
@@ -57,11 +57,11 @@ CLASS zcl_fi_bud_fcst_notifier IMPLEMENTATION.
     DATA(lv_years) = |{ is_header-fyear_from }-{ is_header-fyear_to }|.
 
     DATA(lv_action) = COND string(
-      WHEN iv_mode = zif_fi_bud_fcst_types=>c_mode-create
+      WHEN iv_mode = zif_fi_bud_2yf_types=>c_mode-create
       THEN `created`
-      ELSE |changed (update { is_header-change_count } of { zif_fi_bud_fcst_types=>c_max_changes })| ).
+      ELSE |changed (update { is_header-change_count } of { zif_fi_bud_2yf_types=>c_max_changes })| ).
 
-    DATA(lv_actor_user) = COND syuname( WHEN iv_mode = zif_fi_bud_fcst_types=>c_mode-create
+    DATA(lv_actor_user) = COND syuname( WHEN iv_mode = zif_fi_bud_2yf_types=>c_mode-create
                                         THEN is_header-ernam
                                         ELSE is_header-aenam ).
     DATA(lv_actor_name) = CONV string( get_address( lv_actor_user )-fullname ).
@@ -74,7 +74,7 @@ CLASS zcl_fi_bud_fcst_notifier IMPLEMENTATION.
     DATA(lv_html) = build_body(
       is_header           = is_header
       iv_action           = lv_action
-      iv_actor_label      = COND #( WHEN iv_mode = zif_fi_bud_fcst_types=>c_mode-create
+      iv_actor_label      = COND #( WHEN iv_mode = zif_fi_bud_2yf_types=>c_mode-create
                                     THEN `Created By` ELSE `Changed By` )
       iv_actor            = lv_actor
       iv_item_count       = iv_item_count
@@ -142,7 +142,7 @@ CLASS zcl_fi_bud_fcst_notifier IMPLEMENTATION.
       |<tr><td><b>Date / Time</b></td><td>{ lv_today DATE = USER } { lv_now TIME = USER }</td></tr>| &&
       |</table>| &&
       |<p>The submission and its change history can be reviewed in the consolidated | &&
-      |forecast report (transaction { zif_fi_bud_fcst_types=>c_tcode-report }).</p>| &&
+      |forecast report (transaction { zif_fi_bud_2yf_types=>c_tcode-report }).</p>| &&
       |<p>This is an automatic notification from the SAP Budget Forecast application.</p>| &&
       |</body></html>|.
   ENDMETHOD.

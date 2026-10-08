@@ -6,13 +6,13 @@
 "!   ZBUD_CREATORS     - creators per cost center
 "!   ZFI_BUD_WF_AGENT  - workflow agents, level FR = Final Reviewer
 "!   ZFIBUD_ASSISTANT  - Final Reviewer assistants
-CLASS zcl_fi_bud_fcst_auth DEFINITION
+CLASS zcl_fi_bud_2yf_auth DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC.
 
   PUBLIC SECTION.
-    INTERFACES zif_fi_bud_fcst_auth.
+    INTERFACES zif_fi_bud_2yf_auth.
 
     METHODS constructor
       IMPORTING iv_user TYPE syuname OPTIONAL
@@ -31,7 +31,7 @@ ENDCLASS.
 
 
 
-CLASS zcl_fi_bud_fcst_auth IMPLEMENTATION.
+CLASS zcl_fi_bud_2yf_auth IMPLEMENTATION.
 
   METHOD constructor.
     mv_user = COND #( WHEN iv_user IS NOT INITIAL THEN iv_user ELSE sy-uname ).
@@ -44,7 +44,7 @@ CLASS zcl_fi_bud_fcst_auth IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD zif_fi_bud_fcst_auth~is_creator.
+  METHOD zif_fi_bud_2yf_auth~is_creator.
     DATA lr_kostl TYPE RANGE OF kostl.
 
     IF iv_kostl IS NOT INITIAL.
@@ -63,7 +63,7 @@ CLASS zcl_fi_bud_fcst_auth IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD zif_fi_bud_fcst_auth~is_final_reviewer.
+  METHOD zif_fi_bud_2yf_auth~is_final_reviewer.
     SELECT SINGLE @abap_true
       FROM zfi_bud_wf_agent
       WHERE agent_user = @mv_user
@@ -81,7 +81,7 @@ CLASS zcl_fi_bud_fcst_auth IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD zif_fi_bud_fcst_auth~get_notification_recipients.
+  METHOD zif_fi_bud_2yf_auth~get_notification_recipients.
     SELECT agent_user
       FROM zfi_bud_wf_agent
       WHERE zlevel = @c_level_final_reviewer

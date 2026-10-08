@@ -1,6 +1,6 @@
 *&---------------------------------------------------------------------*
-*& Include        : ZFI_BUDGET_FCST_PBO
-*& Main Program   : ZFI_BUDGET_FORECAST
+*& Include        : ZFI_BUD_2YF_ENTRY_PBO
+*& Main Program   : ZFI_BUD_2YF_ENTRY
 *&---------------------------------------------------------------------*
 *& Purpose        : PBO modules of screen 0100 - delegate to the
 *&                   screen controller LCL_SCREEN_0100.

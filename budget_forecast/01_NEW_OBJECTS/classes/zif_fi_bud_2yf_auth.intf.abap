@@ -1,5 +1,5 @@
 "! <p class="shorttext synchronized">Budget Forecast - authorization (Budget Preparation roles)</p>
-INTERFACE zif_fi_bud_fcst_auth PUBLIC.
+INTERFACE zif_fi_bud_2yf_auth PUBLIC.
 
   "! User holds a Budget Preparation creator role with "create"
   "! (ZBUD_CREATORS) - for the given cost center, or any if initial
@@ -14,6 +14,6 @@ INTERFACE zif_fi_bud_fcst_auth PUBLIC.
 
   "! All active Final Reviewers and assistants (e-mail recipients)
   METHODS get_notification_recipients
-    RETURNING VALUE(rt_users) TYPE zif_fi_bud_fcst_types=>tt_users.
+    RETURNING VALUE(rt_users) TYPE zif_fi_bud_2yf_types=>tt_users.
 
 ENDINTERFACE.

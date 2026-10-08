@@ -1,13 +1,13 @@
 *&---------------------------------------------------------------------*
-*& Include        : ZFI_BUDGET_FCST_TOP
-*& Main Program   : ZFI_BUDGET_FORECAST
+*& Include        : ZFI_BUD_2YF_ENTRY_TOP
+*& Main Program   : ZFI_BUD_2YF_ENTRY
 *&---------------------------------------------------------------------*
 *& Purpose        : Screen 0100 fields (must be global for the dynpro)
 *&                   and the definition of the screen controller.
 *&---------------------------------------------------------------------*
 
 " ---------------- screen 0100 fields ----------------
-DATA gs_head            TYPE zfi_bud_fcst_h.  "header block
+DATA gs_head            TYPE zfi_bud_2yf_h.  "header block
 DATA gv_fcst_years      TYPE c LENGTH 9.      "listbox, e.g. '2028-2029'
 DATA gv_ktext           TYPE kltxt.           "cost center text
 DATA gv_changes_text    TYPE char20.          "e.g. '1 of 2 used'
@@ -15,7 +15,7 @@ DATA gv_proceed_to_items TYPE c LENGTH 50.    "icon pushbutton
 
 DATA: BEGIN OF gs_item,
         selected TYPE c LENGTH 1.
-        INCLUDE STRUCTURE zfi_bud_fcst_i.
+        INCLUDE STRUCTURE zfi_bud_2yf_i.
 DATA  END OF gs_item.
 
 DATA gt_item LIKE STANDARD TABLE OF gs_item WITH EMPTY KEY.
@@ -27,7 +27,7 @@ DATA gv_ucomm TYPE sy-ucomm.
 
 *----------------------------------------------------------------------*
 * Screen controller: owns the screen state and translates user actions
-* into calls of the business object ZCL_FI_BUD_FCST.
+* into calls of the business object ZCL_FI_BUD_2YF.
 *----------------------------------------------------------------------*
 CLASS lcl_screen_0100 DEFINITION FINAL.
 
@@ -62,13 +62,13 @@ CLASS lcl_screen_0100 DEFINITION FINAL.
                  other  TYPE c LENGTH 3 VALUE '3',
                END OF c_group.
 
-    DATA mo_forecast   TYPE REF TO zcl_fi_bud_fcst.
-    DATA mv_mode       TYPE zif_fi_bud_fcst_types=>ty_mode.
+    DATA mo_forecast   TYPE REF TO zcl_fi_bud_2yf.
+    DATA mv_mode       TYPE zif_fi_bud_2yf_types=>ty_mode.
     DATA mv_status     TYPE c LENGTH 1.
     DATA mv_readonly   TYPE abap_bool.
     DATA mv_tc_lines   TYPE i.
-    DATA ms_header_db  TYPE zif_fi_bud_fcst_types=>ty_header.
-    DATA mt_items_db   TYPE zif_fi_bud_fcst_types=>tt_items.
+    DATA ms_header_db  TYPE zif_fi_bud_2yf_types=>ty_header.
+    DATA mt_items_db   TYPE zif_fi_bud_2yf_types=>tt_items.
 
     METHODS reset.
     METHODS process_header.
@@ -82,15 +82,15 @@ CLASS lcl_screen_0100 DEFINITION FINAL.
     METHODS set_listboxes.
 
     METHODS key
-      RETURNING VALUE(rs_key) TYPE zif_fi_bud_fcst_types=>ty_key.
+      RETURNING VALUE(rs_key) TYPE zif_fi_bud_2yf_types=>ty_key.
     METHODS items
-      RETURNING VALUE(rt_items) TYPE zif_fi_bud_fcst_types=>tt_items.
+      RETURNING VALUE(rt_items) TYPE zif_fi_bud_2yf_types=>tt_items.
     METHODS is_editable
       RETURNING VALUE(rv_result) TYPE abap_bool.
 
     "! Show the error and put the cursor on the item cell, if any
     METHODS show_error
-      IMPORTING ix_error TYPE REF TO zcx_fi_bud_fcst.
+      IMPORTING ix_error TYPE REF TO zcx_fi_bud_2yf.
 
     METHODS confirm
       IMPORTING iv_question   TYPE string

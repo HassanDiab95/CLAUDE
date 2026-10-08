@@ -1,7 +1,7 @@
-"! <p class="shorttext synchronized">Budget Forecast - exception (messages of class ZBUD_FCST)</p>
-"! Raised with RAISE EXCEPTION TYPE zcx_fi_bud_fcst MESSAGE eNNN(zbud_fcst) WITH ...
+"! <p class="shorttext synchronized">Budget Forecast - exception (messages of class ZBUD_2YF)</p>
+"! Raised with RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE eNNN(zbud_2yf) WITH ...
 "! FIELDNAME / ITEM_INDEX tell the screen which item cell to put the cursor on.
-CLASS zcx_fi_bud_fcst DEFINITION
+CLASS zcx_fi_bud_2yf DEFINITION
   PUBLIC
   INHERITING FROM cx_static_check
   FINAL
@@ -27,7 +27,7 @@ ENDCLASS.
 
 
 
-CLASS zcx_fi_bud_fcst IMPLEMENTATION.
+CLASS zcx_fi_bud_2yf IMPLEMENTATION.
 
   METHOD constructor ##ADT_SUPPRESS_GENERATION.
     super->constructor( previous = previous ).

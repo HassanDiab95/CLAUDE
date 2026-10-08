@@ -2,8 +2,8 @@
 *& Technical Consultant  : Hassan Diab (SNAGFREE)----------------*
 *================================================================*
 *&---------------------------------------------------------------------*
-*& Program        : ZFI_BUDGET_FORECAST_REP
-*& Transaction    : ZFI_BUD_FCST_R
+*& Program        : ZFI_BUD_2YF_REPORT
+*& Transaction    : ZFI_BUD_2YF_R
 *& Type           : Executable Program (Report)
 *& Package        : <ZFI>
 *&---------------------------------------------------------------------*
@@ -13,7 +13,7 @@
 *& Purpose        : Consolidated Budget Forecast report for the Final
 *&                   Reviewers and their assistants, with Excel export
 *&                   and the change history of each forecast (double-
-*&                   click). The logic is in ZCL_FI_BUD_FCST_REPORT;
+*&                   click). The logic is in ZCL_FI_BUD_2YF_REPORT;
 *&                   this program only holds the selection screen.
 *&---------------------------------------------------------------------*
 *& Created By     : Hassan Diab
@@ -29,9 +29,9 @@
 *& 2.0 | 08.10.2026 | Hassan Diab   | <TBD>        | OOP redesign, change
 *&     |            |               |              | history on double-click.
 *&---------------------------------------------------------------------*
-REPORT zfi_budget_forecast_rep.
+REPORT zfi_bud_2yf_report.
 
-DATA gs_selection TYPE zfi_bud_fcst_h.  "only for the SELECT-OPTIONS types
+DATA gs_selection TYPE zfi_bud_2yf_h.  "only for the SELECT-OPTIONS types
 
 SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-b01.
   SELECT-OPTIONS: s_bukrs FOR gs_selection-bukrs,
@@ -45,17 +45,17 @@ SELECTION-SCREEN BEGIN OF BLOCK b02 WITH FRAME TITLE TEXT-b02.
 SELECTION-SCREEN END OF BLOCK b02.
 
 INITIALIZATION.
-  IF CAST zif_fi_bud_fcst_auth( NEW zcl_fi_bud_fcst_auth( ) )->is_final_reviewer( ) = abap_false.
-    MESSAGE s023(zbud_fcst) DISPLAY LIKE 'E'.
+  IF CAST zif_fi_bud_2yf_auth( NEW zcl_fi_bud_2yf_auth( ) )->is_final_reviewer( ) = abap_false.
+    MESSAGE s023(zbud_2yf) DISPLAY LIKE 'E'.
     LEAVE PROGRAM.
   ENDIF.
 
 START-OF-SELECTION.
   TRY.
-      NEW zcl_fi_bud_fcst_report( it_bukrs = s_bukrs[]
+      NEW zcl_fi_bud_2yf_report( it_bukrs = s_bukrs[]
                                   it_kostl = s_kostl[]
                                   it_fyear = s_fyear[]
                                   it_ernam = s_ernam[] )->run( iv_download = p_xlsx ).
-    CATCH zcx_fi_bud_fcst INTO DATA(gx_error).
+    CATCH zcx_fi_bud_2yf INTO DATA(gx_error).
       MESSAGE gx_error TYPE 'S' DISPLAY LIKE 'E'.
   ENDTRY.

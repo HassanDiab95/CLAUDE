@@ -1,11 +1,11 @@
-*"* Local test classes of ZCL_FI_BUD_FCST (Test Classes include)
+*"* Local test classes of ZCL_FI_BUD_2YF (Test Classes include)
 *"* Run with Ctrl+Shift+F10 in ADT / SE80 -> Test -> Unit Test.
 *"* No database or e-mail access: repository, authorization and
 *"* notifier are replaced by test doubles.
 
 CLASS ltd_repository DEFINITION FOR TESTING.
   PUBLIC SECTION.
-    INTERFACES zif_fi_bud_fcst_repository PARTIALLY IMPLEMENTED.
+    INTERFACES zif_fi_bud_2yf_repository PARTIALLY IMPLEMENTED.
 ENDCLASS.
 
 CLASS ltd_repository IMPLEMENTATION.
@@ -14,7 +14,7 @@ ENDCLASS.
 
 CLASS ltd_auth DEFINITION FOR TESTING.
   PUBLIC SECTION.
-    INTERFACES zif_fi_bud_fcst_auth PARTIALLY IMPLEMENTED.
+    INTERFACES zif_fi_bud_2yf_auth PARTIALLY IMPLEMENTED.
 ENDCLASS.
 
 CLASS ltd_auth IMPLEMENTATION.
@@ -23,7 +23,7 @@ ENDCLASS.
 
 CLASS ltd_notifier DEFINITION FOR TESTING.
   PUBLIC SECTION.
-    INTERFACES zif_fi_bud_fcst_notifier PARTIALLY IMPLEMENTED.
+    INTERFACES zif_fi_bud_2yf_notifier PARTIALLY IMPLEMENTED.
 ENDCLASS.
 
 CLASS ltd_notifier IMPLEMENTATION.
@@ -38,12 +38,12 @@ CLASS ltc_forecast DEFINITION FINAL FOR TESTING
     CONSTANTS c_creator TYPE syuname VALUE 'CREATOR'.
     CONSTANTS c_today   TYPE d       VALUE '20261008'.
 
-    DATA mo_cut TYPE REF TO zcl_fi_bud_fcst.
+    DATA mo_cut TYPE REF TO zcl_fi_bud_2yf.
 
     METHODS setup.
 
     METHODS window_is_two_years_ahead   FOR TESTING.
-    METHODS split_years_valid           FOR TESTING RAISING zcx_fi_bud_fcst.
+    METHODS split_years_valid           FOR TESTING RAISING zcx_fi_bud_2yf.
     METHODS split_years_invalid         FOR TESTING.
     METHODS change_denied_other_user    FOR TESTING.
     METHODS change_denied_after_two     FOR TESTING.
@@ -56,16 +56,16 @@ CLASS ltc_forecast DEFINITION FINAL FOR TESTING
     METHODS no_log_without_change       FOR TESTING.
 
     METHODS key
-      RETURNING VALUE(rs_key) TYPE zcl_fi_bud_fcst=>ty_key.
+      RETURNING VALUE(rs_key) TYPE zcl_fi_bud_2yf=>ty_key.
     METHODS item
-      IMPORTING iv_item_no     TYPE zfcst_item_no
-                iv_amount      TYPE zfcst_amount
-      RETURNING VALUE(rs_item) TYPE zif_fi_bud_fcst_types=>ty_item.
+      IMPORTING iv_item_no     TYPE z2yf_item_no
+                iv_amount      TYPE z2yf_amount
+      RETURNING VALUE(rs_item) TYPE zif_fi_bud_2yf_types=>ty_item.
     METHODS header
       IMPORTING iv_ernam         TYPE ernam DEFAULT c_creator
-                iv_change_count  TYPE zfcst_change_cnt DEFAULT 0
+                iv_change_count  TYPE z2yf_change_cnt DEFAULT 0
                 iv_erdat         TYPE d DEFAULT c_today
-      RETURNING VALUE(rs_header) TYPE zcl_fi_bud_fcst=>ty_header.
+      RETURNING VALUE(rs_header) TYPE zcl_fi_bud_2yf=>ty_header.
 ENDCLASS.
 
 
@@ -115,7 +115,7 @@ CLASS ltc_forecast IMPLEMENTATION.
 
 
   METHOD split_years_valid.
-    DATA(ls_years) = zcl_fi_bud_fcst=>split_years( '2028-2029' ).
+    DATA(ls_years) = zcl_fi_bud_2yf=>split_years( '2028-2029' ).
 
     cl_abap_unit_assert=>assert_equals( exp = '2028' act = ls_years-fyear_from ).
     cl_abap_unit_assert=>assert_equals( exp = '2029' act = ls_years-fyear_to ).
@@ -124,9 +124,9 @@ CLASS ltc_forecast IMPLEMENTATION.
 
   METHOD split_years_invalid.
     TRY.
-        zcl_fi_bud_fcst=>split_years( '2028-2030' ).
+        zcl_fi_bud_2yf=>split_years( '2028-2030' ).
         cl_abap_unit_assert=>fail( 'Non-consecutive years must be rejected' ).
-      CATCH zcx_fi_bud_fcst ##NO_HANDLER.
+      CATCH zcx_fi_bud_2yf ##NO_HANDLER.
     ENDTRY.
   ENDMETHOD.
 
@@ -169,7 +169,7 @@ CLASS ltc_forecast IMPLEMENTATION.
     TRY.
         mo_cut->validate_items( is_key = key( ) it_items = VALUE #( ( ls_item ) ) ).
         cl_abap_unit_assert=>fail( 'Missing priority must be rejected' ).
-      CATCH zcx_fi_bud_fcst INTO DATA(lx_error).
+      CATCH zcx_fi_bud_2yf INTO DATA(lx_error).
         cl_abap_unit_assert=>assert_equals( exp = 'PRIORITY' act = lx_error->mv_fieldname ).
         cl_abap_unit_assert=>assert_equals( exp = 1 act = lx_error->mv_item_index ).
     ENDTRY.
@@ -181,18 +181,18 @@ CLASS ltc_forecast IMPLEMENTATION.
         mo_cut->validate_items( is_key   = key( )
                                 it_items = VALUE #( ( item( iv_item_no = 1 iv_amount = 0 ) ) ) ).
         cl_abap_unit_assert=>fail( 'Zero amount must be rejected' ).
-      CATCH zcx_fi_bud_fcst INTO DATA(lx_error).
+      CATCH zcx_fi_bud_2yf INTO DATA(lx_error).
         cl_abap_unit_assert=>assert_equals( exp = 'AMOUNT' act = lx_error->mv_fieldname ).
     ENDTRY.
   ENDMETHOD.
 
 
   METHOD log_amount_change.
-    DATA(lt_old) = VALUE zcl_fi_bud_fcst=>tt_items( ( item( iv_item_no = 1 iv_amount = 1500000 ) ) ).
-    DATA(lt_new) = VALUE zcl_fi_bud_fcst=>tt_items( ( item( iv_item_no = 1 iv_amount = 1750000 ) ) ).
+    DATA(lt_old) = VALUE zcl_fi_bud_2yf=>tt_items( ( item( iv_item_no = 1 iv_amount = 1500000 ) ) ).
+    DATA(lt_new) = VALUE zcl_fi_bud_2yf=>tt_items( ( item( iv_item_no = 1 iv_amount = 1750000 ) ) ).
 
-    DATA(ls_old_header) = VALUE zcl_fi_bud_fcst=>ty_header( BASE header( ) total_amount = 1500000 ).
-    DATA(ls_new_header) = VALUE zcl_fi_bud_fcst=>ty_header( BASE header( iv_change_count = 1 )
+    DATA(ls_old_header) = VALUE zcl_fi_bud_2yf=>ty_header( BASE header( ) total_amount = 1500000 ).
+    DATA(ls_new_header) = VALUE zcl_fi_bud_2yf=>ty_header( BASE header( iv_change_count = 1 )
                                                             total_amount = 1750000
                                                             aenam        = c_creator
                                                             aedat        = c_today
@@ -218,9 +218,9 @@ CLASS ltc_forecast IMPLEMENTATION.
 
 
   METHOD log_added_and_deleted_items.
-    DATA(lt_old) = VALUE zcl_fi_bud_fcst=>tt_items( ( item( iv_item_no = 1 iv_amount = 100 ) )
+    DATA(lt_old) = VALUE zcl_fi_bud_2yf=>tt_items( ( item( iv_item_no = 1 iv_amount = 100 ) )
                                                     ( item( iv_item_no = 2 iv_amount = 200 ) ) ).
-    DATA(lt_new) = VALUE zcl_fi_bud_fcst=>tt_items( ( item( iv_item_no = 1 iv_amount = 100 ) ) ).
+    DATA(lt_new) = VALUE zcl_fi_bud_2yf=>tt_items( ( item( iv_item_no = 1 iv_amount = 100 ) ) ).
 
     DATA(lt_log) = mo_cut->build_change_log( is_header_old = header( )
                                              is_header_new = header( iv_change_count = 1 )
@@ -239,7 +239,7 @@ CLASS ltc_forecast IMPLEMENTATION.
 
 
   METHOD no_log_without_change.
-    DATA(lt_items) = VALUE zcl_fi_bud_fcst=>tt_items( ( item( iv_item_no = 1 iv_amount = 100 ) ) ).
+    DATA(lt_items) = VALUE zcl_fi_bud_2yf=>tt_items( ( item( iv_item_no = 1 iv_amount = 100 ) ) ).
 
     DATA(lt_log) = mo_cut->build_change_log( is_header_old = header( )
                                              is_header_new = header( iv_change_count = 1 )

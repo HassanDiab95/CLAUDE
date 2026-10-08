@@ -3,12 +3,12 @@
 *   NEVER CHANGE IT MANUALLY, PLEASE !                         *																																
 ****************************************************************																																
 %_DYNPRO																																
-ZFI_BUDGET_FORECAST																																
+ZFI_BUD_2YF_ENTRY																																
 0100																																
 755																																
              40																																
 %_HEADER																																
-ZFI_BUDGET_FORECAST                     0100 0100     30160192 37  0  0 30160  0G E                              20261007120000																																
+ZFI_BUD_2YF_ENTRY                       0100 0100     30160192 37  0  0 30160  0G E                              20261007120000																																
 %_DESCRIPTION																																
 Create / Modify Budget Forecast																																
 %_FIELDS																																

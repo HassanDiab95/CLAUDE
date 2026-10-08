@@ -1,12 +1,12 @@
 "! <p class="shorttext synchronized">Budget Forecast - shared types and constants</p>
 "! Technical Consultant : Hassan Diab / Functional Consultant : Ahmed Tawfik
 "! Created 08.10.2026 - Request <TBD>
-INTERFACE zif_fi_bud_fcst_types PUBLIC.
+INTERFACE zif_fi_bud_2yf_types PUBLIC.
 
-  TYPES ty_header TYPE zfi_bud_fcst_h.
-  TYPES ty_item   TYPE zfi_bud_fcst_i.
+  TYPES ty_header TYPE zfi_bud_2yf_h.
+  TYPES ty_item   TYPE zfi_bud_2yf_i.
   TYPES tt_items  TYPE STANDARD TABLE OF ty_item WITH EMPTY KEY.
-  TYPES ty_log    TYPE zfi_bud_fcst_log.
+  TYPES ty_log    TYPE zfi_bud_2yf_log.
   TYPES tt_log    TYPE STANDARD TABLE OF ty_log WITH EMPTY KEY.
   TYPES tt_users  TYPE SORTED TABLE OF syuname WITH UNIQUE KEY table_line.
 
@@ -14,13 +14,13 @@ INTERFACE zif_fi_bud_fcst_types PUBLIC.
   TYPES: BEGIN OF ty_key,
            bukrs      TYPE bukrs,
            kostl      TYPE kostl,
-           fyear_from TYPE zfcst_year_from,
-           fyear_to   TYPE zfcst_year_to,
+           fyear_from TYPE z2yf_year_from,
+           fyear_to   TYPE z2yf_year_to,
          END OF ty_key.
 
   TYPES: BEGIN OF ty_years,
-           fyear_from TYPE zfcst_year_from,
-           fyear_to   TYPE zfcst_year_to,
+           fyear_from TYPE z2yf_year_from,
+           fyear_to   TYPE z2yf_year_to,
          END OF ty_years,
          tt_years TYPE STANDARD TABLE OF ty_years WITH EMPTY KEY.
 
@@ -36,7 +36,7 @@ INTERFACE zif_fi_bud_fcst_types PUBLIC.
            mail_error TYPE string,
          END OF ty_save_result.
 
-  CONSTANTS c_msgid TYPE symsgid VALUE 'ZBUD_FCST'.
+  CONSTANTS c_msgid TYPE symsgid VALUE 'ZBUD_2YF'.
 
   "! Maximum number of updates of one forecast submission
   CONSTANTS c_max_changes TYPE i VALUE 2.
@@ -58,15 +58,15 @@ INTERFACE zif_fi_bud_fcst_types PUBLIC.
 
   "! Change log action
   CONSTANTS: BEGIN OF c_chg_ind,
-               insert TYPE zfcst_chg_ind VALUE 'I',
-               update TYPE zfcst_chg_ind VALUE 'U',
-               delete TYPE zfcst_chg_ind VALUE 'D',
+               insert TYPE z2yf_chg_ind VALUE 'I',
+               update TYPE z2yf_chg_ind VALUE 'U',
+               delete TYPE z2yf_chg_ind VALUE 'D',
              END OF c_chg_ind.
 
   CONSTANTS: BEGIN OF c_tcode,
-               create TYPE sytcode VALUE 'ZFI_BUD_FCST_C',
-               modify TYPE sytcode VALUE 'ZFI_BUD_FCST_M',
-               report TYPE sytcode VALUE 'ZFI_BUD_FCST_R',
+               create TYPE sytcode VALUE 'ZFI_BUD_2YF_C',
+               modify TYPE sytcode VALUE 'ZFI_BUD_2YF_M',
+               report TYPE sytcode VALUE 'ZFI_BUD_2YF_R',
              END OF c_tcode.
 
 ENDINTERFACE.

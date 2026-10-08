@@ -9,7 +9,7 @@
 "!   with its change history: update no., changed by (name), date, time,
 "!   item, field, old value, new value
 "! - only for Final Reviewers and Final Reviewer assistants
-CLASS zcl_fi_bud_fcst_report DEFINITION
+CLASS zcl_fi_bud_2yf_report DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC.
@@ -17,44 +17,44 @@ CLASS zcl_fi_bud_fcst_report DEFINITION
   PUBLIC SECTION.
     TYPES tt_bukrs_range TYPE RANGE OF bukrs.
     TYPES tt_kostl_range TYPE RANGE OF kostl.
-    TYPES tt_fyear_range TYPE RANGE OF zfcst_year_from.
+    TYPES tt_fyear_range TYPE RANGE OF z2yf_year_from.
     TYPES tt_ernam_range TYPE RANGE OF ernam.
 
     TYPES: BEGIN OF ty_out,
-             bukrs        TYPE zfi_bud_fcst_h-bukrs,
-             kostl        TYPE zfi_bud_fcst_h-kostl,
+             bukrs        TYPE zfi_bud_2yf_h-bukrs,
+             kostl        TYPE zfi_bud_2yf_h-kostl,
              ktext        TYPE kltxt,
              fcst_years   TYPE c LENGTH 9,
-             item_no      TYPE zfi_bud_fcst_i-item_no,
-             budget_year  TYPE zfi_bud_fcst_i-budget_year,
-             proj_name    TYPE zfi_bud_fcst_i-proj_name,
-             proj_desc    TYPE zfi_bud_fcst_i-proj_desc,
-             priority     TYPE zfi_bud_fcst_i-priority,
-             amount       TYPE zfi_bud_fcst_i-amount,
-             waers        TYPE zfi_bud_fcst_i-waers,
-             bud_type     TYPE zfi_bud_fcst_i-bud_type,
-             proj_type    TYPE zfi_bud_fcst_i-proj_type,
-             change_count TYPE zfi_bud_fcst_h-change_count,
-             ernam        TYPE zfi_bud_fcst_h-ernam,
-             erdat        TYPE zfi_bud_fcst_h-erdat,
-             aenam        TYPE zfi_bud_fcst_h-aenam,
-             aedat        TYPE zfi_bud_fcst_h-aedat,
-             fyear_from   TYPE zfi_bud_fcst_h-fyear_from,
-             fyear_to     TYPE zfi_bud_fcst_h-fyear_to,
+             item_no      TYPE zfi_bud_2yf_i-item_no,
+             budget_year  TYPE zfi_bud_2yf_i-budget_year,
+             proj_name    TYPE zfi_bud_2yf_i-proj_name,
+             proj_desc    TYPE zfi_bud_2yf_i-proj_desc,
+             priority     TYPE zfi_bud_2yf_i-priority,
+             amount       TYPE zfi_bud_2yf_i-amount,
+             waers        TYPE zfi_bud_2yf_i-waers,
+             bud_type     TYPE zfi_bud_2yf_i-bud_type,
+             proj_type    TYPE zfi_bud_2yf_i-proj_type,
+             change_count TYPE zfi_bud_2yf_h-change_count,
+             ernam        TYPE zfi_bud_2yf_h-ernam,
+             erdat        TYPE zfi_bud_2yf_h-erdat,
+             aenam        TYPE zfi_bud_2yf_h-aenam,
+             aedat        TYPE zfi_bud_2yf_h-aedat,
+             fyear_from   TYPE zfi_bud_2yf_h-fyear_from,
+             fyear_to     TYPE zfi_bud_2yf_h-fyear_to,
            END OF ty_out,
            tt_out TYPE STANDARD TABLE OF ty_out WITH EMPTY KEY.
 
     TYPES: BEGIN OF ty_log_out,
-             change_no  TYPE zfi_bud_fcst_log-change_no,
-             changed_by TYPE zfi_bud_fcst_log-changed_by,
+             change_no  TYPE zfi_bud_2yf_log-change_no,
+             changed_by TYPE zfi_bud_2yf_log-changed_by,
              user_name  TYPE ad_namtext,
-             changed_on TYPE zfi_bud_fcst_log-changed_on,
-             changed_at TYPE zfi_bud_fcst_log-changed_at,
-             item_no    TYPE zfi_bud_fcst_log-item_no,
+             changed_on TYPE zfi_bud_2yf_log-changed_on,
+             changed_at TYPE zfi_bud_2yf_log-changed_at,
+             item_no    TYPE zfi_bud_2yf_log-item_no,
              action     TYPE c LENGTH 10,
-             field_text TYPE zfi_bud_fcst_log-field_text,
-             value_old  TYPE zfi_bud_fcst_log-value_old,
-             value_new  TYPE zfi_bud_fcst_log-value_new,
+             field_text TYPE zfi_bud_2yf_log-field_text,
+             value_old  TYPE zfi_bud_2yf_log-value_old,
+             value_new  TYPE zfi_bud_2yf_log-value_new,
            END OF ty_log_out,
            tt_log_out TYPE STANDARD TABLE OF ty_log_out WITH EMPTY KEY.
 
@@ -63,21 +63,21 @@ CLASS zcl_fi_bud_fcst_report DEFINITION
                 it_kostl      TYPE tt_kostl_range OPTIONAL
                 it_fyear      TYPE tt_fyear_range OPTIONAL
                 it_ernam      TYPE tt_ernam_range OPTIONAL
-                io_repository TYPE REF TO zif_fi_bud_fcst_repository OPTIONAL
-                io_auth       TYPE REF TO zif_fi_bud_fcst_auth OPTIONAL.
+                io_repository TYPE REF TO zif_fi_bud_2yf_repository OPTIONAL
+                io_auth       TYPE REF TO zif_fi_bud_2yf_auth OPTIONAL.
 
     "! Select, (optionally) download and display the report
     METHODS run
       IMPORTING iv_download TYPE abap_bool DEFAULT abap_false
-      RAISING   zcx_fi_bud_fcst.
+      RAISING   zcx_fi_bud_2yf.
 
   PRIVATE SECTION.
     DATA mt_bukrs      TYPE tt_bukrs_range.
     DATA mt_kostl      TYPE tt_kostl_range.
     DATA mt_fyear      TYPE tt_fyear_range.
     DATA mt_ernam      TYPE tt_ernam_range.
-    DATA mo_repository TYPE REF TO zif_fi_bud_fcst_repository.
-    DATA mo_auth       TYPE REF TO zif_fi_bud_fcst_auth.
+    DATA mo_repository TYPE REF TO zif_fi_bud_2yf_repository.
+    DATA mo_auth       TYPE REF TO zif_fi_bud_2yf_auth.
     DATA mt_out        TYPE tt_out.
     DATA mt_log_out    TYPE tt_log_out.
     DATA mo_salv       TYPE REF TO cl_salv_table.
@@ -108,7 +108,7 @@ ENDCLASS.
 
 
 
-CLASS zcl_fi_bud_fcst_report IMPLEMENTATION.
+CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
 
   METHOD constructor.
     mt_bukrs = it_bukrs.
@@ -117,20 +117,20 @@ CLASS zcl_fi_bud_fcst_report IMPLEMENTATION.
     mt_ernam = it_ernam.
 
     mo_repository = COND #( WHEN io_repository IS BOUND THEN io_repository
-                            ELSE NEW zcl_fi_bud_fcst_repository( ) ).
+                            ELSE NEW zcl_fi_bud_2yf_repository( ) ).
     mo_auth       = COND #( WHEN io_auth IS BOUND THEN io_auth
-                            ELSE NEW zcl_fi_bud_fcst_auth( ) ).
+                            ELSE NEW zcl_fi_bud_2yf_auth( ) ).
   ENDMETHOD.
 
 
   METHOD run.
     IF mo_auth->is_final_reviewer( ) = abap_false.
-      RAISE EXCEPTION TYPE zcx_fi_bud_fcst MESSAGE e023(zbud_fcst).
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e023(zbud_2yf).
     ENDIF.
 
     select_data( ).
     IF mt_out IS INITIAL.
-      RAISE EXCEPTION TYPE zcx_fi_bud_fcst MESSAGE e024(zbud_fcst).
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e024(zbud_2yf).
     ENDIF.
 
     TRY.
@@ -161,8 +161,8 @@ CLASS zcl_fi_bud_fcst_report IMPLEMENTATION.
            h~ernam, h~erdat, h~aenam, h~aedat,
            i~item_no, i~budget_year, i~proj_name, i~proj_desc, i~priority,
            i~amount, i~waers, i~bud_type, i~proj_type
-      FROM zfi_bud_fcst_h AS h
-      INNER JOIN zfi_bud_fcst_i AS i
+      FROM zfi_bud_2yf_h AS h
+      INNER JOIN zfi_bud_2yf_i AS i
         ON  i~bukrs      = h~bukrs
         AND i~kostl      = h~kostl
         AND i~fyear_from = h~fyear_from
@@ -176,7 +176,7 @@ CLASS zcl_fi_bud_fcst_report IMPLEMENTATION.
 
     " cost center text (released CDS view via repository), buffered
     LOOP AT mt_out ASSIGNING FIELD-SYMBOL(<ls_out>).
-      <ls_out>-fcst_years = zcl_fi_bud_fcst=>years_text( iv_from = <ls_out>-fyear_from
+      <ls_out>-fcst_years = zcl_fi_bud_2yf=>years_text( iv_from = <ls_out>-fyear_from
                                                          iv_to   = <ls_out>-fyear_to ).
 
       READ TABLE lt_texts REFERENCE INTO lr_text
@@ -258,7 +258,7 @@ CLASS zcl_fi_bud_fcst_report IMPLEMENTATION.
     ENDIF.
 
     IF ls_out-change_count = 0.
-      MESSAGE s027(zbud_fcst) WITH ls_out-bukrs ls_out-kostl ls_out-fcst_years.
+      MESSAGE s027(zbud_2yf) WITH ls_out-bukrs ls_out-kostl ls_out-fcst_years.
       RETURN.
     ENDIF.
 
@@ -272,7 +272,7 @@ CLASS zcl_fi_bud_fcst_report IMPLEMENTATION.
                                                             fyear_from = is_out-fyear_from
                                                             fyear_to   = is_out-fyear_to ) ).
     IF lt_log IS INITIAL.
-      MESSAGE s027(zbud_fcst) WITH is_out-bukrs is_out-kostl is_out-fcst_years.
+      MESSAGE s027(zbud_2yf) WITH is_out-bukrs is_out-kostl is_out-fcst_years.
       RETURN.
     ENDIF.
 
@@ -281,8 +281,8 @@ CLASS zcl_fi_bud_fcst_report IMPLEMENTATION.
       ( VALUE #( BASE CORRESPONDING #( ls_log )
                  user_name = user_name( ls_log-changed_by )
                  action    = SWITCH #( ls_log-chg_ind
-                               WHEN zif_fi_bud_fcst_types=>c_chg_ind-insert THEN 'Added'
-                               WHEN zif_fi_bud_fcst_types=>c_chg_ind-delete THEN 'Deleted'
+                               WHEN zif_fi_bud_2yf_types=>c_chg_ind-insert THEN 'Added'
+                               WHEN zif_fi_bud_2yf_types=>c_chg_ind-delete THEN 'Deleted'
                                ELSE 'Changed' ) ) ) ).
 
     TRY.
@@ -296,7 +296,7 @@ CLASS zcl_fi_bud_fcst_report IMPLEMENTATION.
 
         lo_popup->get_display_settings( )->set_list_header( CONV #(
           |Change history - Company { is_out-bukrs } / Cost Center { is_out-kostl ALPHA = OUT } / | &&
-          |{ is_out-fcst_years } ({ is_out-change_count } of { zif_fi_bud_fcst_types=>c_max_changes } updates)| ) ).
+          |{ is_out-fcst_years } ({ is_out-change_count } of { zif_fi_bud_2yf_types=>c_max_changes } updates)| ) ).
         lo_popup->get_display_settings( )->set_striped_pattern( abap_true ).
         lo_popup->get_functions( )->set_all( abap_true ).
 

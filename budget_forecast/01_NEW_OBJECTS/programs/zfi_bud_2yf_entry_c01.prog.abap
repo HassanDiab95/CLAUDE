@@ -1,19 +1,19 @@
 *&---------------------------------------------------------------------*
-*& Include        : ZFI_BUDGET_FCST_C01
-*& Main Program   : ZFI_BUDGET_FORECAST
+*& Include        : ZFI_BUD_2YF_ENTRY_C01
+*& Main Program   : ZFI_BUD_2YF_ENTRY
 *&---------------------------------------------------------------------*
 *& Purpose        : Implementation of the screen controller. UI logic
 *&                   only (fields, popups, cursor, messages); every rule
-*&                   is checked by ZCL_FI_BUD_FCST.
+*&                   is checked by ZCL_FI_BUD_2YF.
 *&---------------------------------------------------------------------*
 CLASS lcl_screen_0100 IMPLEMENTATION.
 
   METHOD constructor.
     mo_forecast = NEW #( ).
 
-    mv_mode = COND #( WHEN sy-tcode = zif_fi_bud_fcst_types=>c_tcode-modify
-                      THEN zif_fi_bud_fcst_types=>c_mode-modify
-                      ELSE zif_fi_bud_fcst_types=>c_mode-create ).
+    mv_mode = COND #( WHEN sy-tcode = zif_fi_bud_2yf_types=>c_tcode-modify
+                      THEN zif_fi_bud_2yf_types=>c_mode-modify
+                      ELSE zif_fi_bud_2yf_types=>c_mode-create ).
 
     IF mo_forecast->is_entry_allowed( mv_mode ) = abap_false.
       CALL FUNCTION 'POPUP_TO_INFORM'
@@ -35,13 +35,13 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     mv_status = c_status-initial.
 
     " create: preselect the only allowed years
-    IF mv_mode = zif_fi_bud_fcst_types=>c_mode-create.
+    IF mv_mode = zif_fi_bud_2yf_types=>c_mode-create.
       DATA(ls_window) = mo_forecast->get_forecast_window( ).
-      gv_fcst_years = zcl_fi_bud_fcst=>years_text( iv_from = ls_window-fyear_from
+      gv_fcst_years = zcl_fi_bud_2yf=>years_text( iv_from = ls_window-fyear_from
                                                    iv_to   = ls_window-fyear_to ).
     ENDIF.
 
-    DATA(lv_text) = COND string( WHEN mv_mode = zif_fi_bud_fcst_types=>c_mode-create
+    DATA(lv_text) = COND string( WHEN mv_mode = zif_fi_bud_2yf_types=>c_mode-create
                                  THEN `Create Items` ELSE `Change Items` ).
     CALL FUNCTION 'ICON_CREATE'
       EXPORTING
@@ -64,7 +64,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     SET PF-STATUS 'GUI_0100' EXCLUDING lt_excluded.
 
     DATA(lv_title) = COND string(
-      WHEN mv_mode = zif_fi_bud_fcst_types=>c_mode-create THEN `Create`
+      WHEN mv_mode = zif_fi_bud_2yf_types=>c_mode-create THEN `Create`
       WHEN mv_readonly = abap_true                         THEN `Display`
       ELSE `Modify` ).
     SET TITLEBAR 'TITLE_0100' WITH lv_title.
@@ -107,9 +107,9 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
                        THEN mo_forecast->mo_repository->get_cost_center_text( iv_bukrs = gs_head-bukrs
                                                                               iv_kostl = gs_head-kostl ) ).
 
-    gv_changes_text = COND #( WHEN mv_mode = zif_fi_bud_fcst_types=>c_mode-modify
+    gv_changes_text = COND #( WHEN mv_mode = zif_fi_bud_2yf_types=>c_mode-modify
                                AND mv_status = c_status-entered
-                              THEN |{ ms_header_db-change_count } of { zif_fi_bud_fcst_types=>c_max_changes } used| ).
+                              THEN |{ ms_header_db-change_count } of { zif_fi_bud_2yf_types=>c_max_changes } used| ).
   ENDMETHOD.
 
 
@@ -137,13 +137,13 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     ENDIF.
 
     TRY.
-        DATA(ls_years) = zcl_fi_bud_fcst=>split_years( gv_fcst_years ).
+        DATA(ls_years) = zcl_fi_bud_2yf=>split_years( gv_fcst_years ).
         gs_head-fyear_from = ls_years-fyear_from.
         gs_head-fyear_to   = ls_years-fyear_to.
 
         mo_forecast->validate_header( iv_mode = mv_mode is_key = key( ) ).
 
-      CATCH zcx_fi_bud_fcst INTO DATA(lx_error).
+      CATCH zcx_fi_bud_2yf INTO DATA(lx_error).
         " E message inside the header CHAIN re-opens the header fields
         MESSAGE lx_error TYPE 'E'.
     ENDTRY.
@@ -201,7 +201,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
         select_all( abap_false ).
 
       WHEN 'SAVE'.
-        IF mv_mode = zif_fi_bud_fcst_types=>c_mode-create.
+        IF mv_mode = zif_fi_bud_2yf_types=>c_mode-create.
           save_create( ).
         ELSE.
           save_change( ).
@@ -211,18 +211,18 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
 
 
   METHOD process_header.
-    gs_head-waers = zif_fi_bud_fcst_types=>c_currency.
+    gs_head-waers = zif_fi_bud_2yf_types=>c_currency.
 
     CASE mv_mode.
-      WHEN zif_fi_bud_fcst_types=>c_mode-create.
+      WHEN zif_fi_bud_2yf_types=>c_mode-create.
         CLEAR: gt_item, ms_header_db, mt_items_db, mv_readonly.
         mv_status = c_status-entered.
         insert_row( ).
 
-      WHEN zif_fi_bud_fcst_types=>c_mode-modify.
+      WHEN zif_fi_bud_2yf_types=>c_mode-modify.
         TRY.
             ms_header_db = mo_forecast->mo_repository->read_header( key( ) ).
-          CATCH zcx_fi_bud_fcst INTO DATA(lx_error).
+          CATCH zcx_fi_bud_2yf INTO DATA(lx_error).
             show_error( lx_error ).
             RETURN.
         ENDTRY.
@@ -236,10 +236,10 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
         mv_readonly = xsdbool( ls_check-allowed = abap_false ).
 
         IF mv_readonly = abap_false.
-          MESSAGE ID zif_fi_bud_fcst_types=>c_msgid TYPE 'S' NUMBER ls_check-msgno
-                  WITH ms_header_db-change_count zif_fi_bud_fcst_types=>c_max_changes.
+          MESSAGE ID zif_fi_bud_2yf_types=>c_msgid TYPE 'S' NUMBER ls_check-msgno
+                  WITH ms_header_db-change_count zif_fi_bud_2yf_types=>c_max_changes.
         ELSE.
-          MESSAGE ID zif_fi_bud_fcst_types=>c_msgid TYPE 'I' NUMBER ls_check-msgno
+          MESSAGE ID zif_fi_bud_2yf_types=>c_msgid TYPE 'I' NUMBER ls_check-msgno
                   WITH ls_check-msgv1 DISPLAY LIKE 'W'.
         ENDIF.
     ENDCASE.
@@ -256,7 +256,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
                     fyear_to    = gs_head-fyear_to
                     item_no     = lines( gt_item ) + 1
                     budget_year = gs_head-fyear_from
-                    waers       = zif_fi_bud_fcst_types=>c_currency ) TO gt_item.
+                    waers       = zif_fi_bud_2yf_types=>c_currency ) TO gt_item.
 
     " scroll so that the new line is visible
     DATA(lv_lines) = lines( gt_item ).
@@ -287,39 +287,39 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
   METHOD recalculate.
     LOOP AT gt_item ASSIGNING FIELD-SYMBOL(<ls_item>).
       <ls_item>-kostl = gs_head-kostl.
-      <ls_item>-waers = zif_fi_bud_fcst_types=>c_currency.
+      <ls_item>-waers = zif_fi_bud_2yf_types=>c_currency.
     ENDLOOP.
 
-    gs_head-total_amount = zcl_fi_bud_fcst=>total_amount( items( ) ).
-    gs_head-waers        = zif_fi_bud_fcst_types=>c_currency.
+    gs_head-total_amount = zcl_fi_bud_2yf=>total_amount( items( ) ).
+    gs_head-waers        = zif_fi_bud_2yf_types=>c_currency.
   ENDMETHOD.
 
 
   METHOD save_create.
     TRY.
         mo_forecast->validate_items( is_key = key( ) it_items = items( ) ).
-      CATCH zcx_fi_bud_fcst INTO DATA(lx_error).
+      CATCH zcx_fi_bud_2yf INTO DATA(lx_error).
         show_error( lx_error ).
         RETURN.
     ENDTRY.
 
     IF confirm( |Submit the forecast budget { gv_fcst_years } for cost center | &&
                 |{ gs_head-kostl ALPHA = OUT }? It can be updated at most | &&
-                |{ zif_fi_bud_fcst_types=>c_max_changes } times afterwards.| ) = abap_false.
-      MESSAGE s019(zbud_fcst).
+                |{ zif_fi_bud_2yf_types=>c_max_changes } times afterwards.| ) = abap_false.
+      MESSAGE s019(zbud_2yf).
       RETURN.
     ENDIF.
 
     TRY.
         DATA(ls_result) = mo_forecast->create( is_key = key( ) it_items = items( ) ).
-      CATCH zcx_fi_bud_fcst INTO lx_error.
+      CATCH zcx_fi_bud_2yf INTO lx_error.
         show_error( lx_error ).
         RETURN.
     ENDTRY.
 
-    MESSAGE i012(zbud_fcst) WITH gs_head-bukrs gs_head-kostl gv_fcst_years.
+    MESSAGE i012(zbud_2yf) WITH gs_head-bukrs gs_head-kostl gv_fcst_years.
     IF ls_result-mail_error IS NOT INITIAL.
-      MESSAGE s018(zbud_fcst) WITH ls_result-mail_error DISPLAY LIKE 'W'.
+      MESSAGE s018(zbud_2yf) WITH ls_result-mail_error DISPLAY LIKE 'W'.
     ENDIF.
     LEAVE TO SCREEN 0.
   ENDMETHOD.
@@ -327,7 +327,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
 
   METHOD save_change.
     IF mv_readonly = abap_true.
-      MESSAGE s026(zbud_fcst) DISPLAY LIKE 'E'.
+      MESSAGE s026(zbud_2yf) DISPLAY LIKE 'E'.
       RETURN.
     ENDIF.
 
@@ -335,7 +335,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
 
     TRY.
         mo_forecast->validate_items( is_key = key( ) it_items = lt_items ).
-      CATCH zcx_fi_bud_fcst INTO DATA(lx_error).
+      CATCH zcx_fi_bud_2yf INTO DATA(lx_error).
         show_error( lx_error ).
         RETURN.
     ENDTRY.
@@ -343,17 +343,17 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     IF mo_forecast->has_changes( is_key       = key( )
                                  it_items_old = mt_items_db
                                  it_items_new = lt_items ) = abap_false.
-      MESSAGE s014(zbud_fcst).
+      MESSAGE s014(zbud_2yf).
       RETURN.
     ENDIF.
 
     DATA(lv_next) = ms_header_db-change_count + 1.
-    DATA(lv_left) = zif_fi_bud_fcst_types=>c_max_changes - lv_next.
+    DATA(lv_left) = zif_fi_bud_2yf_types=>c_max_changes - lv_next.
 
-    IF confirm( |This is update { lv_next } of { zif_fi_bud_fcst_types=>c_max_changes } for this forecast. | &&
+    IF confirm( |This is update { lv_next } of { zif_fi_bud_2yf_types=>c_max_changes } for this forecast. | &&
                 COND string( WHEN lv_left = 0 THEN `No further updates will be possible. Save?`
                              ELSE |{ lv_left } update(s) will remain. Save?| ) ) = abap_false.
-      MESSAGE s019(zbud_fcst).
+      MESSAGE s019(zbud_2yf).
       RETURN.
     ENDIF.
 
@@ -361,14 +361,14 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
         DATA(ls_result) = mo_forecast->change( is_header_db = ms_header_db
                                                it_items_db  = mt_items_db
                                                it_items     = lt_items ).
-      CATCH zcx_fi_bud_fcst INTO lx_error.
+      CATCH zcx_fi_bud_2yf INTO lx_error.
         show_error( lx_error ).
         RETURN.
     ENDTRY.
 
-    MESSAGE i013(zbud_fcst) WITH ls_result-header-change_count zif_fi_bud_fcst_types=>c_max_changes.
+    MESSAGE i013(zbud_2yf) WITH ls_result-header-change_count zif_fi_bud_2yf_types=>c_max_changes.
     IF ls_result-mail_error IS NOT INITIAL.
-      MESSAGE s018(zbud_fcst) WITH ls_result-mail_error DISPLAY LIKE 'W'.
+      MESSAGE s018(zbud_2yf) WITH ls_result-mail_error DISPLAY LIKE 'W'.
     ENDIF.
     LEAVE TO SCREEN 0.
   ENDMETHOD.
@@ -379,7 +379,7 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
     DATA(lt_years) = mo_forecast->get_selectable_years( mv_mode ).
     DATA(lt_values) = VALUE vrm_values(
       FOR ls_years IN lt_years
-      LET lv_years = zcl_fi_bud_fcst=>years_text( iv_from = ls_years-fyear_from
+      LET lv_years = zcl_fi_bud_2yf=>years_text( iv_from = ls_years-fyear_from
                                                   iv_to   = ls_years-fyear_to ) IN
       ( key = lv_years text = lv_years ) ).
 
