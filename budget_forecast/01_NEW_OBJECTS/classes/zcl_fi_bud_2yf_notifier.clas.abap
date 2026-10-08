@@ -41,6 +41,21 @@ CLASS zcl_fi_bud_2yf_notifier DEFINITION
 
     "! Link of the Fiori app for the reviewers - fill it when the Fiori
     "! tile is available; while empty, no link / button is shown
+    "! Arabic labels of the e-mail (fixed, independent of C_TEXT_AR,
+    "! so the e-mail is always bilingual)
+    CONSTANTS: BEGIN OF c_label_ar,
+                 company     TYPE string VALUE `الشركة`,
+                 cost_center TYPE string VALUE `كود الإدارة`,
+                 years       TYPE string VALUE `سنوات الميزانية التقديرية`,
+                 item_count  TYPE string VALUE `عدد البنود`,
+                 total       TYPE string VALUE `إجمالي الموازنة التقديرية`,
+                 created_by  TYPE string VALUE `أنشئ بواسطة`,
+                 changed_by  TYPE string VALUE `عُدّل بواسطة`,
+                 date_time   TYPE string VALUE `التاريخ / الوقت`,
+                 items       TYPE string VALUE `بنود الموازنة`,
+                 changes     TYPE string VALUE `التغييرات`,
+               END OF c_label_ar.
+
     CONSTANTS c_fiori_url TYPE string VALUE ``.
 
     "! Max. number of change lines listed in the mail
@@ -70,6 +85,12 @@ CLASS zcl_fi_bud_2yf_notifier DEFINITION
       RETURNING VALUE(rv_html) TYPE string.
 
     "! "What changed" table for an update
+    "! Section title: English left, Arabic right (table - works in Outlook)
+    CLASS-METHODS section_title
+      IMPORTING iv_title_en    TYPE string
+                iv_title_ar    TYPE string
+      RETURNING VALUE(rv_html) TYPE string.
+
     CLASS-METHODS change_table
       IMPORTING it_log         TYPE zif_fi_bud_2yf_types=>tt_log
       RETURNING VALUE(rv_html) TYPE string.
@@ -224,38 +245,36 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
       |<tr><td style="padding:12px 28px">| &&
       |<table role="presentation" width="100%" cellpadding="0" cellspacing="0" | &&
       |style="border:1px solid #dcdde6;border-collapse:collapse;font-size:10pt">| &&
-      detail_row( iv_label_en = `Company`               iv_label_ar = zif_fi_bud_2yf_types=>c_text_ar-bukrs
+      detail_row( iv_label_en = `Company`               iv_label_ar = c_label_ar-company
                   iv_value    = COND #( WHEN lv_company_name IS INITIAL THEN CONV string( is_header-bukrs )
                                         ELSE |{ is_header-bukrs } - { html( lv_company_name ) }| ) ) &&
-      detail_row( iv_label_en = `Cost Center Code`      iv_label_ar = zif_fi_bud_2yf_types=>c_text_ar-dept_code
+      detail_row( iv_label_en = `Cost Center Code`      iv_label_ar = c_label_ar-cost_center
                   iv_value    = |{ is_header-kostl ALPHA = OUT } - { html( iv_cost_center_text ) }| ) &&
-      detail_row( iv_label_en = `Forecast Budget Years` iv_label_ar = zif_fi_bud_2yf_types=>c_text_ar-years
+      detail_row( iv_label_en = `Forecast Budget Years` iv_label_ar = c_label_ar-years
                   iv_value    = |<b>{ lv_years }</b>| ) &&
-      detail_row( iv_label_en = `Number of Items`       iv_label_ar = `عدد البنود`
+      detail_row( iv_label_en = `Number of Items`       iv_label_ar = c_label_ar-item_count
                   iv_value    = |{ iv_item_count }| ) &&
-      detail_row( iv_label_en = `Total Forecast Amount` iv_label_ar = zif_fi_bud_2yf_types=>c_text_ar-total_amount
+      detail_row( iv_label_en = `Total Forecast Amount` iv_label_ar = c_label_ar-total
                   iv_value    = lv_total ) &&
       detail_row( iv_label_en = COND #( WHEN lv_is_new = abap_true THEN `Created By` ELSE `Changed By` )
-                  iv_label_ar = COND zif_fi_bud_2yf_types=>ty_text( WHEN lv_is_new = abap_true THEN zif_fi_bud_2yf_types=>c_text_ar-ernam
-                                        ELSE zif_fi_bud_2yf_types=>c_text_ar-changed_by )
+                  iv_label_ar = COND string( WHEN lv_is_new = abap_true THEN c_label_ar-created_by
+                                        ELSE c_label_ar-changed_by )
                   iv_value    = html( iv_actor ) ) &&
-      detail_row( iv_label_en = `Date / Time`           iv_label_ar = `التاريخ / الوقت`
+      detail_row( iv_label_en = `Date / Time`           iv_label_ar = c_label_ar-date_time
                   iv_value    = |{ lv_today DATE = USER } { lv_now TIME = USER }| ) &&
       |</table></td></tr>| &&
 
       " budget line items (create and change)
       COND string( WHEN it_items IS NOT INITIAL
                    THEN |<tr><td style="padding:8px 28px 4px 28px">| &&
-                        |<div style="font-size:11pt;font-weight:bold;color:{ c_color-navy }">Budget Line Items| &&
-                        |<span style="float:right" dir="rtl">بنود الموازنة</span></div>| &&
+                        |{ section_title( iv_title_en = `Budget Line Items` iv_title_ar = c_label_ar-items ) }| &&
                         |</td></tr><tr><td style="padding:4px 28px 12px 28px">| &&
                         |{ item_table( it_items = it_items iv_currency = is_header-waers ) }</td></tr>| ) &&
 
       " what changed (updates only)
       COND string( WHEN lv_is_new = abap_false AND it_log IS NOT INITIAL
                    THEN |<tr><td style="padding:8px 28px 4px 28px">| &&
-                        |<div style="font-size:11pt;font-weight:bold;color:{ c_color-navy }">What changed| &&
-                        |<span style="float:right" dir="rtl">التغييرات</span></div>| &&
+                        |{ section_title( iv_title_en = `What changed` iv_title_ar = c_label_ar-changes ) }| &&
                         |</td></tr><tr><td style="padding:4px 28px 12px 28px">{ change_table( it_log ) }</td></tr>| ) &&
 
       " link to the Fiori app (shown only when C_FIORI_URL is filled)
@@ -279,7 +298,8 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
     rv_html = |<tr>| &&
               |<td width="34%" style="background:{ c_color-label_bg };color:{ c_color-navy_dark };| &&
               |font-weight:bold;padding:8px 10px;border-bottom:1px solid #dcdde6">{ iv_label_en }</td>| &&
-              |<td style="padding:8px 10px;border-bottom:1px solid #dcdde6">{ iv_value }</td>| &&
+              |<td align="center" style="padding:8px 10px;border-bottom:1px solid #dcdde6;text-align:center">| &&
+              |{ iv_value }</td>| &&
               |<td width="26%" dir="rtl" align="right" style="background:{ c_color-label_bg };| &&
               |color:{ c_color-navy_dark };font-weight:bold;padding:8px 10px;border-bottom:1px solid #dcdde6">| &&
               |{ condense( CONV string( iv_label_ar ) ) }</td></tr>|.
@@ -323,6 +343,13 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
       |color:{ c_color-blue }">{ lv_total NUMBER = USER } { iv_currency }</td></tr></table>|.
   ENDMETHOD.
 
+
+  METHOD section_title.
+    rv_html = |<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>| &&
+              |<td align="left" style="font-size:11pt;font-weight:bold;color:{ c_color-navy }">{ iv_title_en }</td>| &&
+              |<td align="right" dir="rtl" style="font-size:11pt;font-weight:bold;color:{ c_color-navy }">| &&
+              |{ iv_title_ar }</td></tr></table>|.
+  ENDMETHOD.
 
   METHOD change_table.
     DATA(lv_head) = |style="background:{ c_color-navy };color:#ffffff;padding:6px 8px;text-align:left;font-size:9pt"|.
