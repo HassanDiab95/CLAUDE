@@ -14,7 +14,7 @@
 *         FCST_REPORT) or add them by hand in the layout editor.
 *
 * Also add to the change history header of each include:
-*& 1.1 | 07.10.2026 | Hassan Diab   | <TBD>        | Budget Forecast buttons.
+*& 1.1 | 08.10.2026 | Hassan Diab   | <TBD>        | Budget Forecast buttons.
 *======================================================================*
 
 
@@ -27,45 +27,25 @@
   "  Create Forecast : Budget Preparation creators (create role)
   "  Change Forecast : creators, or a user who already created one
   "  Forecast Report : Final Reviewers and FR assistants
-  DATA: LV_SHOW_FCST_CRE TYPE C,
-        LV_SHOW_FCST_CHG TYPE C,
-        LV_SHOW_FCST_REP TYPE C,
-        LV_FCST_OWN      TYPE I.
+  "  The rules are in the Budget Forecast classes, not repeated here.
+  DATA(lo_fcst_auth) = CAST zif_fi_bud_fcst_auth( NEW zcl_fi_bud_fcst_auth( ) ).
+  DATA(lo_fcst_repo) = CAST zif_fi_bud_fcst_repository( NEW zcl_fi_bud_fcst_repository( ) ).
 
-  CLEAR: LV_SHOW_FCST_CRE, LV_SHOW_FCST_CHG, LV_SHOW_FCST_REP, LV_FCST_OWN.
+  DATA(lv_show_fcst_create) = lo_fcst_auth->is_creator( ).
+  DATA(lv_show_fcst_change) = xsdbool( lv_show_fcst_create = abap_true
+                                    OR lo_fcst_repo->user_has_forecast( sy-uname ) = abap_true ).
+  DATA(lv_show_fcst_report) = lo_fcst_auth->is_final_reviewer( ).
 
-  IF GV_GLOB_CREATE = 'X'.
-    LV_SHOW_FCST_CRE = 'X'.
-    LV_SHOW_FCST_CHG = 'X'.
-  ELSE.
-    SELECT COUNT(*) FROM ZFI_BUD_FCST_H UP TO 1 ROWS
-      INTO LV_FCST_OWN
-      WHERE ERNAM = SY-UNAME.
-    IF LV_FCST_OWN > 0.
-      LV_SHOW_FCST_CHG = 'X'.
+  LOOP AT SCREEN INTO DATA(ls_fcst_screen).
+    DATA(lv_fcst_visible) = SWITCH abap_bool( ls_fcst_screen-name
+                              WHEN 'FCST_CREATE' THEN lv_show_fcst_create
+                              WHEN 'FCST_CHANGE' THEN lv_show_fcst_change
+                              WHEN 'FCST_REPORT' THEN lv_show_fcst_report
+                              ELSE abap_true ).
+    IF lv_fcst_visible = abap_false.
+      ls_fcst_screen-active = '0'.
+      MODIFY SCREEN FROM ls_fcst_screen.
     ENDIF.
-  ENDIF.
-
-  " GV_GLOB_IS_FR is also set for FR assistants (GET_USER_GLOBAL_ROLES)
-  IF GV_GLOB_IS_FR = 'X'.
-    LV_SHOW_FCST_REP = 'X'.
-  ENDIF.
-
-  LOOP AT SCREEN.
-    CASE SCREEN-NAME.
-      WHEN 'FCST_CREATE'.
-        IF LV_SHOW_FCST_CRE <> 'X'.
-          SCREEN-ACTIVE = 0. MODIFY SCREEN.
-        ENDIF.
-      WHEN 'FCST_CHANGE'.
-        IF LV_SHOW_FCST_CHG <> 'X'.
-          SCREEN-ACTIVE = 0. MODIFY SCREEN.
-        ENDIF.
-      WHEN 'FCST_REPORT'.
-        IF LV_SHOW_FCST_REP <> 'X'.
-          SCREEN-ACTIVE = 0. MODIFY SCREEN.
-        ENDIF.
-    ENDCASE.
   ENDLOOP.
   " ---- END Budget Forecast ----
 

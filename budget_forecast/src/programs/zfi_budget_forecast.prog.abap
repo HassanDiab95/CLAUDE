@@ -10,15 +10,12 @@
 *& Technical Consultant  : Hassan Diab
 *& Functional Consultant : Ahmed Tawfik
 *&---------------------------------------------------------------------*
-*& Purpose        : Budget Forecast application. Lets the Budget
-*&                   Preparation creators submit a two year forecast
-*&                   budget per company code / cost center, and lets the
-*&                   creator of a submission update it at most two
-*&                   times. A submission does not go through the Budget
-*&                   Preparation workflow: every create and change only
-*&                   notifies the Final Reviewers and their assistants
-*&                   by e-mail. The consolidated report is the separate
-*&                   program ZFI_BUDGET_FORECAST_REP.
+*& Purpose        : UI of the Budget Forecast application (screen 0100).
+*&                   The program only holds the screen fields and a
+*&                   local screen controller (LCL_SCREEN_0100). All
+*&                   business rules, persistence, authorization and the
+*&                   e-mail notification are in the global classes
+*&                   ZCL_FI_BUD_FCST* (see ZCL_FI_BUD_FCST).
 *&                   Called from screen 0001 of ZFI_BUDGET_PREPERATION.
 *&---------------------------------------------------------------------*
 *& Screens        : 0100 - Create / Modify Budget Forecast
@@ -26,20 +23,22 @@
 *& Created By     : Hassan Diab
 *& Created On     : 07.10.2026
 *& Request No.    : <TBD>
-*& Version        : 1.0
+*& Version        : 2.0
 *&---------------------------------------------------------------------*
 *& Change History
 *&---------------------------------------------------------------------*
 *& Ver | Date       | Author        | Request No.  | Description
 *&-----|------------|---------------|--------------|--------------------
 *& 1.0 | 07.10.2026 | Hassan Diab   | <TBD>        | Initial creation.
+*& 2.0 | 08.10.2026 | Hassan Diab   | <TBD>        | OOP redesign, change
+*&     |            |               |              | log of every update.
 *&---------------------------------------------------------------------*
-PROGRAM ZFI_BUDGET_FORECAST MESSAGE-ID ZBUD_FCST.
+PROGRAM zfi_budget_forecast.
 
-INCLUDE ZFI_BUDGET_FCST_TOP.
+INCLUDE zfi_budget_fcst_top.   " screen fields + controller definition
 
-INCLUDE ZFI_BUDGET_FCST_F01.
+INCLUDE zfi_budget_fcst_c01.   " controller implementation
 
-INCLUDE ZFI_BUDGET_FCST_PBO.
+INCLUDE zfi_budget_fcst_pbo.   " PBO modules (delegate to controller)
 
-INCLUDE ZFI_BUDGET_FCST_PAI.
+INCLUDE zfi_budget_fcst_pai.   " PAI modules (delegate to controller)
