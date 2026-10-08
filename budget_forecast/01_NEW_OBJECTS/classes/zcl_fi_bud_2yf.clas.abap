@@ -181,13 +181,17 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
   METHOD split_years.
     SPLIT iv_years AT '-' INTO DATA(lv_from) DATA(lv_to).
 
+    " format check first: two 4-digit years
     IF strlen( lv_from ) <> 4 OR lv_from CN '0123456789' OR
-       strlen( lv_to )   <> 4 OR lv_to   CN '0123456789' OR
-       lv_to <> lv_from + 1.
+       strlen( lv_to )   <> 4 OR lv_to   CN '0123456789'.
       RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e003(zbud_fcst).
     ENDIF.
 
+    " numeric compare: the second year must follow the first
     rs_years = VALUE #( fyear_from = lv_from fyear_to = lv_to ).
+    IF CONV i( rs_years-fyear_to ) <> CONV i( rs_years-fyear_from ) + 1.
+      RAISE EXCEPTION TYPE zcx_fi_bud_2yf MESSAGE e003(zbud_fcst).
+    ENDIF.
   ENDMETHOD.
 
 
