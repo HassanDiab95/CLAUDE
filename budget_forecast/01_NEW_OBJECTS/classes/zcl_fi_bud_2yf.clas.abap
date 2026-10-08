@@ -335,7 +335,7 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
 
     DATA(lt_items) = normalize_items( is_key = is_key it_items = it_items ).
 
-    rs_result-header = VALUE #( BASE CORRESPONDING #( is_key )
+    rs_result-header = VALUE #( BASE CORRESPONDING ty_header( is_key )
                                 waers        = zif_fi_bud_2yf_types=>c_currency
                                 total_amount = total_amount( lt_items )
                                 change_count = 0
@@ -415,11 +415,14 @@ CLASS zcl_fi_bud_2yf IMPLEMENTATION.
 
     " common part of every log line: forecast key + who / when
     DATA(ls_base) = VALUE zif_fi_bud_2yf_types=>ty_log(
-                      BASE CORRESPONDING #( is_header_new MAPPING change_no = change_count
-                                                                  changed_by = aenam
-                                                                  changed_on = aedat
-                                                                  changed_at = aezet
-                                                          EXCEPT mandt ) ).
+                      bukrs      = is_header_new-bukrs
+                      kostl      = is_header_new-kostl
+                      fyear_from = is_header_new-fyear_from
+                      fyear_to   = is_header_new-fyear_to
+                      change_no  = is_header_new-change_count
+                      changed_by = is_header_new-aenam
+                      changed_on = is_header_new-aedat
+                      changed_at = is_header_new-aezet ).
 
     " header: total forecast amount
     IF is_header_old-total_amount <> is_header_new-total_amount.

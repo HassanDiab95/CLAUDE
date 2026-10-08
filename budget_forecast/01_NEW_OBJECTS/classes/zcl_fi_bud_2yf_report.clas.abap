@@ -278,7 +278,7 @@ CLASS zcl_fi_bud_2yf_report IMPLEMENTATION.
 
     mt_log_out = VALUE #(
       FOR ls_log IN lt_log
-      ( VALUE #( BASE CORRESPONDING #( ls_log )
+      ( VALUE #( BASE CORRESPONDING ty_log_out( ls_log )
                  user_name = user_name( ls_log-changed_by )
                  action    = SWITCH #( ls_log-chg_ind
                                WHEN zif_fi_bud_2yf_types=>c_chg_ind-insert THEN 'Added'

@@ -98,7 +98,7 @@ CLASS ltc_forecast IMPLEMENTATION.
 
 
   METHOD header.
-    rs_header = VALUE #( BASE CORRESPONDING #( key( ) )
+    rs_header = VALUE #( BASE CORRESPONDING zcl_fi_bud_2yf=>ty_header( key( ) )
                          ernam        = iv_ernam
                          erdat        = iv_erdat
                          change_count = iv_change_count
