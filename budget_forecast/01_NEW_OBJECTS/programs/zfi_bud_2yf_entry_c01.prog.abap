@@ -422,9 +422,12 @@ CLASS lcl_screen_0100 IMPLEMENTATION.
 
 
   METHOD show_error.
+    " SET CURSOR FIELD needs a character-like field (not a string)
+    DATA lv_field TYPE c LENGTH 61.
+
     IF ix_error->mv_item_index > 0.
       ct_fcst-top_line = ix_error->mv_item_index.
-      DATA(lv_field) = |GS_ITEM-{ ix_error->mv_fieldname }|.
+      lv_field = |GS_ITEM-{ ix_error->mv_fieldname }|.
       SET CURSOR FIELD lv_field LINE 1.
     ENDIF.
 
