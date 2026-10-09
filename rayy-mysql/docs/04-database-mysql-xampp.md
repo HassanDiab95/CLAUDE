@@ -346,6 +346,7 @@ Export data for the report: select a table → **Export** → format **CSV for M
 
 | Problem | Solution |
 |---|---|
+| Page shows words like `navCrops`, `myCrops` or "Missing crop id" | The browser kept an **old `app.js`** from a previous version: press **Ctrl + F5** (or clear the browsing data) once. The project now adds `?v=` to its files and a `.htaccess` so this does not happen again |
 | `http://localhost/rayy/` → **Not Found** | The folder is not at `C:\xampp\htdocs\rayy\index.html` (see Step 2) |
 | Apache will not start | Port 80 is used by another program: change `Listen 80` to `Listen 8080` (and add `:8080` to the URLs) |
 | MySQL will not start | Another MySQL is running (port 3306): stop it in Windows Services, or change the port in `my.ini` and `config.php` |

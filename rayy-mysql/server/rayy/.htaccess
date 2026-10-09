@@ -1,0 +1,12 @@
+# =====================================================================
+#  ري (Rayy): Apache settings for the web dashboard (XAMPP)
+#  The browser must always check for a newer version of the page, the
+#  script and the style, so an update of the project is seen at once
+#  (otherwise an old app.js can stay in the browser cache).
+# =====================================================================
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+DirectoryIndex index.html
