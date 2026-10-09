@@ -26,6 +26,8 @@ security and useful SQL.
 
 📄 **[docs/Rayy-Documentation-MySQL.docx](docs/Rayy-Documentation-MySQL.docx)**: all the documentation in one Word file.
 
+📝 **[docs/forms/](docs/forms)**: the college forms filled in for this version: نموذج (1) مقترح المشروع، نموذج (2) خطة المشروع (use cases, class diagram, ERD, relational model, normalization, wiring, prototype), نموذج (3) تسليم المشروع.
+
 ## 2. What is in this folder
 
 | Folder / file | What it contains | Where it goes |
