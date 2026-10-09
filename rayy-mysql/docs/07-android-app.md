@@ -3,15 +3,16 @@
 Code: [`android/Rayy/`](../android/Rayy), a **native Android app** in **Kotlin + Jetpack Compose (Material 3)**
 that talks to the **PHP API on the XAMPP computer** (MySQL database) with plain HTTP + JSON.
 It needs **no extra library** for the server: it uses `HttpURLConnection` and `org.json`, which are built into Android.
-It shows the same data as the web dashboard in a simple, phone-friendly design. It is in **Arabic or English**
-automatically, following the phone language.
+It does everything the web dashboard does, in a phone-friendly design. The app name is always **ري (Rayy)**;
+inside it the user manages many crops. It is in **Arabic or English** automatically, following the phone language.
 
 | Screen | Contents |
 |---|---|
-| **Login** | Email + password (the same accounts as the web) |
-| **🏠 Plant** | Big emoji + mood message, last update, online/offline, moisture, temperature, humidity, light, Wi-Fi signal; **Play** button with the melody list; **Mute** switch |
-| **📈 History** | Last 24 hours line chart. Choose moisture / temp / humidity / light. Min / average / max |
-| **📔 Diary** | List of mood changes with emoji and time |
+| **Sign in / Create account** | Email + password, or create a new account (name, email, password ≥ 8) |
+| **🌾 My crops** (bottom tab) | One card per crop: emoji of its current feeling, type, location, moisture / temperature / light, its device. **+ Add crop** (name, crop type with its ideal values, location). The admin sees all crops and their owners |
+| **Crop page** (tap a crop) | Tabs **Crop · History · Diary**. *Crop*: big emoji + message, online/offline, live values, **sensor device of this crop** (move a device here / remove it), **Play** a melody, **Mute**, **crop settings** (name, type → ideal values, location, thresholds, quiet hours), delete the crop. *History*: 24-hour chart + min/avg/max. *Diary*: mood changes |
+| **📡 Devices** (bottom tab) | Each device with the crop it measures and its last connection; **Move to** another crop / unassign; **Add a device** with its ID + key (admin: register a new ID) |
+| **👥 Users** (bottom tab, **admin only**) | **Create a user** (user or admin), change a user's role, delete a user |
 
 Minimum Android version: **7.0 (API 24)**. Target: API 34.
 
@@ -39,7 +40,7 @@ Minimum Android version: **7.0 (API 24)**. Target: API 34.
    (the first time it downloads Gradle 9.1.0 and the libraries, so an internet connection is required).
 3. Connect a phone with **USB debugging** enabled (Settings → About phone → tap "Build number" 7 times →
    Developer options → USB debugging), or create an emulator (Device Manager).
-4. Press **▶ Run**. Sign in with `team@rayy.app` / `Rayy@2026` (from `database/rayy.sql`).
+4. Press **▶ Run**. Sign in with `admin@rayy.app` / `Rayy@2026` (from `database/rayy.sql`), or tap **Create an account**.
 
 **Make an APK to install on any phone:** **Build → Build App Bundle(s) / APK(s) → Build APK(s)** →
 `android/Rayy/app/build/outputs/apk/debug/app-debug.apk`. Send it to the phone and install it ("allow unknown sources").
@@ -61,31 +62,35 @@ android/Rayy/                 ← open this folder in Android Studio (project "R
     └── src/main/
         ├── AndroidManifest.xml          INTERNET permission + cleartext HTTP for the local server
         ├── java/com/rayy/app/
-        │   ├── MainActivity.kt          shows Login or Main screen
-        │   ├── PlantViewModel.kt        login + polling of the API every 5 s (StateFlow)
+        │   ├── MainActivity.kt          shows Sign-in or the app
+        │   ├── RayyViewModel.kt         all data + actions: accounts, crops, devices, users, polling (StateFlow)
         │   ├── ApiClient.kt             HTTP + JSON calls to the PHP API (token header)
-        │   ├── Model.kt                 SERVER_URL + PLANT_ID + data classes + JSON parsing
+        │   ├── Model.kt                 SERVER_URL + data classes (User, CropType, Crop, DeviceInfo …) + JSON parsing
         │   └── ui/
-        │       ├── LoginScreen.kt
-        │       ├── MainScreen.kt        bottom navigation: Plant / History / Diary
+        │       ├── LoginScreen.kt       sign in / create account
+        │       ├── AppScreen.kt         top bar + bottom tabs, "My crops" list, add-crop dialog
+        │       ├── CropScreen.kt        crop page: Crop / History / Diary, device, settings
+        │       ├── ManageScreens.kt     Devices page, Users page (admin)
+        │       ├── Common.kt            Picker (drop-down), Field, Section helpers
         │       ├── LineChart.kt         small chart drawn with Canvas
         │       ├── Moods.kt             mood → emoji + texts, time format
         │       └── Theme.kt             green Material 3 theme (light / dark)
         └── res/values/strings.xml (English) · res/values-ar/strings.xml (Arabic)
 ```
 
-**How it works:** `PlantViewModel` signs in with `api/login.php` and keeps the token (SharedPreferences, so the app
-stays signed in). Then it **polls** the API with coroutines: `live.php` every 5 s, `events.php` every 15 s and
-`history.php` every 5 min, and puts the results in `StateFlow`s. The Compose screens collect these flows and
-**redraw automatically**. "Play" calls `command.php`, and "Mute" calls `settings.php`. If the token expires (HTTP 401),
-the app goes back to the login screen.
+**How it works:** `RayyViewModel` signs in with `api/login.php` or `api/register.php` and keeps the token
+(SharedPreferences, so the app stays signed in; `me.php` checks it at start-up). It **polls** the API with coroutines:
+the crops list every 10 s; for an open crop `live.php` every 5 s, `events.php` every 15 s and `history.php` every 5 min.
+Results go into `StateFlow`s that the Compose screens collect, so they **redraw automatically**. Buttons call
+`crops.php` (add), `crop_update.php` (settings, mute), `crop_delete.php`, `command.php` (Play), `devices.php`,
+`device_assign.php` (move) and `users.php` (admin). If the token expires (HTTP 401), the app goes back to sign-in.
 
 ## 7.4 Notes
 
-* `PLANT_ID` in `Model.kt` must match the firmware (`plant01`).
-* The network code (`ApiClient`, `Model`) was compiled and **tested against the real PHP API + MySQL** while
-  writing this project. The full Android build (Compose screens) could not run in that environment (Android SDK
-  download blocked), so build it in Android Studio. If Studio asks to update the Android Gradle Plugin or Kotlin
-  version, accept it: the code uses only standard, stable APIs.
-* Possible extensions: notifications when the plant is thirsty (WorkManager checking `live.php`), a home-screen
-  widget, and a settings screen like the web.
+* Only `SERVER_URL` in `Model.kt` must be set. Crops and devices are chosen inside the app.
+* While writing this project, the network code (`ApiClient`, `Model`) was **run against the real PHP API + MySQL**,
+  and all the Kotlin code (ViewModel and every Compose screen) was **compiled against the Compose 1.7 / Material 3 1.3
+  libraries**. The full Android build (APK) could not run in that environment (Android SDK download blocked), so
+  build it once in Android Studio. If Studio asks to update the Android Gradle Plugin or Kotlin version, accept it.
+* Possible extensions: notifications when a crop is thirsty (WorkManager checking `crops.php`), a home-screen
+  widget, photos of each crop.

@@ -113,3 +113,42 @@ input, select {
 footer { text-align: center; padding: 1rem 16px 2rem; }
 
 .error-banner { background: #fde8e8; color: #8a1c12; }
+
+/* ---------- Smart farming: crops, devices, users ---------- */
+.stack { display: grid; gap: .6rem; text-align: start; }
+.stack label { display: grid; gap: .2rem; }
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.tab { flex: 1; border: 0; background: var(--card); color: var(--text); padding: .5rem; cursor: pointer; font: inherit; }
+.tab.active { background: var(--green); color: #fff; }
+
+.brand-en { font-weight: 400; opacity: .8; font-size: .9rem; }
+.nav { display: flex; gap: .3rem; flex-wrap: wrap; }
+.nav a { color: #fff; text-decoration: none; padding: .3rem .7rem; border-radius: 99px; }
+.nav a.active, .nav a:hover { background: rgba(255,255,255,.2); }
+.badge.dark { background: var(--green-soft); color: var(--text); }
+
+.crops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.crop-card { display: grid; gap: .3rem; text-decoration: none; color: inherit; cursor: pointer; transition: transform .15s; }
+.crop-card:hover { transform: translateY(-2px); border-color: var(--green); }
+.crop-card.alert { border-color: var(--warn); }
+.crop-card .top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.crop-card .big { font-size: 3rem; line-height: 1; }
+.crop-card h3 { margin: 0; }
+.crop-card .vals { display: flex; gap: .8rem; flex-wrap: wrap; font-size: .9rem; }
+.crop-card .vals span { direction: ltr; unicode-bidi: isolate; }
+.empty { text-align: center; padding: 2rem 1rem; }
+.empty .big { font-size: 3rem; }
+.crop-title { margin: 0 0 .2rem; }
+
+.full { grid-column: 1 / -1; }
+.row-end { display: flex; gap: .5rem; justify-content: flex-end; }
+.btn.danger { color: var(--bad); border-color: var(--bad); margin-top: .8rem; width: 100%; }
+.ok { color: var(--green); }
+
+.device-card select { margin-top: .3rem; }
+.device-card .speak-row { margin-top: .3rem; }
+
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: start; padding: .5rem .4rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.table select { width: auto; }

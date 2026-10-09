@@ -1,6 +1,6 @@
 # 02 · Hardware Components (Bill of Materials)
 
-The project focuses on the **main idea**: a plant that shows its feelings with **emoji** and **sound**. It is powered
+The project focuses on the **main idea**: a smart-farming system that shows the feelings of each crop with **emoji** and **sound**. This list is for **one sensor device**, which can be moved from crop to crop; add one set (items 1–11) per extra device. It is powered
 by a simple **5 V USB power bank** (or a USB phone charger) connected to the ESP32's USB port, so no solar panel,
 battery charger or voltage converter is needed.
 
@@ -21,7 +21,7 @@ Prices are **approximate** (SAR) and depend on the shop. Buy 1 spare sensor in c
 | 9 | Breadboard + wires | 830-point breadboard, jumper wires M-M and F-M | 1 set | Connections | 20–35 |
 | 10 | Power | **5 V USB power bank** (5,000–10,000 mAh) **or** a 5 V USB phone charger | 1 | Power | 0–60 |
 | 11 | Enclosure | Small plastic box (≈ 100 × 70 × 40 mm) with holes for the buzzer and the USB cable, or a 3D-printed case | 1 | Protection | 10–30 |
-| 12 | Plant | Small potted plant (basil, mint, pothos…) | 1 | 🌿 | 15–30 |
+| 12 | Crop to test with | A pot or small planting (strawberry, mint, tomato…) | 1 | 🌿 | 15–30 |
 | | | | | **Total (approx.)** | **≈ 135 – 305** |
 
 > **Passive vs active buzzer:** buy a **passive** buzzer. It can play different notes, so it can play melodies.
@@ -36,7 +36,7 @@ Prices are **approximate** (SAR) and depend on the shop. Buy 1 spare sensor in c
 * **Capacitive soil sensor:** it has no exposed metal in the soil, so it does not corrode like cheap resistive sensors.
 * **BH1750:** it gives real **lux** values, which are better than an LDR for deciding "needs light".
 * **DHT22:** it is more accurate than the DHT11 (±0.5 °C) and has a wider range. That is useful in Saudi summers.
-* **Passive buzzer:** this is the "voice" of the plant. Each mood has its own melody (sad melody when thirsty,
+* **Passive buzzer:** this is the "voice" of the crop. Each mood has its own melody (sad melody when thirsty,
   happy melody when watered, alarm when hot, lullaby at night…). It costs a few riyals and needs only one wire.
 
 ## 2.3 Power consumption

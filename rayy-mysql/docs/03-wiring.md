@@ -52,7 +52,7 @@ pin 3 = not connected, pin 4 = GND. Keep it outside the box, in the shade.
 | SDA | GPIO21 |
 | ADDR | GND (address 0x23) |
 
-Point it **up**, next to the plant leaves.
+Point it **up**, next to the leaves of the crop.
 
 ### Passive buzzer
 | Buzzer pin | ESP32 |

@@ -2,7 +2,10 @@
 
 > In this version the data is stored in a **MySQL database** on a computer that runs **XAMPP** (Apache + PHP +
 > MySQL). The ESP32, the website and the Android app talk to a small **PHP API**. The computer, the ESP32 and the
-> phone must be on the **same Wi-Fi network**, and the computer must stay **on** while you use the plant.
+> phone must be on the **same Wi-Fi network**, and the computer must stay **on** while you use the system.
+>
+> **ري is a smart-farming system for many crops**: you add your crops (strawberry field, tomatoes, mint …) in the
+> apps, place the sensor device in one crop, and move it to another crop whenever you want.
 
 Follow these steps **in order**. Each step says what to do, how long it takes, and how to check that it worked.
 More detail for each step is in the other chapters (01–10).
@@ -34,7 +37,7 @@ Full list with explanations and prices: [02-hardware-bom.md](02-hardware-bom.md)
 * Push button
 * Breadboard + jumper wires (male-male and female-male)
 * **5 V USB power bank** (or any 5 V USB phone charger)
-* A small potted plant 🌿
+* A crop to test with: a pot or a small planting (strawberry, mint, tomato …) 🌿
 
 ✅ **Check:** you have every item in the list before you start step 4.
 
@@ -70,14 +73,14 @@ Details: [04-database-mysql-xampp.md](04-database-mysql-xampp.md). In short:
 2. Copy the folder **`server/rayy`** from the project into **`C:\xampp\htdocs\`** →
    you get `C:\xampp\htdocs\rayy\index.html` and `C:\xampp\htdocs\rayy\api\...`.
 3. Open <http://localhost/phpmyadmin> → **Import** → choose **`database/rayy.sql`** → **Import**.
-   The database **`rayy`** is created with all tables, the plant `plant01` and the user `team@rayy.app`
-   (password `Rayy@2026`).
+   The database **`rayy`** is created with 12 tables, the crop library (12 crop types), two example crops,
+   the device **`rayy-01`** and the admin user **`admin@rayy.app`** (password **`Rayy@2026`**).
 4. Find the computer's IP address: **Windows → cmd → `ipconfig`** → "IPv4 Address", e.g. `192.168.1.10`.
    The ESP32 and the phone use this address.
 5. Allow Apache through the **Windows Firewall** (Windows asks the first time Apache starts → tick **Private
    networks** → Allow).
 
-✅ **Check:** <http://localhost/rayy/> shows the login page, and phpMyAdmin shows the database `rayy` with 11 tables.
+✅ **Check:** <http://localhost/rayy/> shows the login page, and phpMyAdmin shows the database `rayy` with 12 tables.
 From the phone's browser (same Wi-Fi), `http://192.168.1.10/rayy/` also opens the login page.
 
 ---
@@ -112,7 +115,10 @@ modules' VCC/GND to these rows.
    #define WIFI_PASSWORD        "YourPassword"
    #define SERVER_URL           "http://192.168.1.10/rayy/api"   // computer IP from step 3.4
    #define DEVICE_KEY           "rayy-device-key-2026"           // same key as in database/rayy.sql
+   #define DEVICE_ID            "rayy-01"                        // this sensor device
    ```
+   The crop the device measures is **not** written here: you choose it in the apps (step 7), so the same device
+   can be moved from crop to crop.
    ⚠️ Do **not** write `localhost` here: for the ESP32, "localhost" is the ESP32 itself.
 3. Connect the ESP32 with the USB cable. Select **Tools → Board → ESP32 Dev Module** and **Tools → Port** (COM…).
 4. Click **Upload (→)**. If it says "Connecting…" for a long time, **hold the BOOT button** on the board.
@@ -122,7 +128,8 @@ modules' VCC/GND to these rows.
 * You hear the "hello" melody.
 * The Serial Monitor shows `[server] connected to http://…/rayy/api` and a line of readings every 2 seconds
   ending with `server=1`.
-* In phpMyAdmin → `rayy` → table **`live_status`**, the row `plant01` changes every 30 s (press **Browse** again).
+* The Serial Monitor shows `[server] measuring crop 1: فراولة البيت المحمي` (the example strawberry crop).
+* In phpMyAdmin → `rayy` → table **`live_status`**, the row of crop 1 changes every 30 s (press **Browse** again).
 
 ---
 
@@ -142,11 +149,16 @@ The website is already installed: Apache serves it from `C:\xampp\htdocs\rayy`.
 
 1. On the computer open <http://localhost/rayy/>, on a phone or another computer in the same Wi-Fi open
    `http://192.168.1.10/rayy/`.
-2. Log in with `team@rayy.app` / `Rayy@2026`.
-3. Without the server (only to see the design), open `index.html` directly or add `?demo=1`: it shows fake data.
+2. Sign in with `admin@rayy.app` / `Rayy@2026` (or press **Create account** to make a new user).
+3. **My crops** → **+ Add crop** → name (e.g. "My strawberries"), **crop type** (the ideal values are filled
+   automatically) and location → **Save**.
+4. Open the crop → **Sensor device of this crop** → choose `rayy-01` → **Move to this crop**. Within 30 s the
+   device measures this crop and uses its thresholds. (Or use the **Devices** page.)
+5. Admin only: the **Users** page creates users, changes roles and deletes users.
+6. Without the server (only to see the design), open `index.html` directly or add `?demo=1`: it shows fake data.
 
-✅ **Check:** the website shows the plant's emoji (e.g. 😫 when the soil sensor is in dry air), and the badge says
-"Online". The values refresh every 5 seconds.
+✅ **Check:** the crop card shows the crop's emoji (e.g. 😫 when the soil sensor is in dry air), and the crop page
+says "Online". The values refresh every 5 seconds.
 
 ---
 
@@ -162,7 +174,9 @@ The website is already installed: Apache serves it from `C:\xampp\htdocs\rayy`.
 4. To get an installable file: **Build → Build App Bundle(s) / APK(s) → Build APK(s)**. The file is at
    `android/Rayy/app/build/outputs/apk/debug/app-debug.apk`.
 
-✅ **Check:** after login, the app shows the live emoji and values. "Play" makes the buzzer play.
+✅ **Check:** you can create an account and sign in; **My crops** shows every crop with its emoji; tapping a crop
+shows its live values; **Move to this crop** moves the device; "Play" makes the buzzer play. The admin sees a
+**Users** tab.
 
 ---
 
@@ -173,7 +187,10 @@ Use the test table in [08-testing-calibration.md](08-testing-calibration.md). Th
 1. Take the soil sensor out of the soil → 😫 face + "thirsty" melody + apps show "Thirsty".
 2. Put it back into wet soil → 😊 face + "thank you" melody.
 3. Cover the light sensor during the day → 😞 "needs light".
-4. Stop **Apache** in XAMPP → the melodies still work on the plant, the LED blinks; start it again → the data comes back.
+4. Stop **Apache** in XAMPP → the melodies still work on the device, the LED blinks; start it again → the data comes back.
+5. Move the device to another crop (e.g. cactus) → within 30 s the device uses the cactus thresholds (dry soil is
+   now "happy"); the strawberry history stays in its own crop.
+6. Run the automatic API test: `bash tests/test_api.sh http://localhost/rayy/api` → `44 passed, 0 failed`.
 
 ---
 

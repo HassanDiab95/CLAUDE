@@ -1,19 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- ري (Rayy) app texts: Arabic: used automatically when the phone is in Arabic -->
 <resources>
     <string name="app_name">ري</string>
-    <string name="login_hint">سجّل الدخول لمتابعة نبتتك</string>
+    <string name="tagline">زراعة ذكية تحوّل مشاعر محاصيلك إلى إيموجي</string>
     <string name="email">البريد الإلكتروني</string>
     <string name="password">كلمة المرور</string>
+    <string name="full_name">الاسم الكامل</string>
+    <string name="password_hint">8 أحرف على الأقل</string>
     <string name="sign_in">تسجيل الدخول</string>
+    <string name="create_account">إنشاء حساب</string>
+    <string name="have_account">لدي حساب بالفعل</string>
+    <string name="no_account">مستخدم جديد؟ أنشئ حساباً</string>
     <string name="sign_out">خروج</string>
+    <string name="back">رجوع</string>
+    <string name="role">الصلاحية</string>
+    <string name="role_admin">مدير</string>
+    <string name="role_user">مستخدم</string>
+    <string name="you">(أنت)</string>
+    <string name="nav_crops">زراعاتي</string>
+    <string name="nav_devices">الأجهزة</string>
+    <string name="nav_users">المستخدمون</string>
+    <string name="add_crop">+ إضافة زراعة</string>
+    <string name="crops_hint">لكل زراعة قيمها المثالية. جهاز الاستشعار يقيس زراعة واحدة ويمكن نقله إلى زراعة أخرى.</string>
+    <string name="no_crops">لا توجد زراعات بعد. أضف أول زراعة لك.</string>
     <string name="online">متصلة</string>
     <string name="offline">غير متصلة</string>
-    <string name="last_update">آخر تحديث</string>
-
-    <string name="tab_home">النبتة</string>
+    <string name="no_data">لا توجد بيانات بعد</string>
+    <string name="no_device">بدون جهاز</string>
+    <string name="new_crop">زراعة جديدة</string>
+    <string name="crop_name">اسم الزراعة</string>
+    <string name="crop_type">نوع المحصول</string>
+    <string name="ideal_values">القيم المثالية</string>
+    <string name="location">الموقع</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="done">تم</string>
+    <string name="add">إضافة</string>
+    <string name="tab_crop">الزراعة</string>
     <string name="tab_history">السجل</string>
     <string name="tab_diary">المذكرات</string>
-
+    <string name="last_update">آخر تحديث</string>
     <string name="soil">التربة</string>
     <string name="temperature">الحرارة</string>
     <string name="humidity">الرطوبة</string>
@@ -22,18 +49,47 @@
     <string name="signal_good">ممتازة</string>
     <string name="signal_ok">جيدة</string>
     <string name="signal_bad">ضعيفة</string>
-
-    <string name="speak_title">تشغيل صوت على النبتة</string>
+    <string name="crop_device">جهاز الاستشعار لهذه الزراعة</string>
+    <string name="device_on">يقيس هذه الزراعة الآن:</string>
+    <string name="no_device_here">لا يوجد جهاز على هذه الزراعة. اختر جهازاً وانقله إليها.</string>
+    <string name="remove_device">إزالة الجهاز من هذه الزراعة</string>
+    <string name="no_devices_yet">ليس لديك أجهزة. أضف جهازاً من صفحة الأجهزة.</string>
+    <string name="choose_device">اختر جهازاً…</string>
+    <string name="move_here">نقل إلى هذه الزراعة</string>
+    <string name="speak_title">تشغيل صوت على الجهاز</string>
     <string name="speak_now">تشغيل</string>
-    <string name="speak_sent">تم الإرسال! سيعمل الصوت خلال 30 ثانية.</string>
     <string name="mute">كتم الصوت</string>
-
+    <string name="settings">إعدادات الزراعة</string>
+    <string name="moisture_min">عطشانة تحت (%)</string>
+    <string name="moisture_max">مبللة جداً فوق (%)</string>
+    <string name="temp_min">باردة تحت (°م)</string>
+    <string name="temp_max">حارة فوق (°م)</string>
+    <string name="lux_min">تحتاج ضوء تحت (لوكس)</string>
+    <string name="quiet_start">صامتة من الساعة</string>
+    <string name="quiet_end">صامتة حتى الساعة</string>
+    <string name="delete_crop">حذف هذه الزراعة</string>
+    <string name="confirm_delete_crop">حذف الزراعة وكل سجلها؟</string>
     <string name="history_title">آخر 24 ساعة</string>
-    <string name="min">الأدنى</string>
-    <string name="avg">المتوسط</string>
-    <string name="max">الأعلى</string>
+    <string name="min">أدنى</string>
+    <string name="avg">متوسط</string>
+    <string name="max">أعلى</string>
     <string name="no_events">لا توجد أحداث بعد</string>
-
+    <string name="devices_hint">الجهاز هو ESP32 مع الحساسات والسماعة. ضعه في زراعة واختر تلك الزراعة هنا، وانقله متى شئت.</string>
+    <string name="add_device">إضافة جهاز</string>
+    <string name="add_device_hint">أدخل DEVICE_ID و DEVICE_KEY المكتوبين في الجهاز (الملف config.h).</string>
+    <string name="device_id">رقم الجهاز</string>
+    <string name="device_key">مفتاح الجهاز</string>
+    <string name="device_name">اسم الجهاز</string>
+    <string name="admin_device_hint">للمدير: الرقم الجديد يُسجَّل بهذا المفتاح، ثم يستطيع المستخدم إضافته بنفس الرقم والمفتاح.</string>
+    <string name="measures">يقيس:</string>
+    <string name="not_assigned">غير مرتبط بزراعة</string>
+    <string name="last_seen">آخر اتصال:</string>
+    <string name="never">لم يتصل بعد</string>
+    <string name="move_to">نقل إلى…</string>
+    <string name="move">نقل</string>
+    <string name="unassign">فصل</string>
+    <string name="new_user">إنشاء مستخدم</string>
+    <string name="confirm_delete_user">حذف المستخدم وكل زراعاته؟</string>
     <string name="mood_happy">سعيدة</string>
     <string name="mood_thirsty">عطشانة</string>
     <string name="mood_drowning">غرقانة</string>
@@ -45,12 +101,11 @@
     <string name="msg_happy">كل شيء ممتاز، شكراً لاهتمامك!</string>
     <string name="msg_thirsty">أنا عطشانة! أرجوك اسقني ماء.</string>
     <string name="msg_drowning">كفاية ماء! التربة مبللة جداً.</string>
-    <string name="msg_hot">الجو حار جداً، انقلني لمكان أبرد.</string>
+    <string name="msg_hot">الجو حار جداً، أحتاج تظليلاً أو تبريداً.</string>
     <string name="msg_cold">أشعر بالبرد، أحتاج مكاناً أدفأ.</string>
     <string name="msg_need_light">أحتاج إلى ضوء الشمس.</string>
     <string name="msg_sleepy">تصبحون على خير… أنا نائمة.</string>
     <string name="msg_unknown">بانتظار البيانات</string>
-
     <string name="track_1">عطشانة</string>
     <string name="track_2">غرقانة</string>
     <string name="track_3">حرّانة</string>

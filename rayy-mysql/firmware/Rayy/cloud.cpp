@@ -10,6 +10,8 @@ static uint32_t lastWifiTry = 0;
 static bool     serverOk = false;          // last request to the server worked
 static int      serverHour = -1;           // hour of the server clock (from the last answer)
 static uint32_t serverHourAt = 0;          // millis() when serverHour was received
+static int      currentCrop = -1;          // crop this device measures now (from the server)
+static bool     noCropWarned = false;
 
 // ---------------------------------------------------------------------
 void cloudBegin() {
@@ -72,7 +74,7 @@ bool cloudSync(const Status& s, int soilRaw, bool withHistory, const char* event
   WiFiClient client;
   HTTPClient http;
   http.setTimeout(5000);
-  String url = String(SERVER_URL) + "/device.php?plant=" + PLANT_ID;
+  String url = String(SERVER_URL) + "/device.php?device=" + DEVICE_ID;
   if (!http.begin(client, url)) { serverOk = false; return false; }
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Key", DEVICE_KEY);
@@ -89,7 +91,19 @@ bool cloudSync(const Status& s, int soilRaw, bool withHistory, const char* event
   if (deserializeJson(a, resp)) { serverOk = false; return false; }
   serverOk = true;
 
-  // Settings saved from the web / Android app
+  // Crop the device is assigned to now (changed from the apps)
+  if (a["crop"].isNull()) {
+    if (!noCropWarned) Serial.println("[server] this device is not assigned to a crop yet: assign it in the app");
+    noCropWarned = true;
+  } else {
+    noCropWarned = false;
+    int cropId = a["crop"]["crop_id"] | 0;
+    if (cropId != currentCrop) {
+      Serial.printf("[server] measuring crop %d: %s\n", cropId, a["crop"]["name"] | "");
+      currentCrop = cropId;
+    }
+  }
+  // Thresholds of that crop (saved from the web / Android app)
   JsonObject cfg = a["config"];
   c.moistureMin = cfg["moisture_min"] | c.moistureMin;
   c.moistureMax = cfg["moisture_max"] | c.moistureMax;

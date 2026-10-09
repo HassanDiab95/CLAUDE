@@ -1,10 +1,11 @@
 <?php
 // =====================================================================
-//  Rayy API: shared helpers (database, JSON, login checks)
+//  ري API: shared helpers (database, JSON, login and permission checks)
 // =====================================================================
 require_once __DIR__ . '/config.php';
 
 date_default_timezone_set(APP_TIMEZONE);
+$pdo = null;     // database connection, opened by db() on first use
 
 // Allow the Android app and other pages to call the API
 header('Access-Control-Allow-Origin: *');
@@ -15,7 +16,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') exit;
 
 /** One PDO connection per request. All queries use prepared statements (no SQL injection). */
 function db(): PDO {
-    static $pdo = null;
+    global $pdo;
     if ($pdo === null) {
         try {
             $pdo = new PDO(
@@ -39,6 +40,8 @@ function respond(array $data, int $code = 200): void {
 }
 
 function fail(int $code, string $message): void {
+    global $pdo;
+    if ($pdo !== null && $pdo->inTransaction()) $pdo->rollBack();   // undo a half-done change
     respond(['ok' => false, 'error' => $message], $code);
 }
 
@@ -48,8 +51,11 @@ function require_method(string $method): void {
 
 /** The JSON body of a POST request as an array */
 function body(): array {
-    $data = json_decode(file_get_contents('php://input') ?: '{}', true);
-    if (!is_array($data)) fail(400, 'Invalid JSON');
+    static $data = null;
+    if ($data === null) {
+        $data = json_decode(file_get_contents('php://input') ?: '{}', true);
+        if (!is_array($data)) fail(400, 'Invalid JSON');
+    }
     return $data;
 }
 
@@ -58,12 +64,14 @@ function header_value(string $name): string {
     return trim($_SERVER[$key] ?? '');
 }
 
-/** Plant ID from ?plant=... (default plant01) */
-function plant_id(): string {
-    $id = $_GET['plant'] ?? 'plant01';
-    if (!preg_match('/^[A-Za-z0-9_-]{1,20}$/', $id)) fail(400, 'Invalid plant id');
-    return $id;
+/** Numbers from MySQL come back as strings: convert (null stays null). */
+function num($v) {
+    return $v === null ? null : $v + 0;
 }
+
+// ---------------------------------------------------------------------
+//  Users and permissions
+// ---------------------------------------------------------------------
 
 /** Checks the login token (header X-Auth-Token) and returns the user row. */
 function require_user(): array {
@@ -75,41 +83,105 @@ function require_user(): array {
     $st->execute([hash('sha256', $token)]);
     $user = $st->fetch();
     if (!$user) fail(401, 'Session expired, sign in again');
+    $user['user_id'] = (int)$user['user_id'];
     return $user;
 }
 
-/** Checks that the signed-in user may see this plant. */
-function require_plant_access(array $user, string $plantId): void {
-    $st = db()->prepare('SELECT 1 FROM plant_access WHERE user_id = ? AND plant_id = ?');
-    $st->execute([$user['user_id'], $plantId]);
-    if (!$st->fetch()) fail(403, 'No access to this plant');
+function require_admin(): array {
+    $user = require_user();
+    if ($user['role'] !== 'admin') fail(403, 'Only an admin can do this');
+    return $user;
 }
 
-/** Numbers from MySQL come back as strings: convert (null stays null). */
-function num($v) {
-    return $v === null ? null : $v + 0;
+function is_admin(array $user): bool {
+    return $user['role'] === 'admin';
 }
 
-/** Settings row → the same JSON names used by the firmware and the apps */
-function settings_json(array $s): array {
+/** Creates a login session and returns the token for the app. */
+function new_token(int $userId): string {
+    $token = bin2hex(random_bytes(32));
+    db()->prepare('INSERT INTO api_tokens (token_hash, user_id, expires_at) VALUES (?, ?, NOW() + INTERVAL ' . (int)TOKEN_DAYS . ' DAY)')
+        ->execute([hash('sha256', $token), $userId]);
+    db()->exec('DELETE FROM api_tokens WHERE expires_at < NOW()');      // clean old sessions
+    return $token;
+}
+
+function user_json(array $u): array {
+    return ['user_id' => (int)$u['user_id'], 'email' => $u['email'], 'full_name' => $u['full_name'], 'role' => $u['role']];
+}
+
+/** Checks and normalises the fields of a new user. Returns [email, name, password]. */
+function validate_new_user(array $d): array {
+    $email = strtolower(trim((string)($d['email'] ?? '')));
+    $name = trim((string)($d['full_name'] ?? ''));
+    $password = (string)($d['password'] ?? '');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 120) fail(400, 'Invalid email');
+    if ($name === '' || mb_strlen($name) > 100) fail(400, 'Name is required (max 100 characters)');
+    if (strlen($password) < 8) fail(400, 'Password must be at least 8 characters');
+    $st = db()->prepare('SELECT 1 FROM users WHERE email = ?');
+    $st->execute([$email]);
+    if ($st->fetch()) fail(409, 'This email is already registered');
+    return [$email, $name, $password];
+}
+
+// ---------------------------------------------------------------------
+//  Crops
+// ---------------------------------------------------------------------
+
+/** Crop ID from ?crop=... */
+function crop_id(): int {
+    $id = (int)($_GET['crop'] ?? 0);
+    if ($id <= 0) fail(400, 'Missing crop id (?crop=...)');
+    return $id;
+}
+
+/** Loads a crop and checks that the user owns it (admins see every crop). */
+function require_crop(array $user, int $cropId): array {
+    $st = db()->prepare('SELECT * FROM crops WHERE crop_id = ?');
+    $st->execute([$cropId]);
+    $crop = $st->fetch();
+    if (!$crop) fail(404, 'Crop not found');
+    if (!is_admin($user) && (int)$crop['owner_id'] !== $user['user_id']) fail(403, 'This crop belongs to another user');
+    return $crop;
+}
+
+/** Crop thresholds → the JSON names used by the firmware and the apps */
+function settings_json(array $c): array {
     return [
-        'name'         => $s['name'],
-        'moisture_min' => num($s['moisture_min']),
-        'moisture_max' => num($s['moisture_max']),
-        'temp_min'     => num($s['temp_min']),
-        'temp_max'     => num($s['temp_max']),
-        'lux_min'      => num($s['lux_min']),
-        'quiet_start'  => num($s['quiet_start']),
-        'quiet_end'    => num($s['quiet_end']),
-        'muted'        => (bool)$s['muted'],
+        'name'         => $c['name'],
+        'location'     => $c['location'],
+        'type_code'    => $c['type_code'],
+        'moisture_min' => num($c['moisture_min']),
+        'moisture_max' => num($c['moisture_max']),
+        'temp_min'     => num($c['temp_min']),
+        'temp_max'     => num($c['temp_max']),
+        'lux_min'      => num($c['lux_min']),
+        'quiet_start'  => num($c['quiet_start']),
+        'quiet_end'    => num($c['quiet_end']),
+        'muted'        => (bool)$c['muted'],
     ];
 }
 
-function load_settings(string $plantId): array {
-    $st = db()->prepare('SELECT p.name, s.* FROM plants p JOIN plant_settings s ON s.plant_id = p.plant_id
-                         WHERE p.plant_id = ?');
-    $st->execute([$plantId]);
-    $row = $st->fetch();
-    if (!$row) fail(404, 'Unknown plant');
-    return settings_json($row);
+/** Device currently assigned to a crop (or null) */
+function crop_device(int $cropId): ?array {
+    $st = db()->prepare('SELECT device_id, name, UNIX_TIMESTAMP(last_seen) * 1000 AS last_seen FROM devices WHERE crop_id = ? LIMIT 1');
+    $st->execute([$cropId]);
+    $d = $st->fetch();
+    return $d ? ['device_id' => $d['device_id'], 'name' => $d['name'], 'last_seen' => num($d['last_seen'])] : null;
+}
+
+/** Live row → JSON (null when there is no data yet) */
+function live_json(?array $row): ?array {
+    if (!$row || $row['mood_code'] === null) return null;
+    return [
+        'moisture'    => num($row['moisture']),
+        'temperature' => num($row['temperature']),
+        'humidity'    => num($row['humidity']),
+        'lux'         => num($row['lux']),
+        'mood'        => $row['mood_code'],
+        'soil_raw'    => num($row['soil_raw'] ?? null),
+        'rssi'        => num($row['rssi']),
+        'device_id'   => $row['device_id'],
+        'ts'          => (int)$row['ts'],
+    ];
 }

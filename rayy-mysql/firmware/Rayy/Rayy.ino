@@ -1,7 +1,9 @@
 // =====================================================================
-//  RAYY (ري): a smart IoT plant that shows its feelings with
-//  emoji faces (in the web dashboard and the Android app) and
-//  sound alerts (buzzer melodies).
+//  RAYY (ري): smart farming. This sensor device measures the crop it is
+//  assigned to (strawberry field, tomatoes, mint ...) and turns the crop's
+//  feelings into emoji faces (in the web dashboard and the Android app)
+//  and sound alerts (buzzer melodies). The device can be moved from one
+//  crop to another in the apps: it then follows the new crop's thresholds.
 //
 //  Board  : ESP32 Dev Module (ESP32 DevKit V1), powered by a 5 V USB
 //           power bank or a 5 V USB phone charger
@@ -112,7 +114,7 @@ static void handleButton() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println("\n=== Rayy (ري) smart plant ===");
+  Serial.println("\n=== Rayy (ري) smart farming: device " DEVICE_ID " ===");
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   Wire.begin(PIN_SDA, PIN_SCL);

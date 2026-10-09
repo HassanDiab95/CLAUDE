@@ -25,13 +25,13 @@ esp32 core 3.0.7 (≈ 84 % flash, 14 % RAM, no warnings).
 
 1. Open `firmware/Rayy/Rayy.ino` (the other files open as tabs).
 2. Edit **`config.h`**: Wi-Fi name/password, **`SERVER_URL`** = `http://<IP of the XAMPP computer>/rayy/api`
-   (no `/` at the end, never `localhost`), **`DEVICE_KEY`** (same as in `database/rayy.sql`), and `PLANT_ID`.
+   (no `/` at the end, never `localhost`), **`DEVICE_KEY`** (same as in `database/rayy.sql`), and **`DEVICE_ID`** (`rayy-01`). The crop is chosen in the apps, not in the code.
 3. **Tools → Board → esp32 → ESP32 Dev Module**, **Port** = the COM port of the board.
 4. Click **Upload (→)**. If you see `Failed to connect… Timed out waiting for packet header`, **hold the BOOT
    button** on the ESP32 until "Connecting…" turns into "Writing…".
 5. **Tools → Serial Monitor** at **115200 baud** shows:
 ```
-=== Rayy (ري) smart plant ===
+=== Rayy (ري) smart farming: device rayy-01 ===
 [sound] melody 9
 [wifi] 192.168.1.23
 [server] connected to http://192.168.1.10/rayy/api
@@ -51,9 +51,9 @@ starts by itself.
 | `Rayy.ino` | Main program: `setup()`, `loop()`, timing, button |
 | `config.h` | **All settings** (Wi-Fi, server address, device key, intervals, soil calibration, time zone) |
 | `pins.h` | Pin map |
-| `mood.h / mood.cpp` | The plant "brain": readings → mood, and which melody to play (pure C++, unit-tested) |
+| `mood.h / mood.cpp` | The crop "brain": readings → mood, and which melody to play (pure C++, unit-tested) |
 | `sensors.h / .cpp` | Soil (ADC + calibration), DHT22, BH1750 |
-| `status.h` | The current plant state (readings, mood, Wi-Fi/cloud, mute) shared with the server upload |
+| `status.h` | The current state of the measured crop (readings, mood, Wi-Fi/cloud, mute) shared with the server upload |
 | `sound.h / .cpp` | Buzzer: 9 melodies played **in the background** (non-blocking), so the face keeps moving |
 | `cloud.h / .cpp` | Wi-Fi reconnect, clock (NTP or server hour), one HTTP request to `api/device.php`: upload live/history/events, receive settings + "Play" command |
 
@@ -104,22 +104,30 @@ You can compose your own melodies by changing the notes in `sound.cpp`.
 The firmware uses **plain HTTP requests** (`HTTPClient` + `ArduinoJson`) to the PHP API on the XAMPP computer.
 Every 30 s it makes **one** request that does everything:
 
-1. `POST {SERVER_URL}/device.php?plant=plant01` with the header **`X-Device-Key`** and a JSON body: the live values,
+1. `POST {SERVER_URL}/device.php?device=rayy-01` with the header **`X-Device-Key`** and a JSON body: the live values,
    `"history": true` every 5 minutes, and `"event": {...}` when the mood changed.
 2. The PHP code saves them in MySQL (tables `live_status`, `readings`, `mood_events`).
-3. The answer contains the **settings** (`plant_settings` table), the next **"Play"** melody (`play_commands`
+3. The answer says **which crop the device is assigned to now**, with that crop's **thresholds** (`crops` table), the next **"Play"** melody (`play_commands`
    table, 0 = none) and the **server hour**.
 4. The ESP32 applies the settings, plays the melody, and uses the server hour as its clock if the Wi-Fi has no
    internet (no NTP time), so "night" still works on a local network.
 
-If the request fails (Apache stopped, wrong IP), the plant keeps working alone (moods + melodies), the blue LED
+If the request fails (Apache stopped, wrong IP), the device keeps working alone (moods + melodies), the blue LED
 blinks, and the diary event / history point is sent again with the next request.
 
-## 5.7 The emoji faces (in the apps, not on the plant)
+### Moving the device to another crop
+
+The firmware does not know crop names or crop IDs. When the user moves the device in the apps
+(`device_assign.php`), the next answer of `device.php` names the new crop and brings its thresholds. The Serial
+Monitor prints `[server] measuring crop 2: نعناع الحديقة`, and from then on the moods are decided with the new crop's
+values (e.g. a cactus is happy in dry soil, a strawberry is thirsty). If the device is not assigned to any crop, it
+prints `not assigned to a crop yet` and keeps its last thresholds.
+
+## 5.7 The emoji faces (in the apps, not on the device)
 
 The project has **no screen**. The ESP32 sends the mood name (`happy`, `thirsty`, …) to the server (MySQL) and the **web dashboard**
 and **Android app** show the matching emoji: 😊 happy · 😫 thirsty · 🥴 too wet · 🥵 hot · 🥶 cold · 😞 needs light · 😴 sleeping.
-On the plant itself, the mood is expressed by the **melody** of the buzzer. A press on the push button plays the current mood's melody.
+On the device itself, the mood is expressed by the **melody** of the buzzer. A press on the push button plays the current mood's melody.
 
 ## 5.8 Changing behaviour
 

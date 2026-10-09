@@ -1,5 +1,5 @@
 // =====================================================================
-//  Rayy (ري) smart plant, USER CONFIGURATION
+//  ري (Rayy) smart farming: sensor device, USER CONFIGURATION
 //  Edit the values in this file before uploading to the ESP32.
 // =====================================================================
 #pragma once
@@ -13,12 +13,15 @@
 // "IPv4 Address"), followed by /rayy/api. No "/" at the end.
 // Do NOT write "localhost": for the ESP32, localhost is the ESP32 itself.
 #define SERVER_URL           "http://192.168.1.10/rayy/api"
-// Secret key of this plant. The same text is saved (as SHA-256) in the
-// "plants" table by database/rayy.sql. Change it in both places.
+// Secret key of this device. The same text is saved (as SHA-256) in the
+// "devices" table by database/rayy.sql (or when the admin registers the
+// device in the app). Change it in both places.
 #define DEVICE_KEY           "rayy-device-key-2026"
 
-// Every plant (ESP32) has its own ID in the database
-#define PLANT_ID             "plant01"
+// Every sensor device (ESP32) has its own ID in the database. The crop it
+// measures is chosen in the web / Android app ("Move device"), not here,
+// so the same device can be moved from one crop to another.
+#define DEVICE_ID            "rayy-01"
 
 // ---------- Timing ---------------------------------------------------
 #define SENSOR_INTERVAL_MS    2000UL      // read sensors every 2 s

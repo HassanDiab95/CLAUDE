@@ -1,34 +1,29 @@
 <?php
 // =====================================================================
-//  GET api/live.php?plant=plant01   (header X-Auth-Token)
-//  The latest values + the settings. The apps call it every 5 seconds.
-//  Answer: {"ok":true,"live":{moisture,temperature,humidity,lux,mood,rssi,ts},"config":{...}}
-//          "live" is null until the ESP32 sends its first data. "ts" = milliseconds.
+//  GET api/live.php?crop=1   (header X-Auth-Token)
+//  The latest values + the settings + the device of one crop.
+//  The apps call it every 5 seconds while the crop page is open.
+//  Answer: {"ok":true,"live":{moisture,temperature,humidity,lux,mood,rssi,device_id,ts},
+//           "config":{...},"device":{device_id,name,last_seen}|null,"type":{...}}
+//          "live" is null until a device sends data for this crop. "ts" = milliseconds.
 // =====================================================================
 require_once __DIR__ . '/lib.php';
 require_method('GET');
 
 $user = require_user();
-$plantId = plant_id();
-require_plant_access($user, $plantId);
+$cropId = crop_id();
+$crop = require_crop($user, $cropId);
 
-$st = db()->prepare('SELECT moisture, temperature, humidity, lux, mood_code, soil_raw, rssi, ip, uptime_s,
-                            UNIX_TIMESTAMP(updated_at) * 1000 AS ts
-                     FROM live_status WHERE plant_id = ?');
-$st->execute([$plantId]);
-$row = $st->fetch();
+$st = db()->prepare('SELECT *, UNIX_TIMESTAMP(updated_at) * 1000 AS ts FROM live_status WHERE crop_id = ?');
+$st->execute([$cropId]);
 
-$live = $row ? [
-    'moisture'    => num($row['moisture']),
-    'temperature' => num($row['temperature']),
-    'humidity'    => num($row['humidity']),
-    'lux'         => num($row['lux']),
-    'mood'        => $row['mood_code'],
-    'soil_raw'    => num($row['soil_raw']),
-    'rssi'        => num($row['rssi']),
-    'ip'          => $row['ip'],
-    'uptime_s'    => num($row['uptime_s']),
-    'ts'          => (int)$row['ts'],
-] : null;
+$st2 = db()->prepare('SELECT type_code, name_ar, name_en, emoji FROM crop_types WHERE type_code = ?');
+$st2->execute([$crop['type_code']]);
 
-respond(['ok' => true, 'live' => $live, 'config' => load_settings($plantId)]);
+respond([
+    'ok'     => true,
+    'live'   => live_json($st->fetch() ?: null),
+    'config' => settings_json($crop),
+    'device' => crop_device($cropId),
+    'type'   => $st2->fetch(),
+]);

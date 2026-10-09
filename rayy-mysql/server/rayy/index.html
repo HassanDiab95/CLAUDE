@@ -11,123 +11,231 @@
   <script src="lib/chart.umd.min.js"></script>
 </head>
 <body>
-  <!-- ============ LOGIN ============ -->
+  <!-- ============ SIGN IN / CREATE ACCOUNT ============ -->
   <section id="login" class="login hidden">
-    <form id="loginForm" class="card login-card">
+    <div class="card login-card">
       <div class="login-emoji">🌱</div>
-      <h1 data-i18n="appName">Rayy</h1>
-      <p class="muted" data-i18n="loginHint">Sign in to see your plant</p>
-      <label><span data-i18n="email">Email</span>
-        <input type="email" id="email" required autocomplete="username"></label>
-      <label><span data-i18n="password">Password</span>
-        <input type="password" id="password" required autocomplete="current-password"></label>
-      <button type="submit" class="btn primary" data-i18n="signIn">Sign in</button>
+      <h1>ري · Rayy</h1>
+      <p class="muted" data-i18n="tagline">Smart farming that turns your crops' feelings into emoji</p>
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="signin" data-i18n="signIn">Sign in</button>
+        <button type="button" class="tab" data-tab="register" data-i18n="createAccount">Create account</button>
+      </div>
+      <form id="loginForm" class="stack">
+        <label><span data-i18n="email">Email</span><input type="email" id="email" required autocomplete="username"></label>
+        <label><span data-i18n="password">Password</span><input type="password" id="password" required autocomplete="current-password"></label>
+        <button type="submit" class="btn primary" data-i18n="signIn">Sign in</button>
+      </form>
+      <form id="registerForm" class="stack hidden">
+        <label><span data-i18n="fullName">Full name</span><input id="regName" required maxlength="100" autocomplete="name"></label>
+        <label><span data-i18n="email">Email</span><input type="email" id="regEmail" required autocomplete="email"></label>
+        <label><span data-i18n="password">Password</span><input type="password" id="regPassword" required minlength="8" autocomplete="new-password"></label>
+        <p class="muted small" data-i18n="passwordHint">At least 8 characters</p>
+        <button type="submit" class="btn primary" data-i18n="createAccount">Create account</button>
+      </form>
       <p id="loginError" class="error"></p>
       <button type="button" class="btn link lang-toggle">English</button>
-    </form>
+    </div>
   </section>
 
-  <!-- ============ DASHBOARD ============ -->
+  <!-- ============ APP ============ -->
   <div id="app" class="hidden">
     <header class="topbar">
-      <div class="brand">🌱 <span id="plantName" data-i18n="appName">Rayy</span></div>
+      <div class="brand">🌱 ري <span class="brand-en">Rayy</span></div>
+      <nav class="nav">
+        <a href="#crops" data-view="crops" data-i18n="navCrops">My crops</a>
+        <a href="#devices" data-view="devices" data-i18n="navDevices">Devices</a>
+        <a href="#users" data-view="users" class="admin-only hidden" data-i18n="navUsers">Users</a>
+      </nav>
       <div class="topbar-actions">
-        <span id="onlineBadge" class="badge off" data-i18n="offline">Offline</span>
+        <span id="userName" class="small"></span>
+        <span id="roleBadge" class="badge hidden" data-i18n="admin">Admin</span>
         <button class="btn small lang-toggle">English</button>
         <button id="logoutBtn" class="btn small" data-i18n="signOut">Sign out</button>
       </div>
     </header>
 
-    <div id="demoBanner" class="demo hidden" data-i18n="demoBanner">
-      Demo mode: simulated data (no XAMPP server).
-    </div>
+    <div id="demoBanner" class="demo hidden" data-i18n="demoBanner">Demo mode: simulated data (no XAMPP server).</div>
     <div id="serverError" class="demo error-banner hidden"></div>
 
     <main class="container">
-      <!-- Mood hero -->
-      <section class="card hero" id="hero">
-        <div class="emoji" id="moodEmoji">🌱</div>
-        <div>
-          <h2 id="moodTitle">…</h2>
-          <p id="moodText" class="muted">…</p>
-          <p class="muted small"><span data-i18n="lastUpdate">Last update</span>: <span id="lastUpdate">—</span></p>
-        </div>
-      </section>
-
-      <!-- Live values -->
-      <section class="grid">
-        <div class="card metric">
-          <div class="metric-head"><span>💧</span><span data-i18n="soil">Soil moisture</span></div>
-          <div class="metric-value"><span id="vMoisture">—</span><small>%</small></div>
-          <div class="bar"><div id="barMoisture"></div></div>
-        </div>
-        <div class="card metric">
-          <div class="metric-head"><span>🌡️</span><span data-i18n="temperature">Temperature</span></div>
-          <div class="metric-value"><span id="vTemp">—</span><small>°C</small></div>
-        </div>
-        <div class="card metric">
-          <div class="metric-head"><span>💨</span><span data-i18n="humidity">Air humidity</span></div>
-          <div class="metric-value"><span id="vHum">—</span><small>%</small></div>
-        </div>
-        <div class="card metric">
-          <div class="metric-head"><span>☀️</span><span data-i18n="light">Light</span></div>
-          <div class="metric-value"><span id="vLux">—</span><small>lux</small></div>
-        </div>
-        <div class="card metric">
-          <div class="metric-head"><span>📶</span><span data-i18n="wifi">Wi-Fi signal</span></div>
-          <div class="metric-value"><span id="vRssi">—</span><small>dBm</small></div>
-          <p class="muted small" id="vSignal"></p>
-        </div>
-      </section>
-
-      <!-- Charts -->
-      <section class="card">
+      <!-- ===== VIEW: CROPS ===== -->
+      <section id="viewCrops" class="view">
         <div class="section-head">
-          <h3 data-i18n="history">History (last 24 hours)</h3>
-          <select id="chartMetric">
-            <option value="moisture" data-i18n="soil">Soil moisture</option>
-            <option value="temperature" data-i18n="temperature">Temperature</option>
-            <option value="humidity" data-i18n="humidity">Air humidity</option>
-            <option value="lux" data-i18n="light">Light</option>
-          </select>
+          <div>
+            <h2 data-i18n="myCrops">My crops</h2>
+            <p class="muted small" data-i18n="cropsHint">Each crop has its own ideal values. A sensor device measures one crop and can be moved to another.</p>
+          </div>
+          <button id="addCropBtn" class="btn primary" data-i18n="addCrop">+ Add crop</button>
         </div>
-        <div class="chart-box"><canvas id="chart"></canvas></div>
+
+        <form id="addCropForm" class="card settings hidden">
+          <h3 class="full" data-i18n="newCrop">New crop</h3>
+          <label><span data-i18n="cropName">Crop name</span><input name="name" required maxlength="60" data-i18n-ph="cropNamePh"></label>
+          <label><span data-i18n="cropType">Crop type</span><select name="type_code" class="type-select" required></select></label>
+          <label class="full"><span data-i18n="location">Location</span><input name="location" maxlength="100" data-i18n-ph="locationPh"></label>
+          <p class="muted small full type-preview"></p>
+          <div class="full row-end">
+            <button type="button" class="btn" id="cancelCropBtn" data-i18n="cancel">Cancel</button>
+            <button type="submit" class="btn primary" data-i18n="save">Save</button>
+          </div>
+          <p class="error full" id="addCropMsg"></p>
+        </form>
+
+        <div id="cropsGrid" class="crops-grid"></div>
       </section>
 
-      <div class="two-col">
-        <!-- Events -->
-        <section class="card">
-          <h3 data-i18n="events">Plant diary</h3>
-          <ul id="events" class="events"></ul>
-        </section>
+      <!-- ===== VIEW: ONE CROP ===== -->
+      <section id="viewCrop" class="view hidden">
+        <div class="section-head">
+          <a href="#crops" class="btn small" data-i18n="back">← My crops</a>
+          <span id="onlineBadge" class="badge dark off" data-i18n="offline">Offline</span>
+        </div>
 
-        <!-- Talk + settings -->
-        <section class="card">
-          <h3 data-i18n="speak">Play a sound on the plant</h3>
-          <div class="speak-row">
-            <select id="trackSelect"></select>
-            <button id="speakBtn" class="btn primary" data-i18n="speakNow">Play</button>
+        <!-- Mood hero -->
+        <section class="card hero" id="hero">
+          <div class="emoji" id="moodEmoji">🌱</div>
+          <div>
+            <p class="crop-title"><span id="cropTypeEmoji"></span> <strong id="cropName">…</strong> · <span id="cropMeta" class="muted"></span></p>
+            <h2 id="moodTitle">…</h2>
+            <p id="moodText" class="muted">…</p>
+            <p class="muted small"><span data-i18n="lastUpdate">Last update</span>: <span id="lastUpdate">—</span></p>
           </div>
-          <p id="speakMsg" class="muted small"></p>
-
-          <h3 data-i18n="settings">Plant settings</h3>
-          <form id="settingsForm" class="settings">
-            <label><span data-i18n="plantName">Plant name</span><input name="name" type="text" maxlength="30"></label>
-            <label><span data-i18n="moistureMin">Thirsty below (%)</span><input name="moisture_min" type="number" min="0" max="100"></label>
-            <label><span data-i18n="moistureMax">Too wet above (%)</span><input name="moisture_max" type="number" min="0" max="100"></label>
-            <label><span data-i18n="tempMin">Cold below (°C)</span><input name="temp_min" type="number" min="-10" max="50"></label>
-            <label><span data-i18n="tempMax">Hot above (°C)</span><input name="temp_max" type="number" min="-10" max="60"></label>
-            <label><span data-i18n="luxMin">Needs light below (lux)</span><input name="lux_min" type="number" min="0" max="50000"></label>
-            <label><span data-i18n="quietStart">Silent from (hour)</span><input name="quiet_start" type="number" min="0" max="23"></label>
-            <label><span data-i18n="quietEnd">Silent until (hour)</span><input name="quiet_end" type="number" min="0" max="23"></label>
-            <label class="check"><input name="muted" type="checkbox"><span data-i18n="muted">Mute sound</span></label>
-            <button type="submit" class="btn primary" data-i18n="save">Save</button>
-            <p id="settingsMsg" class="muted small"></p>
-          </form>
         </section>
-      </div>
+
+        <!-- Live values -->
+        <section class="grid">
+          <div class="card metric">
+            <div class="metric-head"><span>💧</span><span data-i18n="soil">Soil moisture</span></div>
+            <div class="metric-value"><span id="vMoisture">—</span><small>%</small></div>
+            <div class="bar"><div id="barMoisture"></div></div>
+          </div>
+          <div class="card metric">
+            <div class="metric-head"><span>🌡️</span><span data-i18n="temperature">Temperature</span></div>
+            <div class="metric-value"><span id="vTemp">—</span><small>°C</small></div>
+          </div>
+          <div class="card metric">
+            <div class="metric-head"><span>💨</span><span data-i18n="humidity">Air humidity</span></div>
+            <div class="metric-value"><span id="vHum">—</span><small>%</small></div>
+          </div>
+          <div class="card metric">
+            <div class="metric-head"><span>☀️</span><span data-i18n="light">Light</span></div>
+            <div class="metric-value"><span id="vLux">—</span><small>lux</small></div>
+          </div>
+          <div class="card metric">
+            <div class="metric-head"><span>📶</span><span data-i18n="wifi">Wi-Fi signal</span></div>
+            <div class="metric-value"><span id="vRssi">—</span><small>dBm</small></div>
+            <p class="muted small" id="vSignal"></p>
+          </div>
+        </section>
+
+        <!-- Device of this crop -->
+        <section class="card">
+          <h3>📡 <span data-i18n="cropDevice">Sensor device of this crop</span></h3>
+          <p id="cropDeviceText" class="muted"></p>
+          <div class="speak-row">
+            <select id="moveDeviceSelect"></select>
+            <button id="moveDeviceBtn" class="btn primary" data-i18n="moveHere">Move to this crop</button>
+            <button id="removeDeviceBtn" class="btn hidden" data-i18n="removeDevice">Remove</button>
+          </div>
+          <p id="deviceMsg" class="muted small"></p>
+        </section>
+
+        <!-- Chart -->
+        <section class="card">
+          <div class="section-head">
+            <h3 data-i18n="history">History (last 24 hours)</h3>
+            <select id="chartMetric">
+              <option value="moisture" data-i18n="soil">Soil moisture</option>
+              <option value="temperature" data-i18n="temperature">Temperature</option>
+              <option value="humidity" data-i18n="humidity">Air humidity</option>
+              <option value="lux" data-i18n="light">Light</option>
+            </select>
+          </div>
+          <div class="chart-box"><canvas id="chart"></canvas></div>
+        </section>
+
+        <div class="two-col">
+          <section class="card">
+            <h3 data-i18n="events">Crop diary</h3>
+            <ul id="events" class="events"></ul>
+          </section>
+
+          <section class="card">
+            <h3 data-i18n="speak">Play a sound on the device</h3>
+            <div class="speak-row">
+              <select id="trackSelect"></select>
+              <button id="speakBtn" class="btn primary" data-i18n="speakNow">Play</button>
+            </div>
+            <p id="speakMsg" class="muted small"></p>
+
+            <h3 data-i18n="settings">Crop settings</h3>
+            <form id="settingsForm" class="settings">
+              <label><span data-i18n="cropName">Crop name</span><input name="name" type="text" maxlength="60" required></label>
+              <label><span data-i18n="cropType">Crop type</span><select name="type_code" class="type-select"></select></label>
+              <label class="full"><span data-i18n="location">Location</span><input name="location" type="text" maxlength="100"></label>
+              <label><span data-i18n="moistureMin">Thirsty below (%)</span><input name="moisture_min" type="number" min="0" max="100"></label>
+              <label><span data-i18n="moistureMax">Too wet above (%)</span><input name="moisture_max" type="number" min="0" max="100"></label>
+              <label><span data-i18n="tempMin">Cold below (°C)</span><input name="temp_min" type="number" min="-10" max="50" step="0.5"></label>
+              <label><span data-i18n="tempMax">Hot above (°C)</span><input name="temp_max" type="number" min="-10" max="60" step="0.5"></label>
+              <label><span data-i18n="luxMin">Needs light below (lux)</span><input name="lux_min" type="number" min="0" max="65000"></label>
+              <label><span data-i18n="quietStart">Silent from (hour)</span><input name="quiet_start" type="number" min="0" max="23"></label>
+              <label><span data-i18n="quietEnd">Silent until (hour)</span><input name="quiet_end" type="number" min="0" max="23"></label>
+              <label class="check"><input name="muted" type="checkbox"><span data-i18n="muted">Mute sound</span></label>
+              <button type="submit" class="btn primary" data-i18n="save">Save</button>
+              <p id="settingsMsg" class="muted small"></p>
+            </form>
+            <button id="deleteCropBtn" class="btn danger" data-i18n="deleteCrop">Delete this crop</button>
+          </section>
+        </div>
+      </section>
+
+      <!-- ===== VIEW: DEVICES ===== -->
+      <section id="viewDevices" class="view hidden">
+        <div>
+          <h2 data-i18n="navDevices">Devices</h2>
+          <p class="muted small" data-i18n="devicesHint">A device is the ESP32 with its sensors and buzzer. Put it in a crop and choose that crop here; move it whenever you want.</p>
+        </div>
+        <div id="devicesList" class="crops-grid"></div>
+
+        <form id="addDeviceForm" class="card settings">
+          <h3 class="full" data-i18n="addDevice">Add a device</h3>
+          <p class="muted small full" data-i18n="addDeviceHint">Enter the DEVICE_ID and DEVICE_KEY written in the device (firmware config.h).</p>
+          <label><span data-i18n="deviceId">Device ID</span><input name="device_id" required maxlength="20" placeholder="rayy-01" dir="ltr"></label>
+          <label><span data-i18n="deviceKey">Device key</span><input name="device_key" required minlength="8" dir="ltr"></label>
+          <label class="full"><span data-i18n="deviceName">Device name</span><input name="name" maxlength="50"></label>
+          <p class="muted small full admin-only hidden" data-i18n="adminDeviceHint">Admin: a new ID is registered with this key; a user can then add it with the same ID and key.</p>
+          <button type="submit" class="btn primary" data-i18n="add">Add</button>
+          <p id="addDeviceMsg" class="small full"></p>
+        </form>
+      </section>
+
+      <!-- ===== VIEW: USERS (admin) ===== -->
+      <section id="viewUsers" class="view hidden">
+        <h2 data-i18n="navUsers">Users</h2>
+        <form id="addUserForm" class="card settings">
+          <h3 class="full" data-i18n="newUser">Create a user</h3>
+          <label><span data-i18n="fullName">Full name</span><input name="full_name" required maxlength="100"></label>
+          <label><span data-i18n="email">Email</span><input name="email" type="email" required></label>
+          <label><span data-i18n="password">Password</span><input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+          <label><span data-i18n="role">Role</span>
+            <select name="role"><option value="user" data-i18n="roleUser">User</option><option value="admin" data-i18n="roleAdmin">Admin</option></select></label>
+          <button type="submit" class="btn primary" data-i18n="createAccount">Create account</button>
+          <p id="addUserMsg" class="small full"></p>
+        </form>
+        <section class="card table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th data-i18n="fullName">Full name</th><th data-i18n="email">Email</th><th data-i18n="role">Role</th>
+              <th data-i18n="navCrops">Crops</th><th data-i18n="navDevices">Devices</th><th></th>
+            </tr></thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+          <p id="usersMsg" class="small"></p>
+        </section>
+      </section>
     </main>
-    <footer class="muted small" data-i18n="footer">Rayy · IoT graduation project</footer>
+    <footer class="muted small" data-i18n="footer">Rayy · smart farming · IoT graduation project</footer>
   </div>
 
   <script defer src="app.js"></script>

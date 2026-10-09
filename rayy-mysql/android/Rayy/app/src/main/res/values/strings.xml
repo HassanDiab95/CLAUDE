@@ -1,19 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- ري (Rayy) app texts: English (default) -->
 <resources>
     <string name="app_name">Rayy</string>
-    <string name="login_hint">Sign in to see your plant</string>
+    <string name="tagline">Smart farming that turns your crops\' feelings into emoji</string>
     <string name="email">Email</string>
     <string name="password">Password</string>
+    <string name="full_name">Full name</string>
+    <string name="password_hint">At least 8 characters</string>
     <string name="sign_in">Sign in</string>
+    <string name="create_account">Create account</string>
+    <string name="have_account">I already have an account</string>
+    <string name="no_account">New user? Create an account</string>
     <string name="sign_out">Sign out</string>
+    <string name="back">Back</string>
+    <string name="role">Role</string>
+    <string name="role_admin">Admin</string>
+    <string name="role_user">User</string>
+    <string name="you">(you)</string>
+    <string name="nav_crops">My crops</string>
+    <string name="nav_devices">Devices</string>
+    <string name="nav_users">Users</string>
+    <string name="add_crop">+ Add crop</string>
+    <string name="crops_hint">Each crop has its own ideal values. A sensor device measures one crop and can be moved to another.</string>
+    <string name="no_crops">No crops yet. Add your first crop.</string>
     <string name="online">Online</string>
     <string name="offline">Offline</string>
-    <string name="last_update">Last update</string>
-
-    <string name="tab_home">Plant</string>
+    <string name="no_data">No data yet</string>
+    <string name="no_device">No device</string>
+    <string name="new_crop">New crop</string>
+    <string name="crop_name">Crop name</string>
+    <string name="crop_type">Crop type</string>
+    <string name="ideal_values">Ideal values</string>
+    <string name="location">Location</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="done">Done</string>
+    <string name="add">Add</string>
+    <string name="tab_crop">Crop</string>
     <string name="tab_history">History</string>
     <string name="tab_diary">Diary</string>
-
+    <string name="last_update">Last update</string>
     <string name="soil">Soil</string>
     <string name="temperature">Temp</string>
     <string name="humidity">Humidity</string>
@@ -22,18 +49,47 @@
     <string name="signal_good">excellent</string>
     <string name="signal_ok">good</string>
     <string name="signal_bad">weak</string>
-
-    <string name="speak_title">Play a sound on the plant</string>
+    <string name="crop_device">Sensor device of this crop</string>
+    <string name="device_on">Measuring this crop now:</string>
+    <string name="no_device_here">No device on this crop. Choose a device and move it here.</string>
+    <string name="remove_device">Remove the device from this crop</string>
+    <string name="no_devices_yet">You have no devices. Add one on the Devices page.</string>
+    <string name="choose_device">Choose a device…</string>
+    <string name="move_here">Move to this crop</string>
+    <string name="speak_title">Play a sound on the device</string>
     <string name="speak_now">Play</string>
-    <string name="speak_sent">Sent! The plant will play it within 30 seconds.</string>
     <string name="mute">Mute sound</string>
-
+    <string name="settings">Crop settings</string>
+    <string name="moisture_min">Thirsty below (%)</string>
+    <string name="moisture_max">Too wet above (%)</string>
+    <string name="temp_min">Cold below (°C)</string>
+    <string name="temp_max">Hot above (°C)</string>
+    <string name="lux_min">Needs light below (lux)</string>
+    <string name="quiet_start">Silent from (hour)</string>
+    <string name="quiet_end">Silent until (hour)</string>
+    <string name="delete_crop">Delete this crop</string>
+    <string name="confirm_delete_crop">Delete the crop and all its history?</string>
     <string name="history_title">Last 24 hours</string>
     <string name="min">Min</string>
     <string name="avg">Avg</string>
     <string name="max">Max</string>
     <string name="no_events">No events yet</string>
-
+    <string name="devices_hint">A device is the ESP32 with its sensors and buzzer. Put it in a crop and choose that crop here; move it whenever you want.</string>
+    <string name="add_device">Add a device</string>
+    <string name="add_device_hint">Enter the DEVICE_ID and DEVICE_KEY written in the device (firmware config.h).</string>
+    <string name="device_id">Device ID</string>
+    <string name="device_key">Device key</string>
+    <string name="device_name">Device name</string>
+    <string name="admin_device_hint">Admin: a new ID is registered with this key; a user can then add it with the same ID and key.</string>
+    <string name="measures">Measures:</string>
+    <string name="not_assigned">Not assigned to a crop</string>
+    <string name="last_seen">Last seen:</string>
+    <string name="never">never connected</string>
+    <string name="move_to">Move to…</string>
+    <string name="move">Move</string>
+    <string name="unassign">Unassign</string>
+    <string name="new_user">Create a user</string>
+    <string name="confirm_delete_user">Delete the user and all their crops?</string>
     <string name="mood_happy">Happy</string>
     <string name="mood_thirsty">Thirsty</string>
     <string name="mood_drowning">Too wet</string>
@@ -45,12 +101,11 @@
     <string name="msg_happy">Everything is perfect, thank you!</string>
     <string name="msg_thirsty">I am thirsty! Please water me.</string>
     <string name="msg_drowning">Too much water! The soil is soaked.</string>
-    <string name="msg_hot">It is too hot, move me somewhere cooler.</string>
+    <string name="msg_hot">It is too hot, I need shade or cooling.</string>
     <string name="msg_cold">I feel cold, I need a warmer place.</string>
     <string name="msg_need_light">I need more sunlight.</string>
     <string name="msg_sleepy">Good night… I am sleeping.</string>
     <string name="msg_unknown">Waiting for data</string>
-
     <string name="track_1">Thirsty</string>
     <string name="track_2">Too wet</string>
     <string name="track_3">Hot</string>

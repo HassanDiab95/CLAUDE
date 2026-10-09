@@ -15,7 +15,8 @@ int  localHour();                  // 0..23 (internet time, or the server's cloc
 
 // Sends the live values to the server. withHistory = also save a history
 // point; eventMessage = mood changed (diary text), or nullptr.
-// cfg is updated with the settings from the database.
+// cfg is updated with the thresholds of the crop this device is assigned to
+// (unchanged when the device is not assigned to a crop yet).
 // Returns true on success; *playTrack = melody requested from the apps (0 = none).
 bool cloudSync(const Status& s, int soilRaw, bool withHistory, const char* eventMessage,
                PlantConfig& cfg, int* playTrack);

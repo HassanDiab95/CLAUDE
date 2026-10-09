@@ -17,8 +17,7 @@ class ApiClient(var token: String?) {
 
     /** GET (body = null) or POST a JSON body. Runs on a background thread. */
     suspend fun call(path: String, body: JSONObject? = null): JSONObject = withContext(Dispatchers.IO) {
-        val sep = if ('?' in path) '&' else '?'
-        val conn = URL("$SERVER_URL/$path${sep}plant=$PLANT_ID").openConnection() as HttpURLConnection
+        val conn = URL("$SERVER_URL/$path").openConnection() as HttpURLConnection
         try {
             conn.connectTimeout = 5000
             conn.readTimeout = 8000

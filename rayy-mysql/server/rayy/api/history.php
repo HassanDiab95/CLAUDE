@@ -1,20 +1,20 @@
 <?php
 // =====================================================================
-//  GET api/history.php?plant=plant01&hours=24   (header X-Auth-Token)
-//  History points for the chart (one every 5 minutes), oldest first.
+//  GET api/history.php?crop=1&hours=24   (header X-Auth-Token)
+//  History points of a crop for the chart (one every 5 minutes), oldest first.
 // =====================================================================
 require_once __DIR__ . '/lib.php';
 require_method('GET');
 
 $user = require_user();
-$plantId = plant_id();
-require_plant_access($user, $plantId);
+$cropId = crop_id();
+require_crop($user, $cropId);
 $hours = max(1, min(168, (int)($_GET['hours'] ?? 24)));
 
 $st = db()->prepare('SELECT UNIX_TIMESTAMP(recorded_at) * 1000 AS ts, moisture, temperature, humidity, lux, mood_code
-                     FROM readings WHERE plant_id = ? AND recorded_at >= NOW() - INTERVAL ? HOUR
+                     FROM readings WHERE crop_id = ? AND recorded_at >= NOW() - INTERVAL ? HOUR
                      ORDER BY recorded_at');
-$st->execute([$plantId, $hours]);
+$st->execute([$cropId, $hours]);
 
 $points = array_map(fn($r) => [
     'ts'          => (int)$r['ts'],
