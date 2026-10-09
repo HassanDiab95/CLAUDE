@@ -115,4 +115,20 @@
     <string name="track_7">Thank you</string>
     <string name="track_8">Good night</string>
     <string name="track_9">Hello</string>
+    <string name="saved">Saved ✓</string>
+    <string name="hello_name">Hello, %1$s 👋</string>
+    <string name="crops_hint_short">Your farm at a glance</string>
+    <string name="stat_crops">Crops</string>
+    <string name="stat_attention">Need care</string>
+    <string name="stat_online">Online</string>
+    <string name="stat_users">Users</string>
+    <string name="stat_admins">Admins</string>
+    <string name="no_crops_hint">Tap “New crop” to add your first crop</string>
+    <string name="add_crop_short">New crop</string>
+    <string name="ideal_values_hint">Ideal values come from the crop type and can be changed later</string>
+    <string name="welcome_new">Create your account 🌱</string>
+    <string name="welcome_back">Welcome back 👋</string>
+    <string name="footer">Rayy · Smart farming graduation project</string>
+    <string name="ideal">Ideal</string>
+    <string name="ideal_range">Ideal range</string>
 </resources>

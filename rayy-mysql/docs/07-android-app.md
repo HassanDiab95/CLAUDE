@@ -16,6 +16,34 @@ inside it the user manages many crops. It is in **Arabic or English** automatica
 
 Minimum Android version: **7.0 (API 24)**. Target: API 34.
 
+## 7.0 Design (UI / UX)
+
+The app is designed to be **friendly and clear at a glance**:
+
+* **The crop's feeling sets the colours.** Each crop card and the top of the crop page use the colours of the
+  current mood: green = happy, orange = thirsty / hot, blue = drowning / cold, yellow = needs light,
+  purple = sleepy. The big emoji gently **floats** (small animation), so the plant feels alive.
+* **Gradient headers** with a greeting ("Hello, Hind 👋") and three summary tiles: number of crops,
+  crops that **need care**, devices **online**.
+* **Cards with rounded corners** and soft shadows; every value has its emoji (💧 🌡️ 💨 ☀️), a **ring** that shows
+  the level, and the **ideal range** under it in green (ok) or orange (outside the range).
+* **Crop-type tiles** (🍓 🍅 🥒 🫑 🥬 🌿 🌴 🌹 🌵) when adding a crop; the ideal values of the chosen type appear at once.
+* **History chart** with a smooth line, a soft gradient fill and **dashed lines for the ideal range**;
+  min / average / max under it. The **diary** is a timeline of mood changes.
+* **Melody chips** (😫 🥴 🥵 🥶 😞 😊 🙏 😴 👋) to play a sound on the device, and a mute switch.
+* Clear **status pills** (● Online / ● Offline, Admin / User), **user avatars** with initials,
+  confirmation dialogs before deleting, and **snackbar** messages (Saved ✓ / errors) at the bottom.
+* **Arabic (right-to-left) and English**, and **light and dark mode**, both follow the phone settings.
+  Numbers such as "40–80%" or "-58 dBm" keep their order inside Arabic text.
+
+![Sign in · My crops · Crop page](images/android-1-ar.png)
+
+![History chart · Diary · Add a crop](images/android-2-ar.png)
+
+![Devices · Users (admin) · A thirsty crop (English)](images/android-3.png)
+
+![Dark mode](images/android-dark.png)
+
 ## 7.1 Requirements
 
 * **Android Studio Panda (2025.3.1) or newer**: <https://developer.android.com/studio>. It includes the JDK and Android SDK.
@@ -67,14 +95,14 @@ android/Rayy/                 ← open this folder in Android Studio (project "R
         │   ├── ApiClient.kt             HTTP + JSON calls to the PHP API (token header)
         │   ├── Model.kt                 SERVER_URL + data classes (User, CropType, Crop, DeviceInfo …) + JSON parsing
         │   └── ui/
-        │       ├── LoginScreen.kt       sign in / create account
-        │       ├── AppScreen.kt         top bar + bottom tabs, "My crops" list, add-crop dialog
-        │       ├── CropScreen.kt        crop page: Crop / History / Diary, device, settings
+        │       ├── LoginScreen.kt       sign in / create account (gradient, floating 🌱, segmented switch)
+        │       ├── AppScreen.kt         bottom tabs + snackbars, "My crops" (header, summary tiles, mood cards), add-crop sheet
+        │       ├── CropScreen.kt        crop page: mood header, Crop / History / Diary, device, melodies, settings
         │       ├── ManageScreens.kt     Devices page, Users page (admin)
-        │       ├── Common.kt            Picker (drop-down), Field, Section helpers
-        │       ├── LineChart.kt         small chart drawn with Canvas
+        │       ├── Common.kt            design kit: GradientHeader, SectionCard, MetricTile + Ring, Pill, Avatar, Segmented, Picker, Field …
+        │       ├── LineChart.kt         smooth chart drawn with Canvas (gradient fill, ideal-range lines)
         │       ├── Moods.kt             mood → emoji + texts, time format
-        │       └── Theme.kt             green Material 3 theme (light / dark)
+        │       └── Theme.kt             colours, mood colours, shapes, typography (light / dark)
         └── res/values/strings.xml (English) · res/values-ar/strings.xml (Arabic)
 ```
 
@@ -90,7 +118,8 @@ Results go into `StateFlow`s that the Compose screens collect, so they **redraw 
 * Only `SERVER_URL` in `Model.kt` must be set. Crops and devices are chosen inside the app.
 * While writing this project, the network code (`ApiClient`, `Model`) was **run against the real PHP API + MySQL**,
   and all the Kotlin code (ViewModel and every Compose screen) was **compiled against the Compose 1.7 / Material 3 1.3
-  libraries**. The full Android build (APK) could not run in that environment (Android SDK download blocked), so
+  libraries**, and every screen was **rendered** (Arabic, English, dark mode) to check the design — the pictures
+  above. The full Android build (APK) could not run in that environment (Android SDK download blocked), so
   build it once in Android Studio. If Studio asks to update the Android Gradle Plugin or Kotlin version, accept it.
 * Possible extensions: notifications when a crop is thirsty (WorkManager checking `crops.php`), a home-screen
   widget, photos of each crop.

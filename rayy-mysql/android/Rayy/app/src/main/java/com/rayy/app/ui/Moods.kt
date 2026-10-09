@@ -19,6 +19,9 @@ fun moodUi(mood: String): MoodUi = when (mood) {
     else -> MoodUi("🌱", R.string.mood_unknown, R.string.msg_unknown, false)
 }
 
+/** Emoji of each buzzer melody 1..9 (for the melody chips) */
+val TRACK_EMOJI = listOf("😫", "🥴", "🥵", "🥶", "😞", "😊", "🙏", "😴", "👋")
+
 /** Buzzer melodies (same numbers as the firmware, sound.cpp) */
 val TRACK_NAMES = listOf(
     R.string.track_1, R.string.track_2, R.string.track_3, R.string.track_4, R.string.track_5,

@@ -115,4 +115,20 @@
     <string name="track_7">شكراً</string>
     <string name="track_8">تصبحون على خير</string>
     <string name="track_9">مرحباً</string>
+    <string name="saved">تم الحفظ ✓</string>
+    <string name="hello_name">مرحباً، %1$s 👋</string>
+    <string name="crops_hint_short">مزرعتك في لمحة</string>
+    <string name="stat_crops">الزراعات</string>
+    <string name="stat_attention">تحتاج عناية</string>
+    <string name="stat_online">متصلة</string>
+    <string name="stat_users">المستخدمون</string>
+    <string name="stat_admins">المدراء</string>
+    <string name="no_crops_hint">اضغط «زراعة جديدة» لإضافة أول زراعة</string>
+    <string name="add_crop_short">زراعة جديدة</string>
+    <string name="ideal_values_hint">القيم المثالية تُملأ من نوع الزراعة ويمكن تعديلها لاحقاً</string>
+    <string name="welcome_new">أنشئ حسابك 🌱</string>
+    <string name="welcome_back">أهلاً بعودتك 👋</string>
+    <string name="footer">ري · مشروع تخرج للزراعة الذكية</string>
+    <string name="ideal">المثالي</string>
+    <string name="ideal_range">النطاق المثالي</string>
 </resources>
