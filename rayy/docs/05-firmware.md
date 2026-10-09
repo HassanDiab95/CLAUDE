@@ -41,22 +41,19 @@ soil=46% (raw 2190)  temp=27.4C  hum=38%  lux=5400  mood=happy  wifi=1 cloud=1
 ```
 Note: the ESP32 supports **2.4 GHz Wi-Fi only**. A phone hotspot works well for demos.
 
-After uploading, unplug the USB cable from the computer, then switch on the **solar part** (or plug the ESP32 into
-the **power bank** while testing). The program starts by itself. With the solar part the Serial Monitor also shows:
-`power: battery=3.92V (69%)  solar=6.1V  charging=1  saving=0`.
+After uploading, unplug the USB cable from the computer and plug the ESP32 into the **power bank**. The program
+starts by itself.
 
 ## 5.3 Code structure
 
 | File | Responsibility |
 |---|---|
 | `Rayy.ino` | Main program: `setup()`, `loop()`, timing, button |
-| `config.h` | **All settings** (Wi-Fi, Firebase, intervals, soil calibration, **solar**, time zone) |
-| `pins.h` | Pin map (incl. GPIO35 battery and GPIO39 panel) |
+| `config.h` | **All settings** (Wi-Fi, Firebase, intervals, soil calibration, time zone) |
+| `pins.h` | Pin map |
 | `mood.h / mood.cpp` | The plant "brain": readings → mood, and which melody to play (pure C++, unit-tested) |
 | `sensors.h / .cpp` | Soil (ADC + calibration), DHT22, BH1750 |
-| `status.h` | The current plant state (readings, **power**, mood, Wi-Fi/cloud, mute) shared with the cloud upload |
-| `power.h / power.cpp` | **Solar part:** reads the battery and panel voltages through the dividers |
-| `power_calc.h` | Battery % from voltage, "is charging", power-saving mode (pure C++, unit-tested) |
+| `status.h` | The current plant state (readings, mood, Wi-Fi/cloud, mute) shared with the cloud upload |
 | `sound.h / .cpp` | Buzzer: 9 melodies played **in the background** (non-blocking), so the face keeps moving |
 | `cloud.h / .cpp` | Wi-Fi reconnect, NTP clock (Riyadh time), Firebase login (REST), upload live/history/events, read config/command |
 
@@ -69,11 +66,11 @@ flowchart TD
   C --> D[Connect Wi-Fi + NTP clock + Firebase login]
   D --> L[loop]
   L --> S{2 s passed?}
-  S -- yes --> R[Read sensors + battery/panel → evaluate mood]
+  S -- yes --> R[Read sensors → evaluate mood]
   R --> V{Mood changed or<br/>complaint repeat due?}
-  V -- yes, not muted / quiet hours / saving --> P[Start melody]
+  V -- yes, not muted / quiet hours --> P[Start melody]
   V -- no --> U
-  P --> U{30 s passed?<br/>2 min in saving mode}
+  P --> U{30 s passed?}
   S -- no --> U
   U -- yes --> F[Download config + command<br/>Upload live, event, history every 5 min]
   U -- no --> O
@@ -124,10 +121,6 @@ On the plant itself, the mood is expressed by the **melody** of the buzzer. A pr
 
 * **Thresholds, quiet hours, mute:** from the web app (no re-upload needed). The ESP32 reads them every 30 s.
 * **Intervals, soil calibration:** `config.h`.
-* **Solar:** `SOLAR_ENABLED` (1 solar / 0 power bank), `BATTERY_DIVIDER`, `SOLAR_DIVIDER`, `LOW_BATTERY_PCT` in `config.h`
-  ([11](11-solar-power.md)).
-* **AI (future):** `evaluateMood()` in `mood.cpp` is the single place where a future AI model can plug in
-  ([12](12-future-ai.md)).
 * **Add a new mood:** add it to `enum Mood`, `evaluateMood()`, `moodName()`, a melody in
   `sound.cpp`, and the texts in the apps.
 
@@ -136,5 +129,5 @@ On the plant itself, the mood is expressed by the **melody** of the buzzer. A pr
 ```bash
 cd tests
 g++ -std=c++17 -I../firmware/Rayy test_mood.cpp ../firmware/Rayy/mood.cpp -o test_mood
-./test_mood          # → "47 checks, 0 failures"
+./test_mood          # → "33 checks, 0 failures"
 ```

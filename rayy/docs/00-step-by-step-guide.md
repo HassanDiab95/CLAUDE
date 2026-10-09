@@ -1,7 +1,7 @@
 # 00 · Step-by-Step Guide: Build the Whole Project from Zero
 
 Follow these steps **in order**. Each step says what to do, how long it takes, and how to check that it worked.
-More detail for each step is in the other chapters (01–12).
+More detail for each step is in the other chapters (01–10).
 
 | Step | What you build | Time |
 |---|---|---|
@@ -14,8 +14,7 @@ More detail for each step is in the other chapters (01–12).
 | 7 | Run and publish the web dashboard | 30 min |
 | 8 | Build and install the Android app | 1 hour |
 | 9 | Test everything | 2 hours |
-| 10 | Build the solar part (panel + charger + battery) | 2 hours |
-| 11 | Final assembly on the pot, report, presentation | 1–2 weeks |
+| 10 | Final assembly on the pot, report, presentation | 1–2 weeks |
 
 ---
 
@@ -30,12 +29,8 @@ Full list with explanations and prices: [02-hardware-bom.md](02-hardware-bom.md)
 * Passive buzzer (module or bare) + 100 Ω resistor
 * Push button
 * Breadboard + jumper wires (male-male and female-male)
-* **5 V USB power bank** (or any 5 V USB phone charger) for building and testing
+* **5 V USB power bank** (or any 5 V USB phone charger)
 * A small potted plant 🌿
-
-**Solar part** (separate list, [02 · 2.2](02-hardware-bom.md)): 6 V 6 W solar panel · CN3791 MPPT charger ·
-2 × 18650 protected batteries + parallel holder · MT3608 boost converter · 5 × 100 kΩ resistors · ON/OFF switch ·
-connectors and red/black wire · a multimeter.
 
 ✅ **Check:** you have every item in the list before you start step 4.
 
@@ -182,26 +177,11 @@ Use the test table in [08-testing-calibration.md](08-testing-calibration.md). Th
 
 ---
 
-## Step 10: Build the solar part
-
-Build it **after** everything works on the power bank. Full details: [11-solar-power.md](11-solar-power.md).
-
-1. Connect only the batteries to the **MT3608** and turn its screw until the multimeter reads **5.1 V** at VOUT.
-2. Wire: panel → **CN3791** IN; CN3791 BAT → **battery holder**; battery (+) → **switch** → MT3608 VIN.
-3. Add the dividers: battery (+) → 100 kΩ → **GPIO35** → 100 kΩ → GND; panel (+) → 2 × 100 kΩ → **GPIO39** → 100 kΩ → GND.
-4. In `config.h` set `#define SOLAR_ENABLED 1`, upload with USB, **unplug the USB**, then connect MT3608 VOUT → ESP32 **VIN/GND**
-   and switch on.
-5. Calibrate: compare the battery voltage on the multimeter with the Serial Monitor `power:` line; adjust `BATTERY_DIVIDER` if needed.
-
-✅ **Check:** in the sun the apps show 🔋 battery % and "Charging from the sun ☀️"; covering the panel shows "Not charging now".
-
----
-
-## Step 11: Final assembly, report and presentation
+## Step 10: Final assembly, report and presentation
 
 1. Move the circuit from the breadboard to a small **perfboard** (solder) or keep a mini breadboard inside a box.
-2. Put it in a **box** with the charger, batteries and boost converter, with holes for the buzzer and the wires.
-   Fix the box to the pot. Keep the DHT22 and BH1750 **outside** the box.
-3. Place the **solar panel** outside the box, facing the sun. The battery keeps the plant running at night
-   (≈ 39 hours without sun).
+2. Put it in a small **box** with holes for the buzzer and the USB cable. Fix the box to
+   the pot. Keep the DHT22 and BH1750 **outside** the box.
+3. Power it with the **power bank** (it lasts about 2–3 days with 10,000 mAh; recharge it like a phone) or with a
+   USB phone charger permanently.
 4. Write the report using [10-report-outline.md](10-report-outline.md), and follow the plan in [09-project-plan.md](09-project-plan.md).

@@ -76,17 +76,6 @@
           <div class="metric-value"><span id="vRssi">—</span><small>dBm</small></div>
           <p class="muted small" id="vSignal"></p>
         </div>
-        <div class="card metric power-only hidden">
-          <div class="metric-head"><span id="batteryIcon">🔋</span><span data-i18n="battery">Battery</span></div>
-          <div class="metric-value"><span id="vBattery">—</span><small>%</small></div>
-          <div class="bar"><div id="barBattery"></div></div>
-          <p class="muted small"><span id="vBatteryV">—</span> V · <span id="vSaving"></span></p>
-        </div>
-        <div class="card metric power-only hidden">
-          <div class="metric-head"><span>🔆</span><span data-i18n="solar">Solar panel</span></div>
-          <div class="metric-value"><span id="vSolar">—</span><small>V</small></div>
-          <p class="muted small" id="vCharging"></p>
-        </div>
       </section>
 
       <!-- Charts -->
@@ -98,7 +87,6 @@
             <option value="temperature" data-i18n="temperature">Temperature</option>
             <option value="humidity" data-i18n="humidity">Air humidity</option>
             <option value="lux" data-i18n="light">Light</option>
-            <option value="battery_pct" data-i18n="battery">Battery</option>
           </select>
         </div>
         <div class="chart-box"><canvas id="chart"></canvas></div>

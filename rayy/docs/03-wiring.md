@@ -8,7 +8,7 @@
 
 | ESP32 pin | Connected to | Notes |
 |---|---|---|
-| **VIN (5V)** | MT3608 boost **VOUT+** (5.1 V) | Solar power (see 3.3). **Or** the USB port with a power bank while testing |
+| **USB port** | 5 V power bank / charger | Powers the whole project |
 | **3V3** | VCC of soil sensor, DHT22, BH1750 | Total < 50 mA |
 | **GND** | GND of every module | **All grounds together** |
 | **GPIO34** | Soil sensor **AOUT** | Analog input (ADC1) |
@@ -18,8 +18,6 @@
 | **GPIO25** | **100 Ω** → buzzer **(+)** | PWM melodies |
 | **GPIO13** | Push button → GND | Internal pull-up is used |
 | GPIO2 | On-board blue LED | Solid = connected to Firebase, blinking = offline |
-| **GPIO35** | Battery (+) → 100 kΩ → **GPIO35** → 100 kΩ → GND | Battery voltage ÷ 2 (input only) |
-| **GPIO39 (VN)** | Panel (+) → 100 kΩ → 100 kΩ → **GPIO39** → 100 kΩ → GND | Panel voltage ÷ 3 (input only) |
 
 > Analog sensors **must** use ADC1 pins (GPIO32–39). ADC2 pins stop working when Wi-Fi is on.
 
@@ -70,22 +68,11 @@ buzzer (+) → 5 V (VIN pin).
 ### Push button
 One leg → GPIO13, the diagonal leg → GND.
 
-## 3.3 Power (solar part)
+## 3.3 Power
 
-```
-Solar panel 6 V ──► CN3791 MPPT charger ──► 2 × 18650 (parallel) ──► switch ──► MT3608 (5.1 V) ──► ESP32 VIN + GND
-```
-
-1. Panel (+)/(−) → CN3791 **IN+ / IN−**.
-2. CN3791 **BAT+ / BAT−** → battery holder (+)/(−).
-3. Battery (+) → **switch** → MT3608 **VIN+**; battery (−) → MT3608 **VIN−**.
-4. **Set the MT3608 to 5.1 V with the multimeter before connecting the ESP32.**
-5. MT3608 **VOUT+** → ESP32 **VIN**; **VOUT−** → ESP32 **GND**.
-6. Add the two voltage dividers to **GPIO35** (battery) and **GPIO39** (panel) from the table above.
-
-The board's regulator makes 3.3 V for the sensors. ⚠️ Never connect the USB cable and the MT3608 at the same time:
-switch the solar part **off** before uploading code. While building, you can power the board from a **5 V USB power
-bank** through the USB port instead (set `SOLAR_ENABLED 0`). Full details: [11 · Solar power](11-solar-power.md).
+Connect the ESP32 USB port to a **5 V USB power bank** or a **USB phone charger** with the same cable you use for
+programming. The board's regulator makes 3.3 V for the sensors.
+Do not connect any other power source at the same time.
 
 ## 3.4 Assembly steps (recommended order)
 
@@ -97,8 +84,6 @@ bank** through the USB port instead (set `SOLAR_ENABLED 0`). Full details: [11 �
 6. **Final version:** solder onto a small perfboard (or use a mini breadboard) and put it in a box fixed to the pot:
    holes for the buzzer, a hole for the USB cable, and the soil sensor cable going
    into the pot. The DHT22 and BH1750 stay outside the box.
-7. **Solar part:** set the MT3608 to 5.1 V, wire the charger, batteries, switch and dividers (3.3), put them in the
-   box, and place the **solar panel** outside facing the sun (south, tilted ≈ 25°).
 
 ## 3.5 Typical problems
 
@@ -110,6 +95,3 @@ bank** through the USB port instead (set `SOLAR_ENABLED 0`). Full details: [11 �
 | No sound | Active buzzer instead of passive, wrong pin, or (+)/(−) reversed |
 | Board not detected by the PC | Charge-only USB cable (use a data cable) or missing CP210x/CH340 driver |
 | Project turns off on the power bank | The power bank auto-shuts-off at low current; use another one or a phone charger |
-| ESP32 restarts when Wi-Fi starts (solar) | Battery empty, or MT3608 below 5 V: charge the battery, re-set the MT3608 to 5.1 V |
-| Battery % is wrong | Check the 100 kΩ divider on GPIO35; calibrate `BATTERY_DIVIDER` ([11](11-solar-power.md)) |
-| "Not charging" in full sun | Panel wires reversed or CN3791 IN not connected; panel shaded |

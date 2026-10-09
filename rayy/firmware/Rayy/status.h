@@ -5,11 +5,9 @@
 // =====================================================================
 #pragma once
 #include "mood.h"
-#include "power.h"
 
 struct Status {
   Reading reading;
-  PowerReading power;   // solar panel + battery (power.enabled = false on a power bank)
   Mood    mood;
   bool    wifi;
   bool    cloud;

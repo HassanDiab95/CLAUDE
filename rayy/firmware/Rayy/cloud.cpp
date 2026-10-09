@@ -100,13 +100,6 @@ static void addReading(JsonDocument& d, const Status& s) {
   if (!isnan(s.reading.humidity))    d["humidity"]    = roundf(s.reading.humidity);
   if (s.reading.lux >= 0)            d["lux"]         = roundf(s.reading.lux);
   d["mood"] = moodName(s.mood);
-  if (s.power.enabled) {                           // solar part
-    d["battery_pct"] = s.power.batteryPct;
-    d["battery_v"]   = roundf(s.power.batteryV * 100) / 100;
-    d["solar_v"]     = roundf(s.power.solarV * 10) / 10;
-    d["charging"]    = s.power.charging;
-    d["saving"]      = s.power.lowBattery;
-  }
   d["ts"][".sv"] = "timestamp";                    // server time (milliseconds)
 }
 

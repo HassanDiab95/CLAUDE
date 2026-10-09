@@ -19,12 +19,6 @@ data class PlantLive(
     val rssi: Double? = null,
     val mood: String = "unknown",
     val ts: Long = 0,
-    // Solar part (null when the plant runs on a USB power bank)
-    val batteryPct: Double? = null,
-    val batteryV: Double? = null,
-    val solarV: Double? = null,
-    val charging: Boolean = false,
-    val saving: Boolean = false,
 )
 
 /** One point of plants/<id>/history (every 5 minutes) */
@@ -34,7 +28,6 @@ data class HistoryPoint(
     val temperature: Double?,
     val humidity: Double?,
     val lux: Double?,
-    val batteryPct: Double?,
 )
 
 /** One entry of plants/<id>/events (mood changes) */
@@ -64,11 +57,6 @@ fun DataSnapshot.toLive(): PlantLive? = if (!exists()) null else PlantLive(
     rssi = num("rssi"),
     mood = str("mood").ifEmpty { "unknown" },
     ts = long("ts"),
-    batteryPct = num("battery_pct"),
-    batteryV = num("battery_v"),
-    solarV = num("solar_v"),
-    charging = bool("charging"),
-    saving = bool("saving"),
 )
 
 fun DataSnapshot.toHistory(): HistoryPoint = HistoryPoint(
@@ -77,7 +65,6 @@ fun DataSnapshot.toHistory(): HistoryPoint = HistoryPoint(
     temperature = num("temperature"),
     humidity = num("humidity"),
     lux = num("lux"),
-    batteryPct = num("battery_pct"),
 )
 
 fun DataSnapshot.toEvent(): PlantEvent = PlantEvent(long("ts"), str("mood"), str("message"))

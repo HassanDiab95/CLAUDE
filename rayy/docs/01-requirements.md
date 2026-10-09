@@ -6,10 +6,9 @@ An interactive plant that **expresses its feelings with emoji and sound** using 
 technology. The plant's live readings (**soil moisture, light and temperature**) become digital
 **facial expressions (emoji)** and **sound alerts (melodies)**.
 
-> **Energy:** as in the original proposal, Rayy runs on **solar energy**: a 6 V solar panel charges two 18650
-> batteries that power the plant day and night (details in [11](11-solar-power.md)). A 5 V USB power bank remains as
-> a backup for indoor testing. The sound is made by a **buzzer** that plays a different melody for each mood.
-> **Artificial intelligence** is planned as future work, and the design is ready for it ([12](12-future-ai.md)).
+> **Scope decision:** to focus on the main idea, the solar energy part of the original proposal is replaced by a
+> simple **5 V USB power bank / charger**, and the sound is made by a **buzzer** that plays a different melody for each
+> mood. (Update the proposal text with your supervisor if needed. Solar power is listed as future work.)
 
 **Importance**
 
@@ -26,8 +25,7 @@ technology. The plant's live readings (**soil moisture, light and temperature**)
 2. Show the plant's state as an **emoji face** in the **web dashboard** and the **Android app** (no screen on the plant).
 3. Play **sound alerts**: a different buzzer melody for each mood (sad melody when thirsty, happy melody after watering…).
 4. Send the data to the **cloud** (Firebase) and show it on a **web dashboard** and an **Android app**.
-5. Run on **solar energy** (solar panel + rechargeable battery), and show the battery level and the charging state
-   in the apps. (A 5 V USB power bank can be used for indoor testing.)
+5. Run from a simple **5 V USB power bank** (portable) or a USB charger.
 6. Let the user change the plant thresholds, mute the sound, and play a sound on the plant from the apps.
 
 ## 1.3 Why the ESP32 (and not the ESP8266)
@@ -62,30 +60,25 @@ technology. The plant's live readings (**soil moisture, light and temperature**)
 | FR-14 | The web app shall let the user edit thresholds (moisture, temperature, light) and quiet hours. |
 | FR-15 | The apps shall support Arabic and English. |
 | FR-16 | A push button on the plant plays the current mood's melody. |
-| FR-17 | The device shall measure the battery voltage / level and the solar panel voltage, and upload them with the live data. |
-| FR-18 | The apps shall show the battery level, the panel voltage and whether the sun is charging the battery. |
-| FR-19 | Below 15 % battery the device shall enter a power-saving mode (no automatic melodies, slower uploads). |
 
 ## 1.5 Non-functional requirements
 
 | ID | Requirement |
 |---|---|
 | NFR-1 | **Availability:** the face and sounds must work even without Wi-Fi/internet (local decision on the ESP32). |
-| NFR-2 | **Energy:** low consumption (≈ 0.5 W); fully solar powered: the 6 W panel produces ≈ 2 × the daily need, and the battery lasts ≥ 36 h without sun. |
+| NFR-2 | **Energy:** low consumption (≈ 0.5 W); ≥ 2 days on a 10,000 mAh power bank. |
 | NFR-3 | **Security:** only signed-in users can read or write the database (Firebase rules). Passwords are never stored in the apps. |
 | NFR-4 | **Performance:** live data appears in the apps less than 35 s after a change. |
 | NFR-5 | **Usability:** the apps are simple, bilingual, and work on phones (responsive design). |
-| NFR-6 | **Cost:** total hardware cost around 261–501 SAR (main part + solar part). |
+| NFR-6 | **Cost:** total hardware cost around 150–340 SAR. |
 | NFR-7 | **Maintainability:** clear modular code, configuration in one file (`config.h`). |
-| NFR-8 | **Safety:** only safe low voltage (≤ 7 V). Protected Li-ion cells and a dedicated charger. The electronics are protected from water in a box. |
-| NFR-9 | **Extensibility:** the data and the code are ready for a future AI part (`plants/<id>/ai`, history export). |
+| NFR-8 | **Safety:** only safe low voltage (5 V USB). The electronics are protected from water in a box. |
 
 ## 1.6 Hardware requirements (summary; details in [02](02-hardware-bom.md))
 
 ESP32 DevKit V1 · capacitive soil moisture sensor v1.2 · BH1750 light sensor · DHT22 temperature/humidity
 sensor · passive buzzer + 100 Ω resistor · push button · breadboard + wires ·
-small enclosure. **Solar part:** 6 V 6 W solar panel · CN3791 MPPT charger · 2 × 18650 batteries + holder ·
-MT3608 boost converter (5 V) · 5 × 100 kΩ resistors · ON/OFF switch (details in [11](11-solar-power.md)).
+5 V USB power bank (or USB charger) · small enclosure.
 
 ## 1.7 Software requirements
 
@@ -114,8 +107,6 @@ flowchart LR
   P --- UC8([Show emoji + play melody])
   P --- UC9([Upload data to Firebase])
   P --- UC10([Read settings from the apps])
-  P --- UC11([Charge from the sun and report the battery])
-  U --- UC12([View battery and solar status])
 ```
 
 ## 1.9 Mood rules (the "brain" of the plant)
@@ -142,7 +133,7 @@ Rules are checked **in this order** (the first that matches wins). Thresholds ca
 ```mermaid
 flowchart TB
   ENV[Environment: soil, sun, air] -->|measurements| SYS[Rayy system]
-  SUN[☀️ Sun: solar panel + battery] -->|energy| SYS
+  PWR[5 V power bank] -->|energy| SYS
   SYS -->|emoji + melodies| USER[User near the plant]
   SYS <-->|live data, history, events, settings| CLOUD[(Firebase)]
   CLOUD <-->|dashboard| REMOTE[Remote user: web / Android]

@@ -4,8 +4,7 @@
 > (**soil moisture, light and temperature**) into **emoji faces** shown in the **web dashboard** and the **Android app**, and **sound alerts**
 > (a different buzzer melody for each feeling).
 > It sends its data to the cloud (**Firebase**), and a **web dashboard** and an **Android app** show it.
-> It is **solar powered**: a small solar panel charges a Li-ion battery, and the apps show the battery level and
-> whether the sun is charging it. **AI** is planned as future work (the project is ready for it).
+> Power comes from a simple **5 V USB power bank** (or phone charger).
 
 | 😊 Happy | 😫 Thirsty | 🥴 Too wet | 🥵 Too hot | 🥶 Cold | 😞 Needs light | 😴 Sleeping |
 |---|---|---|---|---|---|---|
@@ -29,8 +28,8 @@ to the final demo, step by step.
 
 | Folder / file | What it contains |
 |---|---|
-| [`docs/`](docs) | **Full project documentation** (chapters 00 → 12 + Word files + diagrams) |
-| [`firmware/Rayy/`](firmware/Rayy) | ESP32 program (Arduino IDE): sensors, moods, buzzer melodies, solar battery monitoring, Firebase |
+| [`docs/`](docs) | **Full project documentation** (chapters 00 → 10 + Word file + diagrams) |
+| [`firmware/Rayy/`](firmware/Rayy) | ESP32 program (Arduino IDE): sensors, emoji faces, buzzer melodies, Firebase |
 | [`web/`](web) | Web dashboard (HTML + CSS + JavaScript, Arabic / English) |
 | [`android/Rayy/`](android/Rayy) | Android Studio project **Rayy** (Kotlin + Jetpack Compose, Arabic / English) |
 | [`firebase/database.rules.json`](firebase/database.rules.json) | Security rules for the Realtime Database |
@@ -50,8 +49,6 @@ to the final demo, step by step.
 8. [Calibration and testing](docs/08-testing-calibration.md)
 9. [6-week project plan and team roles](docs/09-project-plan.md)
 10. [Graduation report outline, presentation and future work](docs/10-report-outline.md)
-11. [☀️ Solar power part: components, energy calculation, wiring, code](docs/11-solar-power.md)
-12. [🧠 Future work: artificial intelligence](docs/12-future-ai.md)
 
 ## 4. System architecture
 
@@ -62,9 +59,7 @@ flowchart LR
     S2[BH1750 light sensor] --> ESP
     S3[DHT22 temperature + humidity] --> ESP
     ESP --> BZ[Buzzer melodies 🔊]
-    SUN[☀️ Solar panel 6 V] --> CH[CN3791 MPPT charger] --> BAT[🔋 2 × 18650 battery]
-    BAT --> BST[MT3608 boost 5 V] --> ESP
-    BAT -. voltage .-> ESP
+    PB[🔋 5 V USB power bank] --> ESP
   end
   ESP <-- "Wi-Fi / HTTPS (REST)" --> FB[(Firebase<br/>Realtime Database<br/>+ Authentication)]
   FB <--> WEB[💻 Web dashboard<br/>Firebase Hosting]
@@ -74,7 +69,6 @@ flowchart LR
 * The **ESP32** reads the sensors every 2 s, chooses a mood and plays its melody. There is **no screen on the plant**:
   the emoji face is shown in the web dashboard and the Android app. Without internet the plant still decides its mood
   and plays its melodies; the apps update again when the connection is back.
-* It also measures the **battery** and the **solar panel** voltage (power-saving mode below 15 %).
 * Every 30 s it uploads the **live** data. Every 5 min it saves a **history** point. Each time the mood
   changes it writes an **event**. It also downloads the **config** (thresholds, quiet hours, mute) set from the apps.
 * The **web** and **Android** apps sign in with Firebase Authentication and update in real time.
@@ -82,7 +76,7 @@ flowchart LR
 
 ## 5. Quick start (summary)
 
-1. Buy the parts, main and solar ([docs/02](docs/02-hardware-bom.md)), and wire them ([docs/03](docs/03-wiring.md), [docs/11](docs/11-solar-power.md)).
+1. Buy the parts ([docs/02](docs/02-hardware-bom.md)) and wire them ([docs/03](docs/03-wiring.md)).
 2. Create the Firebase project ([docs/04](docs/04-firebase-setup.md)).
 3. Edit `firmware/Rayy/config.h` (Wi-Fi + Firebase) and upload it with the Arduino IDE ([docs/05](docs/05-firmware.md)).
 4. Paste your Firebase web config into `web/firebase-config.js` and run `firebase deploy` ([docs/06](docs/06-web-app.md)).

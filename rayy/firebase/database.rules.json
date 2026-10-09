@@ -9,7 +9,6 @@
         "history": { ".write": "auth != null", ".indexOn": ["ts"] },
         "events":  { ".write": "auth != null", ".indexOn": ["ts"] },
         "command": { ".write": "auth != null" },
-        "ai":      { ".write": "auth != null" },
         "config": {
           ".write": "auth != null",
           "moisture_min": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },

@@ -60,11 +60,4 @@
     <string name="track_7">Thank you</string>
     <string name="track_8">Good night</string>
     <string name="track_9">Hello</string>
-    <!-- Solar part -->
-    <string name="battery">Battery</string>
-    <string name="solar">Solar panel</string>
-    <string name="charging">Charging from the sun ☀️</string>
-    <string name="not_charging">Not charging now</string>
-    <string name="power_saving">Power-saving mode</string>
-    <string name="power_normal">Normal power</string>
 </resources>
