@@ -120,8 +120,8 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
 
     DATA(lv_action) = COND string(
       WHEN iv_mode = zif_fi_bud_2yf_types=>c_mode-create
-      THEN `created`
-      ELSE |changed (update { is_header-change_count } of { zif_fi_bud_2yf_types=>c_max_changes })| ).
+      THEN `Created`
+      ELSE |Updated { is_header-change_count }/{ zif_fi_bud_2yf_types=>c_max_changes }| ).
 
     DATA(lv_actor_user) = COND syuname( WHEN iv_mode = zif_fi_bud_2yf_types=>c_mode-create
                                         THEN is_header-ernam
@@ -131,7 +131,8 @@ CLASS zcl_fi_bud_2yf_notifier IMPLEMENTATION.
                                   ELSE |{ lv_actor_name } ({ lv_actor_user })| ).
 
     DATA(lv_subject) = |Budget Forecast { lv_years } { lv_action } - | &&
-                       |Company { is_header-bukrs } / Cost Center { is_header-kostl ALPHA = OUT }|.
+                       |Co. { is_header-bukrs } / CC { is_header-kostl ALPHA = OUT }|.
+    lv_subject = substring( val = lv_subject len = nmin( val1 = 70 val2 = strlen( lv_subject ) ) ).
 
     DATA(lv_html) = build_body(
       is_header           = is_header
