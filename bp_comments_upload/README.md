@@ -5,12 +5,20 @@ Communication → *Comments*, table `ADRCT-REMARK`) from an Excel file. The upda
 goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (tables `BAPIAD_REM` /
 `BAPIAD_RE_X`).
 
+| | |
+|---|---|
+| Transaction | `ZBPCMT` (report transaction → `ZBP_COMMENTS_UPLOAD`, start with selection screen 1000) |
+| Package | `ZFI` |
+| Request | `DS4K903324` |
+| Technical Consultant | Hassan Diab |
+| Functional Consultant | Nayera Makram |
+
 ## Objects
 
 | Object | Type | Purpose |
 |---|---|---|
 | `ZBP_COMMENTS_UPLOAD` | Executable program | Selection screen and entry point |
-| `ZBP_COMMENTS_UPLOAD_CLS` | Include | Local classes and ABAP Unit tests |
+| `ZBP_COMMENTS_UPLOAD_CLS` | Include | Local classes |
 | `BP_Comments_Upload_Template.xlsx` | Excel template | Upload file layout |
 
 ## Design (OOP / clean core)
@@ -26,7 +34,6 @@ goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (tables `BAPIAD_REM` /
 | `lcl_comment_updater` | Business logic: validation, insert or update of the comment, commit or rollback per BP |
 | `lcl_result_view` | Shows the result log in SALV |
 | `lcl_app` | Controller |
-| `ltc_comment_updater` / `ltd_bp_address_api` | ABAP Unit tests with a test double (no database changes) |
 
 - No modifications or enhancements to SAP standard. It uses only standard BAPIs
   and APIs, and all calls to non-released APIs sit behind interfaces.
@@ -108,7 +115,8 @@ Selection texts: `P_FILE` = *Excel file*, `P_TEST` = *Test run (no update)*.
 
 1. Create the program and include in SE38 (or pull with abapGit), maintain the
    text elements, then activate.
-2. Run the unit tests: SE80 → program → *Execute → Unit Tests* (Ctrl+Shift+F10).
+2. Create transaction `ZBPCMT` in SE93 (*Program and selection screen*, program
+   `ZBP_COMMENTS_UPLOAD`, screen 1000, GUI support for SAP GUI for Windows).
 3. Press **Download Template** on the selection screen, then fill the file
    with BP `20000000` and a comment.
 4. Run with **Test run = X** and check the result list (yellow = validated).

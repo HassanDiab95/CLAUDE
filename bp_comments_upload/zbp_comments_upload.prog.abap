@@ -1,40 +1,39 @@
 *&---------------------------------------------------------------------*
-*& Report ZBP_COMMENTS_UPLOAD
+*& Program        : ZBP_COMMENTS_UPLOAD
+*& Package        : ZFI
+*& Transaction    : ZBPCMT
 *&---------------------------------------------------------------------*
-*& Upload Business Partner address "Comments" (BP > Address >
-*& Communication > Comments, table ADRCT-REMARK) from an Excel file.
-*&
-*& Excel layout (first worksheet, first row = header, always skipped):
-*&   Column A : Business Partner number   (e.g. 20000000)
-*&   Column B : Comments                  (max. 50 characters)
-*&   Column C : Language (optional, ISO e.g. EN / AR, default logon lang.)
-*&
-*& Update is done through the standard BAPI BAPI_BUPA_ADDRESS_CHANGE
-*& (tables BAPIAD_REM / BAPIAD_RE_X) on the BP standard address:
-*&   - BP is locked (EBU_PARTNR) for the time of the update
-*&   - ADDRESSGUID = standard address GUID (else the standard
-*&     address is not changed)
-*&   - BAPI_TRANSACTION_COMMIT with WAIT = X, then the linked
-*&     customer (CVI) is checked so FD02/XD02 is not "one step behind"
-*& All non-released
-*& calls (GUI upload, BAPIs, COMMIT) are encapsulated behind
-*& interfaces so the business logic stays testable (ABAP Unit).
+*& Technical Consultant  : Hassan Diab
+*& Functional Consultant : Nayera Makram
 *&---------------------------------------------------------------------*
+*& Purpose        : Upload Business Partner address comments (BP >
+*&                  Address > Communication > Comments) from an Excel
+*&                  file using BAPI_BUPA_ADDRESS_CHANGE, with test run,
+*&                  template download and result log.
+*&---------------------------------------------------------------------*
+*& Created By     : Hassan Diab
+*& Created On     : 12.10.2026
+*& Request No.    : DS4K903324
+*& Version        : 1.0
+*&---------------------------------------------------------------------*
+*& Change History
+*&---------------------------------------------------------------------*
+*& Ver | Date       | Author        | Request No.  | Description
+*&-----|------------|---------------|--------------|--------------------
+*& 1.0 | 12.10.2026 | Hassan Diab   | DS4K903324   | Initial creation.
+*&---------------------------------------------------------------------*
+
 REPORT zbp_comments_upload.
 
 TABLES sscrfields.
 
 INCLUDE zbp_comments_upload_cls.
 
-*----------------------------------------------------------------------*
-* Selection screen
-*----------------------------------------------------------------------*
 SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-b01.
   PARAMETERS: p_file TYPE string LOWER CASE,
               p_test AS CHECKBOX DEFAULT abap_true.
 SELECTION-SCREEN END OF BLOCK b01.
 
-" application toolbar button: download Excel template
 SELECTION-SCREEN FUNCTION KEY 1.
 
 INITIALIZATION.
@@ -50,15 +49,12 @@ AT SELECTION-SCREEN.
     WHEN 'FC01'.
       NEW lcl_template( )->download( ).
     WHEN 'ONLI'.
-      " checked here instead of OBLIGATORY so the template button works
-      " without a file name
       IF p_file IS INITIAL.
         MESSAGE TEXT-e03 TYPE 'E'.
       ENDIF.
   ENDCASE.
 
 START-OF-SELECTION.
-  " row 1 of the file is always the header row of the template
   NEW lcl_app( )->run( iv_file        = p_file
                        iv_skip_header = abap_true
                        iv_test_mode   = p_test ).
