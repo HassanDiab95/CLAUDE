@@ -52,7 +52,7 @@ AT SELECTION-SCREEN.
       IF p_file IS INITIAL.
         MESSAGE TEXT-e03 TYPE 'E'.
       ENDIF.
-      IF to_upper( p_file ) NP '*.XLSX' AND to_upper( p_file ) NP '*.XLSM'.
+      IF lcl_frontend_file=>is_excel( p_file ) = abap_false.
         MESSAGE TEXT-e04 TYPE 'E'.
       ENDIF.
   ENDCASE.

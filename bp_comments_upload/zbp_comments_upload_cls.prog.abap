@@ -91,6 +91,9 @@ CLASS lcl_frontend_file DEFINITION FINAL.
   PUBLIC SECTION.
     INTERFACES lif_file_reader.
     CLASS-METHODS select_file RETURNING VALUE(rv_file) TYPE string.
+    CLASS-METHODS is_excel
+      IMPORTING iv_file          TYPE string
+      RETURNING VALUE(rv_result) TYPE abap_bool.
 ENDCLASS.
 
 CLASS lcl_frontend_file IMPLEMENTATION.
@@ -112,6 +115,16 @@ CLASS lcl_frontend_file IMPLEMENTATION.
     IF sy-subrc = 0 AND lv_rc = 1.
       rv_file = VALUE #( lt_files[ 1 ]-filename OPTIONAL ).
     ENDIF.
+
+    IF rv_file IS NOT INITIAL AND is_excel( rv_file ) = abap_false.
+      CLEAR rv_file.
+      MESSAGE TEXT-e04 TYPE 'S' DISPLAY LIKE 'E'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD is_excel.
+    DATA(lv_file) = to_upper( iv_file ).
+    rv_result = xsdbool( lv_file CP '*.XLSX' OR lv_file CP '*.XLSM' ).
   ENDMETHOD.
 
   METHOD lif_file_reader~read_binary.

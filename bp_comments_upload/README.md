@@ -85,7 +85,7 @@ If one already exists it is overwritten (`'U'`).
 
 | Parameter | Meaning |
 |---|---|
-| `P_FILE` | Excel file. F4 opens the file dialog with the filters *Excel Files (\*.xls, \*.xlsx, \*.xlsm)* and *All Files (\*.\*)*. On execute only `.xlsx` and `.xlsm` are accepted (`.xls`, the old Excel 97-2003 format, can't be read, so save it as `.xlsx` first) |
+| `P_FILE` | Excel file. F4 opens the file dialog with the filters *Excel Files (\*.xls, \*.xlsx, \*.xlsm)* and *All Files (\*.\*)*. When a file is picked and again on execute, only `.xlsx` and `.xlsm` are accepted (message `E04`, the field is cleared) (`.xls`, the old Excel 97-2003 format, can't be read, so save it as `.xlsx` first) |
 | `P_TEST` | Test run. The BAPI is called and then rolled back (default: on) |
 
 Application toolbar button **Download Template** (function key `FC01`) generates
@@ -133,7 +133,9 @@ Selection texts: `P_FILE` = *Excel file*, `P_TEST` = *Test run (no update)*.
 ## Fiori Launchpad (SAP GUI for HTML tile)
 
 `ZBPCMT` runs in the Fiori Launchpad as an SAP GUI for HTML (WebGUI) app. No code
-change is needed. The upload, the template download (to the browser's download
+change is needed. In WebGUI the browser's own file picker is used and the file-type
+filter may be ignored (all files are listed); the program still rejects anything
+other than `.xlsx`/`.xlsm` as soon as the file is picked. The upload, the template download (to the browser's download
 folder) and the ALV result list all work in WebGUI.
 
 | Object | Name |
