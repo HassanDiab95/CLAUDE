@@ -8,6 +8,7 @@ goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (tables `BAPIAD_REM` /
 | | |
 |---|---|
 | Transaction | `ZBPCMT` (report transaction → `ZBP_COMMENTS_UPLOAD`, start with selection screen 1000) |
+| Fiori | Launchpad tile *Upload BP Comments* (SAP GUI for HTML, `ZBPComments-upload`) |
 | Package | `ZFI` |
 | Request | `DS4K903324` |
 | Technical Consultant | Hassan Diab |
@@ -116,7 +117,8 @@ Selection texts: `P_FILE` = *Excel file*, `P_TEST` = *Test run (no update)*.
 1. Create the program and include in SE38 (or pull with abapGit), maintain the
    text elements, then activate.
 2. Create transaction `ZBPCMT` in SE93 (*Program and selection screen*, program
-   `ZBP_COMMENTS_UPLOAD`, screen 1000, GUI support for SAP GUI for Windows).
+   `ZBP_COMMENTS_UPLOAD`, screen 1000, GUI support for SAP GUI for Windows and
+   SAP GUI for HTML).
 3. Press **Download Template** on the selection screen, then fill the file
    with BP `20000000` and a comment.
 4. Run with **Test run = X** and check the result list (yellow = validated).
@@ -126,6 +128,48 @@ Selection texts: `P_FILE` = *Excel file*, `P_TEST` = *Test run (no update)*.
    check the value. Change documents are written by the standard.
 7. If BP `20000000` is also a customer, check the same comment in `XD03`/`FD03`
    (Address → Communication → Comments).
+
+## Fiori Launchpad (SAP GUI for HTML tile)
+
+`ZBPCMT` runs in the Fiori Launchpad as an SAP GUI for HTML (WebGUI) app. No code
+change is needed. The upload, the template download (to the browser's download
+folder) and the ALV result list all work in WebGUI.
+
+| Object | Name |
+|---|---|
+| Semantic object | `ZBPComments` |
+| Action | `upload` |
+| Technical catalog / business catalog | `ZFI_BC_BP_COMMENTS` |
+| Group (or space/page) | `ZFI_BG_BP_COMMENTS` |
+| PFCG role | `ZFI_BP_COMMENTS` |
+| Tile title | Upload BP Comments (subtitle *Excel upload*, icon `sap-icon://upload`) |
+
+1. **SE93** → `ZBPCMT` → *GUI support*: tick **SAP GUI for HTML** (keep SAP GUI for
+   Windows). Check that SICF service `/sap/bc/gui/sap/its/webgui` is active.
+   Quick test: `https://<host>:<port>/sap/bc/gui/sap/its/webgui?~transaction=ZBPCMT`.
+2. **/UI2/SEMOBJ**: create semantic object `ZBPComments`.
+3. **/UI2/FLPD_CUST** (Launchpad Designer), or the Launchpad App Manager
+   **/UI2/FLPAM** on newer releases: create catalog `ZFI_BC_BP_COMMENTS`.
+   - **Target mapping:** semantic object `ZBPComments`, action `upload`,
+     application type **Transaction**, transaction `ZBPCMT`, system alias of the
+     backend (empty or `LOCAL` on an embedded system), device type **Desktop**.
+   - **Tile:** *Static App Launcher*, title *Upload BP Comments*, icon
+     `sap-icon://upload`, navigation to `ZBPComments` / `upload`.
+4. Create group `ZFI_BG_BP_COMMENTS` and add the tile (or add it to a
+   space/page with *Manage Launchpad Spaces* / *Manage Launchpad Pages*).
+5. **PFCG** role `ZFI_BP_COMMENTS`:
+   - Menu: add the catalog and the group (or space) as *SAP Fiori Launchpad*
+     nodes, and add transaction `ZBPCMT` (for `S_TCODE`).
+   - Authorizations: BP change authorizations (`B_BUPA_RLT`, `B_BUPA_GRP`, …,
+     as for Tcode `BP`).
+   - Assign the role to the users.
+6. Open the launchpad (`/sap/bc/ui2/flp`), find the tile and run the DEV 110 test
+   case. If the tile doesn't appear, run report `/UI2/INVALIDATE_GLOBAL_CACHES`
+   and clear the browser cache.
+
+The tile is for desktop only (WebGUI isn't supported on phones). A native
+SAPUI5/RAP Fiori app would need a separate development (OData service plus UI5
+upload screen).
 
 ## Estimation
 
