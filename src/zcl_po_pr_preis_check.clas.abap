@@ -5,8 +5,8 @@
 *& PR types Z306/Z307 -> PO types Z406/Z407 (ME21N / ME22N)
 *&  1) PO item created with reference to the PR item:
 *&     EBAN-PREIS is copied to EKPO-EXPECTED_VALUE
-*&  2) error if EKPO-EXPECTED_VALUE > EBAN-PREIS
-*&     (Expected value more than purchase requisition valuation price)
+*&  2) error if the PO item conditions are more than EBAN-PREIS:
+*&     EKKO-KNUMV -> PRCD_ELEMENTS, SUM( KBETR ) of the item <= EBAN-PREIS
 *&  3) PR item closing on save is done by ZCL_PR_AUTO_CLOSE
 *&---------------------------------------------------------------------*
 CLASS ZCL_PO_PR_PREIS_CHECK DEFINITION
@@ -79,6 +79,11 @@ CLASS ZCL_PO_PR_PREIS_CHECK DEFINITION
                 IS_PR   TYPE TY_PR
       CHANGING  CS_ITEM TYPE MEPOITEM.
 
+    METHODS GET_CONDITION_VALUE
+      IMPORTING IO_ITEM        TYPE REF TO IF_PURCHASE_ORDER_ITEM_MM
+                IS_ITEM        TYPE MEPOITEM
+      RETURNING VALUE(RV_VALUE) TYPE BAPICURR_D.
+
     METHODS CHECK_ITEM
       IMPORTING IO_ITEM          TYPE REF TO IF_PURCHASE_ORDER_ITEM_MM
                 IS_ITEM          TYPE MEPOITEM
@@ -116,16 +121,18 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
 * +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD CHECK_ITEM.
 
-    CHECK IS_ITEM-EXPECTED_VALUE > IS_PR-PREIS.
+    DATA(LV_CONDITIONS) = GET_CONDITION_VALUE( IO_ITEM = IO_ITEM
+                                               IS_ITEM = IS_ITEM ).
+    CHECK LV_CONDITIONS > IS_PR-PREIS.
 
     RV_FAILED = ABAP_TRUE.
 
-*   Item &1: Expected value &2 more than PR &3 valuation price &4
+*   Item &1: Conditions total &2 more than PR &3 valuation price &4
     RAISE_MESSAGE( IV_MSGTY = 'E'
                    IV_MSGID = CO_MSGID
                    IV_MSGNO = CO_MSGNO_PREIS
                    IV_MSGV1 = |{ IS_ITEM-EBELP ALPHA = OUT }|
-                   IV_MSGV2 = FORMAT_AMOUNT( IV_AMOUNT = CONV #( IS_ITEM-EXPECTED_VALUE )
+                   IV_MSGV2 = FORMAT_AMOUNT( IV_AMOUNT = LV_CONDITIONS
                                              IV_WAERS  = IS_PR-WAERS )
                    IV_MSGV3 = |{ IS_PR-BANFN } / { IS_PR-BNFPO ALPHA = OUT }|
                    IV_MSGV4 = FORMAT_AMOUNT( IV_AMOUNT = CONV #( IS_PR-PREIS )
@@ -196,7 +203,7 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
                                       IS_PR   = LS_PR
                             CHANGING  CS_ITEM = LS_ITEM ).
 
-*   2) expected value must not exceed the PR valuation price
+*   2) conditions (SUM KBETR) must not exceed the PR valuation price
     CHECK_ITEM( IO_ITEM = IO_ITEM
                 IS_ITEM = LS_ITEM
                 IS_PR   = LS_PR ).
@@ -246,6 +253,45 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
     RV_TEXT = |{ LV_AMT NUMBER = USER } { IV_WAERS }|.
   ENDMETHOD.
 
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PO_PR_PREIS_CHECK->GET_CONDITION_VALUE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_ITEM                        TYPE REF TO IF_PURCHASE_ORDER_ITEM_MM
+* | [--->] IS_ITEM                        TYPE        MEPOITEM
+* | [<-()] RV_VALUE                       TYPE        BAPICURR_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_CONDITION_VALUE.
+
+    DATA: LT_KOMV  TYPE MMPUR_TKOMV,
+          LV_KPOSN TYPE KPOSN.
+
+    LV_KPOSN = IS_ITEM-EBELP.
+
+*   1) conditions of KNUMV still in memory: current values, also for a
+*      new PO (ME21N) or a changed price (ME22N) not yet saved to the DB
+    IO_ITEM->GET_CONDITIONS( IMPORTING EX_CONDITIONS = LT_KOMV ).
+    IF LT_KOMV IS NOT INITIAL.
+      LOOP AT LT_KOMV INTO DATA(LS_KOMV)
+           WHERE KPOSN = LV_KPOSN
+             AND KINAK IS INITIAL.
+        RV_VALUE += LS_KOMV-KBETR.
+      ENDLOOP.
+      RETURN.
+    ENDIF.
+
+*   2) EKKO-KNUMV -> PRCD_ELEMENTS (saved conditions)
+    DATA(LV_KNUMV) = IO_ITEM->GET_HEADER( )->GET_DATA( )-KNUMV.
+    CHECK LV_KNUMV IS NOT INITIAL.
+
+    SELECT SUM( KBETR )
+      FROM PRCD_ELEMENTS
+      WHERE KNUMV = @LV_KNUMV
+        AND KPOSN = @LV_KPOSN
+        AND KINAK = @SPACE
+      INTO @RV_VALUE.
+
+  ENDMETHOD.
 
 * <SIGNATURE>---------------------------------------------------------------------------------------+
 * | Static Public Method ZCL_PO_PR_PREIS_CHECK=>GET_INSTANCE
