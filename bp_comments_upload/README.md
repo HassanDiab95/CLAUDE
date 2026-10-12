@@ -61,8 +61,8 @@ goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (tables `BAPIAD_REM` /
 
 ## Excel layout
 
-The program reads the first worksheet. Row 1 is the header and is skipped
-when *Skip header* is ticked.
+The program reads the first worksheet. Row 1 is the header row and is always
+skipped, so data starts in row 2.
 
 | Column | Content | Mandatory |
 |---|---|---|
@@ -78,7 +78,6 @@ If one already exists it is overwritten (`'U'`).
 | Parameter | Meaning |
 |---|---|
 | `P_FILE` | Excel file (F4 opens the file dialog) |
-| `P_HEAD` | Skip the header row (default: on) |
 | `P_TEST` | Test run. The BAPI is called and then rolled back (default: on) |
 
 Application toolbar button **Download Template** (function key `FC01`) generates
@@ -103,8 +102,7 @@ Text symbols:
 | `M01` | Comment updated successfully |
 | `M02` | Test run – comment validated, not saved |
 
-Selection texts: `P_FILE` = *Excel file*, `P_HEAD` = *Skip header row*,
-`P_TEST` = *Test run (no update)*.
+Selection texts: `P_FILE` = *Excel file*, `P_TEST` = *Test run (no update)*.
 
 ## Test case – DEV client 110
 

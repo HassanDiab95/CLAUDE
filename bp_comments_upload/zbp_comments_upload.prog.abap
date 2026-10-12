@@ -4,7 +4,7 @@
 *& Upload Business Partner address "Comments" (BP > Address >
 *& Communication > Comments, table ADRCT-REMARK) from an Excel file.
 *&
-*& Excel layout (first worksheet, first row = header):
+*& Excel layout (first worksheet, first row = header, always skipped):
 *&   Column A : Business Partner number   (e.g. 20000000)
 *&   Column B : Comments                  (max. 50 characters)
 *&   Column C : Language (optional, ISO e.g. EN / AR, default logon lang.)
@@ -31,7 +31,6 @@ INCLUDE zbp_comments_upload_cls.
 *----------------------------------------------------------------------*
 SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-b01.
   PARAMETERS: p_file TYPE string LOWER CASE,
-              p_head AS CHECKBOX DEFAULT abap_true,
               p_test AS CHECKBOX DEFAULT abap_true.
 SELECTION-SCREEN END OF BLOCK b01.
 
@@ -59,6 +58,7 @@ AT SELECTION-SCREEN.
   ENDCASE.
 
 START-OF-SELECTION.
+  " row 1 of the file is always the header row of the template
   NEW lcl_app( )->run( iv_file        = p_file
-                       iv_skip_header = p_head
+                       iv_skip_header = abap_true
                        iv_test_mode   = p_test ).
