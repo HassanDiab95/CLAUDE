@@ -27,8 +27,10 @@ INTERFACE lif_types.
     END OF ty_result,
     tt_result TYPE STANDARD TABLE OF ty_result WITH EMPTY KEY,
 
-    " typed exactly like the BAPI_BUPA_ADDRESS_CHANGE interface
-    ty_address_guid TYPE but020-guid,
+    " BAPI_BUPA_ADDRESSES_GET returns the GUID as RAW16 (BUT020-ADDRESS_GUID),
+    " BAPI_BUPA_ADDRESS_CHANGE expects it as CHAR32 (BUT020-GUID)
+    ty_address_guid      TYPE but020-address_guid,
+    ty_address_guid_bapi TYPE but020-guid,
     tt_remarks      TYPE STANDARD TABLE OF bapiad_rem WITH DEFAULT KEY,
     tt_remarks_x    TYPE STANDARD TABLE OF bapiad_rex WITH DEFAULT KEY.
 
@@ -396,27 +398,29 @@ CLASS lcl_bp_address_api IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD lif_bp_address_api~get_remarks.
-    DATA lt_return TYPE bapiret2_t.
-
-    CALL FUNCTION 'BAPI_BUPA_ADDRESS_GETDETAIL'
-      EXPORTING
-        businesspartner = iv_partner
-        addressguid     = iv_guid
-      TABLES
-        bapiad_rem      = rt_remarks
-        return          = lt_return.
+    " existing comments (ADRCT) of the given BP address
+    SELECT r~langu, r~remark AS adr_notes
+      FROM but020 AS a
+      INNER JOIN adrct AS r ON r~addrnumber = a~addrnumber
+      WHERE a~partner      = @iv_partner
+        AND a~address_guid = @iv_guid
+        AND r~nation       = @space
+      INTO CORRESPONDING FIELDS OF TABLE @rt_remarks.
   ENDMETHOD.
 
   METHOD lif_bp_address_api~change_remarks.
     DATA(lt_remarks)   = it_remarks.
     DATA(lt_remarks_x) = it_remarks_x.
 
-    " ADDRESSGUID must be filled with the standard address GUID,
-    " otherwise the standard address is not changed
+    " RAW16 -> CHAR32 (hex). The BAPI converts it back to RAW16 internally.
+    " ADDRESSGUID must be the standard address GUID, otherwise the
+    " standard address is not changed.
+    DATA(lv_guid_bapi) = CONV lif_types=>ty_address_guid_bapi( iv_guid ).
+
     CALL FUNCTION 'BAPI_BUPA_ADDRESS_CHANGE'
       EXPORTING
         businesspartner = iv_partner
-        addressguid     = iv_guid
+        addressguid     = lv_guid_bapi
       TABLES
         bapiad_rem      = lt_remarks
         bapiad_re_x     = lt_remarks_x
