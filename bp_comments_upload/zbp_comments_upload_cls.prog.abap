@@ -118,7 +118,7 @@ CLASS lcl_frontend_file IMPLEMENTATION.
       EXCEPTIONS
         OTHERS     = 1 ).
     IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW lcx_upload_error( |File { iv_file } could not be read| ).
+      RAISE EXCEPTION TYPE lcx_upload_error EXPORTING iv_text = |File { iv_file } could not be read|.
     ENDIF.
 
     rv_xstring = cl_bcs_convert=>solix_to_xstring( it_solix = lt_bin
@@ -167,11 +167,11 @@ CLASS lcl_excel_parser IMPLEMENTATION.
         DATA(lr_sheet) = lo_xlsx->if_fdt_doc_spreadsheet~get_itab_from_worksheet(
                            VALUE #( lt_sheets[ 1 ] OPTIONAL ) ).
       CATCH cx_fdt_excel_core INTO DATA(lx_excel).
-        RAISE EXCEPTION NEW lcx_upload_error( previous = lx_excel ).
+        RAISE EXCEPTION TYPE lcx_upload_error EXPORTING previous = lx_excel.
     ENDTRY.
 
     IF lr_sheet IS NOT BOUND.
-      RAISE EXCEPTION NEW lcx_upload_error( TEXT-e01 ).
+      RAISE EXCEPTION TYPE lcx_upload_error EXPORTING iv_text = TEXT-e01.
     ENDIF.
     ASSIGN lr_sheet->* TO <lt_sheet>.
 
@@ -197,7 +197,7 @@ CLASS lcl_excel_parser IMPLEMENTATION.
     ENDLOOP.
 
     IF rt_upload IS INITIAL.
-      RAISE EXCEPTION NEW lcx_upload_error( TEXT-e01 ).
+      RAISE EXCEPTION TYPE lcx_upload_error EXPORTING iv_text = TEXT-e01.
     ENDIF.
   ENDMETHOD.
 
@@ -737,7 +737,7 @@ CLASS ltd_bp_address_api IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD lif_bp_address_api~unlock.
-    mv_unlocks += 1.
+    mv_unlocks = mv_unlocks + 1.
   ENDMETHOD.
 
   METHOD lif_bp_address_api~get_customer_remark.
@@ -760,11 +760,11 @@ CLASS ltd_bp_address_api IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD lif_bp_address_api~commit.
-    mv_commits += 1.
+    mv_commits = mv_commits + 1.
   ENDMETHOD.
 
   METHOD lif_bp_address_api~rollback.
-    mv_rollbacks += 1.
+    mv_rollbacks = mv_rollbacks + 1.
   ENDMETHOD.
 ENDCLASS.
 
@@ -799,8 +799,9 @@ CLASS ltc_comment_updater IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_one.
-    rs_result = mo_cut->process( it_upload    = VALUE #( ( is_upload ) )
-                                 iv_test_mode = iv_test_mode )[ 1 ].
+    DATA(lt_result) = mo_cut->process( it_upload    = VALUE #( ( is_upload ) )
+                                       iv_test_mode = iv_test_mode ).
+    rs_result = lt_result[ 1 ].
   ENDMETHOD.
 
   METHOD insert_new_comment_commits.
