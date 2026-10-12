@@ -105,7 +105,7 @@ CLASS lcl_frontend_file IMPLEMENTATION.
       EXPORTING
         window_title            = CONV #( TEXT-f01 )
         default_extension       = 'xlsx'
-        file_filter             = |Excel Files (*.xls,*.xlsx,*.xlsm)\|*.xls;*.xlsx;*.xlsm\|All Files (*.*)\|*.*|
+        file_filter             = |Excel Files (*.xlsx)\|*.xlsx|
         multiselection          = abap_false
       CHANGING
         file_table              = lt_files
@@ -124,7 +124,7 @@ CLASS lcl_frontend_file IMPLEMENTATION.
 
   METHOD is_excel.
     DATA(lv_file) = to_upper( iv_file ).
-    rv_result = xsdbool( lv_file CP '*.XLSX' OR lv_file CP '*.XLSM' ).
+    rv_result = xsdbool( lv_file CP '*.XLSX' ).
   ENDMETHOD.
 
   METHOD lif_file_reader~read_binary.
