@@ -208,6 +208,108 @@ CLASS lcl_excel_parser IMPLEMENTATION.
 ENDCLASS.
 
 *----------------------------------------------------------------------*
+* Excel template download (selection-screen function key)
+*----------------------------------------------------------------------*
+CLASS lcl_template DEFINITION FINAL.
+  PUBLIC SECTION.
+    TYPES:
+      BEGIN OF ty_template,
+        partner  TYPE char10,
+        comments TYPE ad_remark1,
+        langu    TYPE laiso,
+      END OF ty_template,
+      tt_template TYPE STANDARD TABLE OF ty_template WITH EMPTY KEY.
+
+    METHODS download.
+
+  PRIVATE SECTION.
+    METHODS build_xlsx
+      RETURNING VALUE(rv_xlsx) TYPE xstring
+      RAISING   cx_salv_error.
+
+    METHODS ask_target_file
+      RETURNING VALUE(rv_file) TYPE string.
+ENDCLASS.
+
+CLASS lcl_template IMPLEMENTATION.
+  METHOD download.
+    DATA(lv_file) = ask_target_file( ).
+    IF lv_file IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        DATA(lv_xlsx) = build_xlsx( ).
+      CATCH cx_salv_error INTO DATA(lx_salv).
+        MESSAGE lx_salv TYPE 'S' DISPLAY LIKE 'E'.
+        RETURN.
+    ENDTRY.
+
+    DATA(lt_bin) = cl_bcs_convert=>xstring_to_solix( lv_xlsx ).
+    cl_gui_frontend_services=>gui_download(
+      EXPORTING
+        bin_filesize = xstrlen( lv_xlsx )
+        filename     = lv_file
+        filetype     = 'BIN'
+      CHANGING
+        data_tab     = lt_bin
+      EXCEPTIONS
+        OTHERS       = 1 ).
+    IF sy-subrc = 0.
+      MESSAGE |Template saved to { lv_file }| TYPE 'S'.
+    ELSE.
+      MESSAGE |Template could not be saved to { lv_file }| TYPE 'S' DISPLAY LIKE 'E'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD build_xlsx.
+    " one sample line so the user sees the expected format
+    DATA(lt_template) = VALUE tt_template( ( partner  = '20000000'
+                                             comments = 'Sample comment'
+                                             langu    = 'EN' ) ).
+
+    cl_salv_table=>factory( IMPORTING r_salv_table = DATA(lo_alv)
+                            CHANGING  t_table      = lt_template ).
+
+    DATA(lo_columns) = lo_alv->get_columns( ).
+    lo_columns->get_column( 'PARTNER' )->set_long_text( 'Business Partner' ).
+    lo_columns->get_column( 'PARTNER' )->set_medium_text( 'Business Partner' ).
+    lo_columns->get_column( 'PARTNER' )->set_short_text( 'BP' ).
+    lo_columns->get_column( 'COMMENTS' )->set_long_text( 'Comments' ).
+    lo_columns->get_column( 'COMMENTS' )->set_medium_text( 'Comments' ).
+    lo_columns->get_column( 'COMMENTS' )->set_short_text( 'Comments' ).
+    lo_columns->get_column( 'LANGU' )->set_long_text( 'Language (ISO, optional)' ).
+    lo_columns->get_column( 'LANGU' )->set_medium_text( 'Language (ISO)' ).
+    lo_columns->get_column( 'LANGU' )->set_short_text( 'Language' ).
+
+    rv_xlsx = lo_alv->to_xml( xml_type = if_salv_bs_xml=>c_type_xlsx ).
+  ENDMETHOD.
+
+  METHOD ask_target_file.
+    DATA lv_name TYPE string.
+    DATA lv_path TYPE string.
+    DATA lv_action TYPE i.
+
+    cl_gui_frontend_services=>file_save_dialog(
+      EXPORTING
+        window_title      = CONV #( TEXT-f02 )
+        default_extension = 'xlsx'
+        default_file_name = 'BP_Comments_Upload_Template.xlsx'
+        file_filter       = |Excel (*.xlsx)\|*.xlsx|
+      CHANGING
+        filename          = lv_name
+        path              = lv_path
+        fullpath          = rv_file
+        user_action       = lv_action
+      EXCEPTIONS
+        OTHERS            = 1 ).
+    IF sy-subrc <> 0 OR lv_action = cl_gui_frontend_services=>action_cancel.
+      CLEAR rv_file.
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+
+*----------------------------------------------------------------------*
 * BP address API (wrapper around standard BAPIs)
 *----------------------------------------------------------------------*
 INTERFACE lif_bp_address_api.

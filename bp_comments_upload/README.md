@@ -20,6 +20,7 @@ goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (table `BAPIADREM`).
 | `lcx_upload_error` | Class-based exception |
 | `lif_file_reader` / `lcl_frontend_file` | Reads the file from the PC (F4 dialog plus binary upload) |
 | `lcl_excel_parser` | Parses the `.xlsx` (`CL_FDT_XL_SPREADSHEET`) into upload records |
+| `lcl_template` | Builds the Excel template (`CL_SALV_TABLE->TO_XML`, xlsx) and saves it to the PC |
 | `lif_bp_address_api` / `lcl_bp_address_api` | Wraps the standard BAPIs: `BAPI_BUPA_ADDRESSES_GET`, `BAPI_BUPA_ADDRESS_GETDETAIL`, `BAPI_BUPA_ADDRESS_CHANGE`, `BAPI_TRANSACTION_COMMIT/ROLLBACK` |
 | `lcl_comment_updater` | Business logic: validation, insert or update of the comment, commit or rollback per BP |
 | `lcl_result_view` | Shows the result log in SALV |
@@ -54,6 +55,11 @@ If one already exists it is overwritten (`'U'`).
 | `P_HEAD` | Skip the header row (default: on) |
 | `P_TEST` | Test run. The BAPI is called and then rolled back (default: on) |
 
+Application toolbar button **Download Template** (function key `FC01`) generates
+the Excel template with the correct header row and one sample line, and asks
+where to save it. No file name is needed for this button, so `P_FILE` is
+checked only when the program is executed (F8) instead of being `OBLIGATORY`.
+
 ### Text elements to maintain (SE38 → Goto → Text elements)
 
 Text symbols:
@@ -62,6 +68,10 @@ Text symbols:
 |---|---|
 | `B01` | Upload parameters |
 | `F01` | Select Excel file |
+| `F02` | Save Excel template |
+| `T01` | Download Template |
+| `T02` | Download Excel upload template |
+| `E03` | Please enter the Excel file name |
 | `E01` | No data found in the Excel file |
 | `E02` | Business Partner number is missing |
 | `M01` | Comment updated successfully |
@@ -75,7 +85,8 @@ Selection texts: `P_FILE` = *Excel file*, `P_HEAD` = *Skip header row*,
 1. Create the program and include in SE38 (or pull with abapGit), maintain the
    text elements, then activate.
 2. Run the unit tests: SE80 → program → *Execute → Unit Tests* (Ctrl+Shift+F10).
-3. Fill the template with BP `20000000` and a comment.
+3. Press **Download Template** on the selection screen, then fill the file
+   with BP `20000000` and a comment.
 4. Run with **Test run = X** and check the result list (yellow = validated).
 5. Run with **Test run = blank** and check the result list (green = saved).
 6. Open Tcode `BP` → `20000000` → Address → Communication → *Comments* and
