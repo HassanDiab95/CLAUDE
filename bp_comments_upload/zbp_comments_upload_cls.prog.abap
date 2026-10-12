@@ -27,9 +27,10 @@ INTERFACE lif_types.
     END OF ty_result,
     tt_result TYPE STANDARD TABLE OF ty_result WITH EMPTY KEY,
 
-    " BAPI_BUPA_ADDRESSES_GET returns the GUID as RAW16 (BUT020-ADDRESS_GUID),
-    " BAPI_BUPA_ADDRESS_CHANGE expects it as CHAR32 (BUT020-GUID)
-    ty_address_guid      TYPE but020-address_guid,
+    " BAPI_BUPA_ADDRESSES_GET returns the GUID as RAW16
+    " (BAPIBUS1006_ADDRESSES_INT-ADDRGUID), BAPI_BUPA_ADDRESS_GETDETAIL and
+    " BAPI_BUPA_ADDRESS_CHANGE expect it as CHAR32 (BUT020-GUID)
+    ty_address_guid      TYPE bapibus1006_addresses_int-addrguid,
     ty_address_guid_bapi TYPE but020-guid,
     tt_remarks      TYPE STANDARD TABLE OF bapiad_rem WITH DEFAULT KEY,
     tt_remarks_x    TYPE STANDARD TABLE OF bapiad_rex WITH DEFAULT KEY.
@@ -398,14 +399,19 @@ CLASS lcl_bp_address_api IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD lif_bp_address_api~get_remarks.
-    " existing comments (ADRCT) of the given BP address
-    SELECT r~langu, r~remark AS adr_notes
-      FROM but020 AS a
-      INNER JOIN adrct AS r ON r~addrnumber = a~addrnumber
-      WHERE a~partner      = @iv_partner
-        AND a~address_guid = @iv_guid
-        AND r~nation       = @space
-      INTO CORRESPONDING FIELDS OF TABLE @rt_remarks.
+    DATA lt_return TYPE bapiret2_t.
+    DATA(lv_guid_bapi) = CONV lif_types=>ty_address_guid_bapi( iv_guid ).
+
+    " RESET_BUFFER: read the current DB state, not a value buffered by a
+    " previous BAPI call in this session (avoids "one step behind")
+    CALL FUNCTION 'BAPI_BUPA_ADDRESS_GETDETAIL'
+      EXPORTING
+        businesspartner = iv_partner
+        addressguid     = lv_guid_bapi
+        reset_buffer    = abap_true
+      TABLES
+        bapiad_rem      = rt_remarks
+        return          = lt_return.
   ENDMETHOD.
 
   METHOD lif_bp_address_api~change_remarks.

@@ -22,7 +22,7 @@ goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (tables `BAPIAD_REM` /
 | `lif_file_reader` / `lcl_frontend_file` | Reads the file from the PC (F4 dialog plus binary upload) |
 | `lcl_excel_parser` | Parses the `.xlsx` (`CL_FDT_XL_SPREADSHEET`) into upload records |
 | `lcl_template` | Builds the Excel template (`CL_SALV_TABLE->TO_XML`, xlsx) and saves it to the PC |
-| `lif_bp_address_api` / `lcl_bp_address_api` | Wraps the BP lock (`ENQUEUE/DEQUEUE_EBU_PARTNR`), the standard BAPIs `BAPI_BUPA_ADDRESSES_GET`, `BAPI_BUPA_ADDRESS_CHANGE`, `BAPI_TRANSACTION_COMMIT/ROLLBACK`, and the read of the linked customer's comment |
+| `lif_bp_address_api` / `lcl_bp_address_api` | Wraps the BP lock (`ENQUEUE/DEQUEUE_EBU_PARTNR`), the standard BAPIs `BAPI_BUPA_ADDRESSES_GET`, `BAPI_BUPA_ADDRESS_GETDETAIL`, `BAPI_BUPA_ADDRESS_CHANGE`, `BAPI_TRANSACTION_COMMIT/ROLLBACK`, and the read of the linked customer's comment |
 | `lcl_comment_updater` | Business logic: validation, insert or update of the comment, commit or rollback per BP |
 | `lcl_result_view` | Shows the result log in SALV |
 | `lcl_app` | Controller |
@@ -40,10 +40,12 @@ goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (tables `BAPIAD_REM` /
 2. Lock the BP (`ENQUEUE_EBU_PARTNR`). If it is locked in BP/XD02, the line fails.
 3. Read the **standard address GUID** with `BAPI_BUPA_ADDRESSES_GET` and pass it
    as `ADDRESSGUID`. Without it the BAPI doesn't change the standard address.
-   `BAPI_BUPA_ADDRESSES_GET` returns it as RAW16 (`BUT020-ADDRESS_GUID`), while
-   `BAPI_BUPA_ADDRESS_CHANGE` expects CHAR32 (`BUT020-GUID`), so it is converted
-   before the call. Passing the wrong type dumps with `CALL_FUNCTION_CONFLICT_TYPE`.
-4. Read the existing comments of that address (`BUT020` → `ADRCT`). Send `UPDATEFLAG`
+   `BAPI_BUPA_ADDRESSES_GET` returns it as RAW16 (`BAPIBUS1006_ADDRESSES_INT-ADDRGUID`),
+   while `BAPI_BUPA_ADDRESS_GETDETAIL` and `BAPI_BUPA_ADDRESS_CHANGE` expect CHAR32
+   (`BUT020-GUID`), so it is converted before those calls. Passing the wrong type
+   dumps with `CALL_FUNCTION_CONFLICT_TYPE`.
+4. Read the existing comments with `BAPI_BUPA_ADDRESS_GETDETAIL` (table
+   `BAPIAD_REM`, `RESET_BUFFER = 'X'`). Send `UPDATEFLAG`
    `I` (new language) or `U` (existing) in `BAPIAD_RE_X`.
 5. Call `BAPI_BUPA_ADDRESS_CHANGE`. `RETURN` also contains the result of the
    activity/authorisation check `BUPA_ACT_ANALYZE_FOR_BAPI` done inside the BAPI.
