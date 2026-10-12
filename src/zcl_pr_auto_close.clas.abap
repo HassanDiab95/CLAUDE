@@ -2,7 +2,6 @@
 *& Technical Consultant  : Hassan Diab
 *& Functional Consultant : Nayera Makram
 *&---------------------------------------------------------------------*
-*&---------------------------------------------------------------------*
 *& Change History
 *&---------------------------------------------------------------------*
 *& Ver | Date       | Author        | Request No.  | Description
