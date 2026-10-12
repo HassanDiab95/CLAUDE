@@ -85,7 +85,7 @@ If one already exists it is overwritten (`'U'`).
 
 | Parameter | Meaning |
 |---|---|
-| `P_FILE` | Excel file (F4 opens the file dialog) |
+| `P_FILE` | Excel file. F4 opens the file dialog, which shows only Excel files (`*.xlsx`). Any other file type is rejected on execute |
 | `P_TEST` | Test run. The BAPI is called and then rolled back (default: on) |
 
 Application toolbar button **Download Template** (function key `FC01`) generates
@@ -105,6 +105,7 @@ Text symbols:
 | `T01` | Download Template |
 | `T02` | Download Excel upload template |
 | `E03` | Please enter the Excel file name |
+| `E04` | Please select an Excel file (.xlsx) |
 | `E01` | No data found in the Excel file |
 | `E02` | Business Partner number is missing |
 | `M01` | Comment updated successfully |

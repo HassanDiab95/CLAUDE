@@ -52,6 +52,9 @@ AT SELECTION-SCREEN.
       IF p_file IS INITIAL.
         MESSAGE TEXT-e03 TYPE 'E'.
       ENDIF.
+      IF to_upper( p_file ) NP '*.XLSX'.
+        MESSAGE TEXT-e04 TYPE 'E'.
+      ENDIF.
   ENDCASE.
 
 START-OF-SELECTION.

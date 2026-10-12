@@ -101,7 +101,8 @@ CLASS lcl_frontend_file IMPLEMENTATION.
     cl_gui_frontend_services=>file_open_dialog(
       EXPORTING
         window_title            = CONV #( TEXT-f01 )
-        file_filter             = |Excel (*.xlsx)\|*.xlsx\|{ cl_gui_frontend_services=>filetype_all }|
+        default_extension       = 'xlsx'
+        file_filter             = |Excel Files (*.xlsx)\|*.xlsx|
         multiselection          = abap_false
       CHANGING
         file_table              = lt_files
