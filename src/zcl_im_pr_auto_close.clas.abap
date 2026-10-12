@@ -1,12 +1,30 @@
 *&---------------------------------------------------------------------*
+*& Class          : ZCL_IM_PR_AUTO_CLOSE
+*& Package        : ZMM
+*& Transaction    : ME21N / ME22N
+*& BAdI           : ME_PROCESS_PO_CUST
+*&---------------------------------------------------------------------*
 *& Technical Consultant  : Hassan Diab
 *& Functional Consultant : Nayera Makram
+*&---------------------------------------------------------------------*
+*& Purpose        : BAdI implementation for purchase orders:
+*&                  - PROCESS_ITEM / CHECK: PR limit check
+*&                    (ZCL_PO_PR_LIMIT_CHECK) and PR price check
+*&                    (ZCL_PO_PR_PREIS_CHECK)
+*&                  - POST: close the referenced PR items
+*&                    (ZCL_PR_AUTO_CLOSE)
+*&---------------------------------------------------------------------*
+*& Created By     : Hassan Diab
+*& Created On     : DD.MM.YYYY
+*& Request No.    : DS4K903193
+*& Version        : 1.1
 *&---------------------------------------------------------------------*
 *& Change History
 *&---------------------------------------------------------------------*
 *& Ver | Date       | Author        | Request No.  | Description
 *&-----|------------|---------------|--------------|--------------------
-*& 1.1 | 12.10.2026 | Hassan Diab   | DS4K903322   | Call ZCL_PO_PR_PREIS_CHECK in
+*& 1.0 | DD.MM.YYYY | Hassan Diab   | DS4K903193   | Initial creation.
+*& 1.1 | 12.10.2026 | Hassan Diab   | DS4K903222   | Call ZCL_PO_PR_PREIS_CHECK in
 *&     |            |               |              | PROCESS_ITEM, CHECK and CLOSE.
 *&---------------------------------------------------------------------*
 CLASS ZCL_IM_PR_AUTO_CLOSE DEFINITION

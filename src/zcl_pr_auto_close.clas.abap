@@ -1,12 +1,28 @@
 *&---------------------------------------------------------------------*
+*& Class          : ZCL_PR_AUTO_CLOSE
+*& Package        : ZMM
+*& Transaction    : ME21N / ME22N
+*& Called From    : BAdI ME_PROCESS_PO_CUST, impl. class ZCL_IM_PR_AUTO_CLOSE
+*&                  (POST)
+*&---------------------------------------------------------------------*
 *& Technical Consultant  : Hassan Diab
 *& Functional Consultant : Nayera Makram
+*&---------------------------------------------------------------------*
+*& Purpose        : Close the PR items referenced by the PO on save
+*&                  (BAPI_PR_CHANGE + commit) and write log table
+*&                  ZPR_CLOSE_LOG.
+*&---------------------------------------------------------------------*
+*& Created By     : Hassan Diab
+*& Created On     : DD.MM.YYYY
+*& Request No.    : DS4K903193
+*& Version        : 1.1
 *&---------------------------------------------------------------------*
 *& Change History
 *&---------------------------------------------------------------------*
 *& Ver | Date       | Author        | Request No.  | Description
 *&-----|------------|---------------|--------------|--------------------
-*& 1.1 | 12.10.2026 | Hassan Diab   | DS4K903322   | Close PR items also for
+*& 1.0 | DD.MM.YYYY | Hassan Diab   | DS4K903193   | Initial creation.
+*& 1.1 | 12.10.2026 | Hassan Diab   | DS4K903222   | Close PR items also for
 *&     |            |               |              | PR Z306/Z307 -> PO Z406/Z407;
 *&     |            |               |              | EBAN-PREIS if no expected value.
 *&---------------------------------------------------------------------*
