@@ -1,13 +1,32 @@
 *&---------------------------------------------------------------------*
+*& Class          : ZCL_PO_PR_PREIS_CHECK
+*& Package        : ZMM
+*& Transaction    : ME21N / ME22N
+*& Called From    : BAdI ME_PROCESS_PO_CUST, impl. class ZCL_IM_PR_AUTO_CLOSE
+*&                  (PROCESS_ITEM, CHECK, CLOSE)
+*&---------------------------------------------------------------------*
 *& Technical Consultant  : Hassan Diab
 *& Functional Consultant : Nayera Makram
 *&---------------------------------------------------------------------*
-*& PR types Z306/Z307 -> PO types Z406/Z407 (ME21N / ME22N)
-*&  1) PO item created with reference to the PR item:
-*&     EBAN-PREIS is copied to EKPO-EXPECTED_VALUE
-*&  2) error if the PO item conditions are more than EBAN-PREIS:
-*&     EKKO-KNUMV -> PRCD_ELEMENTS, SUM( KBETR ) of the item <= EBAN-PREIS
-*&  3) PR item closing on save is done by ZCL_PR_AUTO_CLOSE
+*& Purpose        : PR types Z306/Z307 -> PO types Z406/Z407:
+*&                  1) PO item created with reference to the PR item:
+*&                     EBAN-PREIS is copied to EKPO-EXPECTED_VALUE.
+*&                  2) Error ZMM_PO/003 if the sum of the PO item
+*&                     conditions (EKKO-KNUMV -> PRCD_ELEMENTS, KBETR)
+*&                     is more than EBAN-PREIS.
+*&                  3) PR item closing on save is done by
+*&                     ZCL_PR_AUTO_CLOSE.
+*&---------------------------------------------------------------------*
+*& Created By     : Hassan Diab
+*& Created On     : 12.10.2026
+*& Request No.    : DS4K903322
+*& Version        : 1.0
+*&---------------------------------------------------------------------*
+*& Change History
+*&---------------------------------------------------------------------*
+*& Ver | Date       | Author        | Request No.  | Description
+*&-----|------------|---------------|--------------|--------------------
+*& 1.0 | 12.10.2026 | Hassan Diab   | DS4K903322   | Initial creation.
 *&---------------------------------------------------------------------*
 CLASS ZCL_PO_PR_PREIS_CHECK DEFINITION
   PUBLIC

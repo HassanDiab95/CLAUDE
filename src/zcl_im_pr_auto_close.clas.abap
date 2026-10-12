@@ -1,3 +1,14 @@
+*&---------------------------------------------------------------------*
+*& Technical Consultant  : Hassan Diab
+*& Functional Consultant : Nayera Makram
+*&---------------------------------------------------------------------*
+*& Change History
+*&---------------------------------------------------------------------*
+*& Ver | Date       | Author        | Request No.  | Description
+*&-----|------------|---------------|--------------|--------------------
+*& 1.1 | 12.10.2026 | Hassan Diab   | DS4K903322   | Call ZCL_PO_PR_PREIS_CHECK in
+*&     |            |               |              | PROCESS_ITEM, CHECK and CLOSE.
+*&---------------------------------------------------------------------*
 CLASS ZCL_IM_PR_AUTO_CLOSE DEFINITION
   PUBLIC
   FINAL

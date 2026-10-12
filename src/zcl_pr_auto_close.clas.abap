@@ -2,6 +2,15 @@
 *& Technical Consultant  : Hassan Diab
 *& Functional Consultant : Nayera Makram
 *&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Change History
+*&---------------------------------------------------------------------*
+*& Ver | Date       | Author        | Request No.  | Description
+*&-----|------------|---------------|--------------|--------------------
+*& 1.1 | 12.10.2026 | Hassan Diab   | DS4K903322   | Close PR items also for
+*&     |            |               |              | PR Z306/Z307 -> PO Z406/Z407;
+*&     |            |               |              | EBAN-PREIS if no expected value.
+*&---------------------------------------------------------------------*
 class ZCL_PR_AUTO_CLOSE definition
   public
   final
