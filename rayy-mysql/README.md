@@ -28,6 +28,8 @@ security and useful SQL.
 
 📝 **[docs/forms/](docs/forms)**: the college forms filled in for this version: نموذج (1) مقترح المشروع، نموذج (2) خطة المشروع (use cases, class diagram, ERD, relational model, normalization, wiring, prototype), نموذج (3) تسليم المشروع.
 
+🎓 **[docs/final-submission/](docs/final-submission)**: the final submission: التقرير النهائي (college template, full code, tests, user guide), نموذج (4)، بوستر المشروع، العرض النهائي (PowerPoint)، الفيديو التعريفي (MP4) ونص التعليق الصوتي.
+
 ## 2. What is in this folder
 
 | Folder / file | What it contains | Where it goes |
