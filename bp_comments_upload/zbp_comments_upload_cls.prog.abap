@@ -102,7 +102,7 @@ CLASS lcl_frontend_file IMPLEMENTATION.
       EXPORTING
         window_title            = CONV #( TEXT-f01 )
         default_extension       = 'xlsx'
-        file_filter             = |Excel Files (*.xlsx)\|*.xlsx|
+        file_filter             = |Excel Files (*.xls,*.xlsx,*.xlsm)\|*.xls;*.xlsx;*.xlsm\|All Files (*.*)\|*.*|
         multiselection          = abap_false
       CHANGING
         file_table              = lt_files
