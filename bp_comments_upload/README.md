@@ -2,7 +2,8 @@
 
 Uploads the **Comments** field of a Business Partner (Tcode `BP` → Address →
 Communication → *Comments*, table `ADRCT-REMARK`) from an Excel file. The update
-goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (table `BAPIADREM`).
+goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (tables `BAPIAD_REM` /
+`BAPIAD_RE_X`).
 
 ## Objects
 
@@ -21,7 +22,7 @@ goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (table `BAPIADREM`).
 | `lif_file_reader` / `lcl_frontend_file` | Reads the file from the PC (F4 dialog plus binary upload) |
 | `lcl_excel_parser` | Parses the `.xlsx` (`CL_FDT_XL_SPREADSHEET`) into upload records |
 | `lcl_template` | Builds the Excel template (`CL_SALV_TABLE->TO_XML`, xlsx) and saves it to the PC |
-| `lif_bp_address_api` / `lcl_bp_address_api` | Wraps the standard BAPIs: `BAPI_BUPA_ADDRESSES_GET`, `BAPI_BUPA_ADDRESS_GETDETAIL`, `BAPI_BUPA_ADDRESS_CHANGE`, `BAPI_TRANSACTION_COMMIT/ROLLBACK` |
+| `lif_bp_address_api` / `lcl_bp_address_api` | Wraps the BP lock (`ENQUEUE/DEQUEUE_EBU_PARTNR`), the standard BAPIs `BAPI_BUPA_ADDRESSES_GET`, `BAPI_BUPA_ADDRESS_GETDETAIL`, `BAPI_BUPA_ADDRESS_CHANGE`, `BAPI_TRANSACTION_COMMIT/ROLLBACK`, and the read of the linked customer's comment |
 | `lcl_comment_updater` | Business logic: validation, insert or update of the comment, commit or rollback per BP |
 | `lcl_result_view` | Shows the result log in SALV |
 | `lcl_app` | Controller |
@@ -32,6 +33,26 @@ goes through the standard BAPI `BAPI_BUPA_ADDRESS_CHANGE` (table `BAPIADREM`).
 - It uses new ABAP syntax: inline declarations, `NEW`, `VALUE`, `COND`,
   `CONV`, table expressions, string templates and `ALPHA = IN`.
 - Each BP gets its own LUW, so one failing line doesn't block the others.
+
+## Update logic per BP
+
+1. Validate the line (BP filled, comment at most 50 characters).
+2. Lock the BP (`ENQUEUE_EBU_PARTNR`). If it is locked in BP/XD02, the line fails.
+3. Read the **standard address GUID** with `BAPI_BUPA_ADDRESSES_GET` and pass it
+   as `ADDRESSGUID`. Without it the BAPI doesn't change the standard address.
+4. Read the existing comments (`BAPI_BUPA_ADDRESS_GETDETAIL`). Send `UPDATEFLAG`
+   `I` (new language) or `U` (existing) in `BAPIAD_RE_X`.
+5. Call `BAPI_BUPA_ADDRESS_CHANGE`. `RETURN` also contains the result of the
+   activity/authorisation check `BUPA_ACT_ANALYZE_FOR_BAPI` done inside the BAPI.
+   Any `E`/`A` message rolls back.
+6. `BAPI_TRANSACTION_COMMIT` with **`WAIT = 'X'`**. Without `WAIT`, the
+   BP-to-customer synchronisation (CVI) can leave FD02/XD02 one change behind
+   the BP. This is the problem in the SAP Community thread *"BAPI_BUPA_ADDRESS_CHANGE
+   changing email/Telephone in BP but not in FD02"*.
+7. If the BP has a linked customer (`CVI_CUST_LINK`), read the customer's
+   address comment (`KNA1-ADRNR` → `ADRCT-REMARK`). If it differs from the
+   uploaded value, the line gets a yellow warning to check CVI (`MDS_LOAD_COCKPIT`).
+8. Unlock the BP.
 
 ## Excel layout
 
@@ -88,9 +109,12 @@ Selection texts: `P_FILE` = *Excel file*, `P_HEAD` = *Skip header row*,
 3. Press **Download Template** on the selection screen, then fill the file
    with BP `20000000` and a comment.
 4. Run with **Test run = X** and check the result list (yellow = validated).
-5. Run with **Test run = blank** and check the result list (green = saved).
+5. Run with **Test run = blank** and check the result list (green = saved;
+   yellow = BP saved but the customer was not synchronised).
 6. Open Tcode `BP` → `20000000` → Address → Communication → *Comments* and
    check the value. Change documents are written by the standard.
+7. If BP `20000000` is also a customer, check the same comment in `XD03`/`FD03`
+   (Address → Communication → Comments).
 
 ## Estimation
 

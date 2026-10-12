@@ -10,7 +10,13 @@
 *&   Column C : Language (optional, ISO e.g. EN / AR, default logon lang.)
 *&
 *& Update is done through the standard BAPI BAPI_BUPA_ADDRESS_CHANGE
-*& (table BAPIADREM) on the BP standard address. All non-released
+*& (tables BAPIAD_REM / BAPIAD_RE_X) on the BP standard address:
+*&   - BP is locked (EBU_PARTNR) for the time of the update
+*&   - ADDRESSGUID = standard address GUID (else the standard
+*&     address is not changed)
+*&   - BAPI_TRANSACTION_COMMIT with WAIT = X, then the linked
+*&     customer (CVI) is checked so FD02/XD02 is not "one step behind"
+*& All non-released
 *& calls (GUI upload, BAPIs, COMMIT) are encapsulated behind
 *& interfaces so the business logic stays testable (ABAP Unit).
 *&---------------------------------------------------------------------*

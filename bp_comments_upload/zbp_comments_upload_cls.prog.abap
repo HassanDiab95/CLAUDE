@@ -27,8 +27,10 @@ INTERFACE lif_types.
     END OF ty_result,
     tt_result TYPE STANDARD TABLE OF ty_result WITH EMPTY KEY,
 
-    tt_remarks   TYPE STANDARD TABLE OF bapiadrem  WITH DEFAULT KEY,
-    tt_remarks_x TYPE STANDARD TABLE OF bapiadremx WITH DEFAULT KEY.
+    " typed exactly like the BAPI_BUPA_ADDRESS_CHANGE interface
+    ty_address_guid TYPE but020-guid,
+    tt_remarks      TYPE STANDARD TABLE OF bapiad_rem WITH DEFAULT KEY,
+    tt_remarks_x    TYPE STANDARD TABLE OF bapiad_rex WITH DEFAULT KEY.
 
   CONSTANTS:
     BEGIN OF gc_status,
@@ -313,22 +315,38 @@ ENDCLASS.
 * BP address API (wrapper around standard BAPIs)
 *----------------------------------------------------------------------*
 INTERFACE lif_bp_address_api.
+  METHODS lock
+    IMPORTING iv_partner        TYPE bu_partner
+    RETURNING VALUE(rv_message) TYPE bapi_msg.
+
+  METHODS unlock
+    IMPORTING iv_partner TYPE bu_partner.
+
   METHODS get_standard_address_guid
     IMPORTING iv_partner     TYPE bu_partner
-    EXPORTING ev_guid        TYPE bu_address_guid_bapi
+    EXPORTING ev_guid        TYPE lif_types=>ty_address_guid
               et_return      TYPE bapiret2_t.
 
   METHODS get_remarks
     IMPORTING iv_partner        TYPE bu_partner
-              iv_guid           TYPE bu_address_guid_bapi
+              iv_guid           TYPE lif_types=>ty_address_guid
     RETURNING VALUE(rt_remarks) TYPE lif_types=>tt_remarks.
 
   METHODS change_remarks
     IMPORTING iv_partner       TYPE bu_partner
-              iv_guid          TYPE bu_address_guid_bapi
+              iv_guid          TYPE lif_types=>ty_address_guid
               it_remarks       TYPE lif_types=>tt_remarks
               it_remarks_x     TYPE lif_types=>tt_remarks_x
     RETURNING VALUE(rt_return) TYPE bapiret2_t.
+
+  "! Customer linked to the BP (CVI) and its current address comment.
+  "! Used after the commit to confirm the change reached the customer
+  "! (XD03/FD03) and not only the BP.
+  METHODS get_customer_remark
+    IMPORTING iv_partner  TYPE bu_partner
+              iv_langu    TYPE spras
+    EXPORTING ev_customer TYPE kunnr
+              ev_remark   TYPE ad_remark1.
 
   METHODS commit.
   METHODS rollback.
@@ -340,6 +358,29 @@ CLASS lcl_bp_address_api DEFINITION FINAL.
 ENDCLASS.
 
 CLASS lcl_bp_address_api IMPLEMENTATION.
+  METHOD lif_bp_address_api~lock.
+    CALL FUNCTION 'ENQUEUE_EBU_PARTNR'
+      EXPORTING
+        partner        = iv_partner
+      EXCEPTIONS
+        foreign_lock   = 1
+        system_failure = 2
+        OTHERS         = 3.
+    IF sy-subrc <> 0.
+      MESSAGE ID sy-msgid TYPE 'E' NUMBER sy-msgno
+              WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO rv_message.
+      IF rv_message IS INITIAL.
+        rv_message = |BP { iv_partner ALPHA = OUT } is locked|.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD lif_bp_address_api~unlock.
+    CALL FUNCTION 'DEQUEUE_EBU_PARTNR'
+      EXPORTING
+        partner = iv_partner.
+  ENDMETHOD.
+
   METHOD lif_bp_address_api~get_standard_address_guid.
     DATA lt_addresses TYPE STANDARD TABLE OF bapibus1006_addresses WITH EMPTY KEY.
 
@@ -362,7 +403,7 @@ CLASS lcl_bp_address_api IMPLEMENTATION.
         businesspartner = iv_partner
         addressguid     = iv_guid
       TABLES
-        bapiadrem       = rt_remarks
+        bapiad_rem      = rt_remarks
         return          = lt_return.
   ENDMETHOD.
 
@@ -370,17 +411,42 @@ CLASS lcl_bp_address_api IMPLEMENTATION.
     DATA(lt_remarks)   = it_remarks.
     DATA(lt_remarks_x) = it_remarks_x.
 
+    " ADDRESSGUID must be filled with the standard address GUID,
+    " otherwise the standard address is not changed
     CALL FUNCTION 'BAPI_BUPA_ADDRESS_CHANGE'
       EXPORTING
         businesspartner = iv_partner
         addressguid     = iv_guid
       TABLES
-        bapiadrem       = lt_remarks
-        bapiadrem_x     = lt_remarks_x
+        bapiad_rem      = lt_remarks
+        bapiad_re_x     = lt_remarks_x
         return          = rt_return.
   ENDMETHOD.
 
+  METHOD lif_bp_address_api~get_customer_remark.
+    CLEAR: ev_customer, ev_remark.
+
+    SELECT SINGLE k~kunnr, k~adrnr
+      FROM but000 AS b
+      INNER JOIN cvi_cust_link AS l ON l~partner_guid = b~partner_guid
+      INNER JOIN kna1 AS k          ON k~kunnr        = l~customer
+      WHERE b~partner = @iv_partner
+      INTO @DATA(ls_customer).
+    IF sy-subrc <> 0.
+      RETURN.   " BP has no customer role
+    ENDIF.
+
+    ev_customer = ls_customer-kunnr.
+    SELECT SINGLE remark FROM adrct
+      WHERE addrnumber = @ls_customer-adrnr
+        AND nation     = @space
+        AND langu      = @iv_langu
+      INTO @ev_remark.
+  ENDMETHOD.
+
   METHOD lif_bp_address_api~commit.
+    " WAIT = X: the BP and the CVI customer synchronisation must be
+    " finished before the result is checked
     CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
       EXPORTING
         wait = abap_true.
@@ -411,6 +477,12 @@ CLASS lcl_comment_updater DEFINITION FINAL.
 
     METHODS process_line
       IMPORTING is_upload        TYPE lif_types=>ty_upload
+                iv_test_mode     TYPE abap_bool
+      RETURNING VALUE(rs_result) TYPE lif_types=>ty_result.
+
+    METHODS update_comment
+      IMPORTING is_upload        TYPE lif_types=>ty_upload
+                is_result        TYPE lif_types=>ty_result
                 iv_test_mode     TYPE abap_bool
       RETURNING VALUE(rs_result) TYPE lif_types=>ty_result.
 
@@ -451,7 +523,24 @@ CLASS lcl_comment_updater IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " 1. standard address of the BP
+    " 1. lock the BP so nobody changes it in BP / XD02 in parallel
+    rs_result-message = mo_api->lock( is_upload-partner ).
+    IF rs_result-message IS NOT INITIAL.
+      rs_result-status = lif_types=>gc_status-error.
+      RETURN.
+    ENDIF.
+
+    rs_result = update_comment( is_upload    = is_upload
+                                is_result    = rs_result
+                                iv_test_mode = iv_test_mode ).
+
+    mo_api->unlock( is_upload-partner ).
+  ENDMETHOD.
+
+  METHOD update_comment.
+    rs_result = is_result.
+
+    " 2. standard address GUID (the BAPI needs it to change the standard address)
     mo_api->get_standard_address_guid( EXPORTING iv_partner = is_upload-partner
                                        IMPORTING ev_guid    = DATA(lv_guid)
                                                  et_return  = DATA(lt_return) ).
@@ -464,7 +553,7 @@ CLASS lcl_comment_updater IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " 2. insert or update the comment for the requested language
+    " 3. insert or update the comment for the requested language
     resolve_language( EXPORTING iv_langu_iso = is_upload-langu
                       IMPORTING ev_langu     = DATA(lv_langu)
                                 ev_langu_iso = rs_result-langu ).
@@ -485,6 +574,8 @@ CLASS lcl_comment_updater IMPLEMENTATION.
                                 adr_notes  = abap_true
                                 updateflag = lv_updflag ) ) ).
 
+    " RETURN also carries the result of the activity / authorisation
+    " check (BUPA_ACT_ANALYZE_FOR_BAPI) done inside the BAPI
     rs_result-message = first_error( lt_return ).
     IF rs_result-message IS NOT INITIAL.
       mo_api->rollback( ).
@@ -492,16 +583,30 @@ CLASS lcl_comment_updater IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " 3. commit / simulate
+    " 4. commit / simulate
     IF iv_test_mode = abap_true.
       mo_api->rollback( ).
       rs_result-status  = lif_types=>gc_status-warning.
       rs_result-message = TEXT-m02.
-    ELSE.
-      mo_api->commit( ).
-      rs_result-status  = lif_types=>gc_status-success.
-      rs_result-message = TEXT-m01.
+      RETURN.
     ENDIF.
+
+    mo_api->commit( ).
+
+    " 5. the BAPI updates the BP; make sure the linked customer got it too
+    mo_api->get_customer_remark( EXPORTING iv_partner  = is_upload-partner
+                                           iv_langu    = lv_langu
+                                 IMPORTING ev_customer = DATA(lv_customer)
+                                           ev_remark   = DATA(lv_cust_remark) ).
+    IF lv_customer IS NOT INITIAL AND lv_cust_remark <> rs_result-comments.
+      rs_result-status  = lif_types=>gc_status-warning.
+      rs_result-message = |BP updated, but customer { lv_customer ALPHA = OUT } | &&
+                          |is not synchronised - check CVI (MDS_LOAD_COCKPIT)|.
+      RETURN.
+    ENDIF.
+
+    rs_result-status  = lif_types=>gc_status-success.
+    rs_result-message = TEXT-m01.
   ENDMETHOD.
 
   METHOD validate.
@@ -614,7 +719,11 @@ ENDCLASS.
 CLASS ltd_bp_address_api DEFINITION FINAL FOR TESTING.
   PUBLIC SECTION.
     INTERFACES lif_bp_address_api.
-    DATA mv_guid        TYPE bu_address_guid_bapi VALUE '00000000000000000000000000000001'.
+    DATA mv_guid        TYPE lif_types=>ty_address_guid VALUE '00000000000000000000000000000001'.
+    DATA mv_lock_msg    TYPE bapi_msg.
+    DATA mv_unlocks     TYPE i.
+    DATA mv_customer    TYPE kunnr.
+    DATA mv_cust_remark TYPE ad_remark1.
     DATA mt_existing    TYPE lif_types=>tt_remarks.
     DATA mt_change_ret  TYPE bapiret2_t.
     DATA mt_sent_x      TYPE lif_types=>tt_remarks_x.
@@ -623,6 +732,19 @@ CLASS ltd_bp_address_api DEFINITION FINAL FOR TESTING.
 ENDCLASS.
 
 CLASS ltd_bp_address_api IMPLEMENTATION.
+  METHOD lif_bp_address_api~lock.
+    rv_message = mv_lock_msg.
+  ENDMETHOD.
+
+  METHOD lif_bp_address_api~unlock.
+    mv_unlocks += 1.
+  ENDMETHOD.
+
+  METHOD lif_bp_address_api~get_customer_remark.
+    ev_customer = mv_customer.
+    ev_remark   = mv_cust_remark.
+  ENDMETHOD.
+
   METHOD lif_bp_address_api~get_standard_address_guid.
     ev_guid = mv_guid.
     CLEAR et_return.
@@ -665,6 +787,9 @@ CLASS ltc_comment_updater DEFINITION FINAL FOR TESTING
     METHODS bapi_error_rolls_back FOR TESTING.
     METHODS empty_partner_rejected FOR TESTING.
     METHODS too_long_comment_rejected FOR TESTING.
+    METHODS locked_bp_not_changed FOR TESTING.
+    METHODS customer_in_sync_is_success FOR TESTING.
+    METHODS customer_not_synced_warns FOR TESTING.
 ENDCLASS.
 
 CLASS ltc_comment_updater IMPLEMENTATION.
@@ -725,5 +850,35 @@ CLASS ltc_comment_updater IMPLEMENTATION.
 
     cl_abap_unit_assert=>assert_equals( exp = lif_types=>gc_status-error act = ls_result-status ).
     cl_abap_unit_assert=>assert_initial( mo_api->mt_sent_x ).
+  ENDMETHOD.
+  METHOD locked_bp_not_changed.
+    mo_api->mv_lock_msg = 'BP 20000000 is locked by USER1'.
+
+    DATA(ls_result) = run_one( VALUE #( row = 2 partner = '0020000000' comments = 'Test' ) ).
+
+    cl_abap_unit_assert=>assert_equals( exp = lif_types=>gc_status-error act = ls_result-status ).
+    cl_abap_unit_assert=>assert_initial( mo_api->mt_sent_x ).
+    cl_abap_unit_assert=>assert_equals( exp = 0 act = mo_api->mv_unlocks ).
+  ENDMETHOD.
+
+  METHOD customer_in_sync_is_success.
+    mo_api->mv_customer    = '0020000000'.
+    mo_api->mv_cust_remark = 'Test'.
+
+    DATA(ls_result) = run_one( VALUE #( row = 2 partner = '0020000000' comments = 'Test' ) ).
+
+    cl_abap_unit_assert=>assert_equals( exp = lif_types=>gc_status-success act = ls_result-status ).
+    cl_abap_unit_assert=>assert_equals( exp = 1 act = mo_api->mv_unlocks ).
+  ENDMETHOD.
+
+  METHOD customer_not_synced_warns.
+    " customer still shows the previous value ("one step behind" in FD02)
+    mo_api->mv_customer    = '0020000000'.
+    mo_api->mv_cust_remark = 'Old'.
+
+    DATA(ls_result) = run_one( VALUE #( row = 2 partner = '0020000000' comments = 'New' ) ).
+
+    cl_abap_unit_assert=>assert_equals( exp = lif_types=>gc_status-warning act = ls_result-status ).
+    cl_abap_unit_assert=>assert_equals( exp = 1 act = mo_api->mv_commits ).
   ENDMETHOD.
 ENDCLASS.
