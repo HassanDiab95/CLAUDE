@@ -1,0 +1,379 @@
+*&---------------------------------------------------------------------*
+*& Object Name    : ZCL_WF_LOG_OD
+*& Object Type    : Class
+*& Package        : ZSD
+*&---------------------------------------------------------------------*
+*& Technical Consultant  : Hassan Diab
+*& Functional Consultant : Nourhan Leila
+*&---------------------------------------------------------------------*
+*& Purpose        : Writes and reads the approval log of the sales
+*&                   order overdue branch of WS99000010
+*&                   (workflow type 6).
+*& Tables         : ZWF_LOG_OD_H  header
+*&                   ZWF_LOG_OD_I  items
+*&---------------------------------------------------------------------*
+*& Created By     : Hassan Diab
+*& Created On     : 07.09.2026
+*& Request No.    : DE3K932563
+*& Version        : 1.0
+*&---------------------------------------------------------------------*
+*& Change History
+*&---------------------------------------------------------------------*
+*& Ver | Date       | Author      | Request No.  | Description
+*&-----|------------|-------------|--------------|---------------------
+*& 1.0 | 07.09.2026 | Hassan Diab | DE3K932563   | Initial Version
+*&---------------------------------------------------------------------*
+CLASS ZCL_WF_LOG_OD DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC.
+
+  PUBLIC SECTION.
+
+    CONSTANTS: BEGIN OF GC_ACTION,
+                 START   TYPE ZWF_ACTION VALUE 'STRT',
+                 APPROVE TYPE ZWF_ACTION VALUE 'APPR',
+                 REJECT  TYPE ZWF_ACTION VALUE 'REJC',
+                 RETURN  TYPE ZWF_ACTION VALUE 'RETN',
+                 FINAL   TYPE ZWF_ACTION VALUE 'FINL',
+                 RELEASE TYPE ZWF_ACTION VALUE 'RELS',
+                 CANCEL  TYPE ZWF_ACTION VALUE 'CANC',
+                 KILL    TYPE ZWF_ACTION VALUE 'KILL',
+               END OF GC_ACTION.
+
+    CONSTANTS: BEGIN OF GC_STATUS,
+                 IN_PROCESS TYPE ZWF_STATUS1 VALUE 'I',
+                 APPROVED   TYPE ZWF_STATUS1 VALUE 'A',
+                 REJECTED   TYPE ZWF_STATUS1 VALUE 'R',
+                 CANCELLED  TYPE ZWF_STATUS1 VALUE 'C',
+                 KILLED     TYPE ZWF_STATUS1 VALUE 'K',
+               END OF GC_STATUS.
+
+    TYPES TY_S_HDR TYPE ZWF_LOG_OD_H.
+    TYPES TT_ITM   TYPE STANDARD TABLE OF ZWF_LOG_OD_I WITH EMPTY KEY.
+    TYPES : TT_ZWF_LOG_OD_H TYPE STANDARD TABLE OF ZWF_LOG_OD_H WITH EMPTY KEY.
+
+    METHODS START
+      IMPORTING IS_DATA          TYPE TY_S_HDR
+                IT_USERS         TYPE ZWF_USERS_TY OPTIONAL
+      RETURNING VALUE(RV_LOG_ID) TYPE ZWF_LOG_ID.
+
+    METHODS ADD_ITEM
+      IMPORTING IV_LOG_ID     TYPE ZWF_LOG_ID
+                IV_ACTION     TYPE ZWF_ACTION
+                IV_WI_ID      TYPE SWW_WIID   OPTIONAL
+                IV_LEVEL_FROM TYPE INT2       OPTIONAL
+                IV_LEVEL_TO   TYPE INT2       OPTIONAL
+                IV_AGENT      TYPE XUBNAME    OPTIONAL
+                IV_AGENT_DESC TYPE ZUSER_DESC OPTIONAL
+                IV_NOTE       TYPE ZWF_NOTE   OPTIONAL.
+
+    METHODS SET_LEVEL
+      IMPORTING IV_LOG_ID TYPE ZWF_LOG_ID
+                IV_LEVEL  TYPE INT2.
+
+    METHODS FINISH
+      IMPORTING IV_LOG_ID TYPE ZWF_LOG_ID
+                IV_STATUS TYPE ZWF_STATUS1.
+
+    METHODS FIND_OPEN
+      IMPORTING IV_WI_ID         TYPE SWW_WIID
+      RETURNING VALUE(RV_LOG_ID) TYPE ZWF_LOG_ID.
+
+    "! Find the open overdue log of a sales order
+    METHODS FIND_OPEN_BY_SO
+      IMPORTING IV_VBELN         TYPE VBELN_VA
+      RETURNING VALUE(RV_LOG_ID) TYPE ZWF_LOG_ID.
+
+    METHODS READ_HEADER
+      IMPORTING IV_LOG_ID     TYPE ZWF_LOG_ID
+      RETURNING VALUE(RS_HDR) TYPE ZWF_LOG_OD_H.
+
+    METHODS READ_ITEMS
+      IMPORTING IV_LOG_ID       TYPE ZWF_LOG_ID
+      RETURNING VALUE(RT_ITEMS) TYPE TT_ITM.
+
+    "! All overdue logs of one sales order
+    METHODS READ_BY_SO
+      IMPORTING IV_VBELN      TYPE VBELN_VA
+      RETURNING VALUE(RT_HDR) TYPE TT_ZWF_LOG_OD_H.
+
+  PRIVATE SECTION.
+
+    METHODS NEXT_LOG_ID
+      RETURNING VALUE(RV_LOG_ID) TYPE ZWF_LOG_ID.
+
+    METHODS NEXT_SEQNR
+      IMPORTING IV_LOG_ID       TYPE ZWF_LOG_ID
+      RETURNING VALUE(RV_SEQNR) TYPE ZWF_LOG_SEQ.
+
+ENDCLASS.
+
+
+
+CLASS ZCL_WF_LOG_OD IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->ADD_ITEM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_LOG_ID                      TYPE        ZWF_LOG_ID
+* | [--->] IV_ACTION                      TYPE        ZWF_ACTION
+* | [--->] IV_WI_ID                       TYPE        SWW_WIID(optional)
+* | [--->] IV_LEVEL_FROM                  TYPE        INT2(optional)
+* | [--->] IV_LEVEL_TO                    TYPE        INT2(optional)
+* | [--->] IV_AGENT                       TYPE        XUBNAME(optional)
+* | [--->] IV_AGENT_DESC                  TYPE        ZUSER_DESC(optional)
+* | [--->] IV_NOTE                        TYPE        ZWF_NOTE(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD ADD_ITEM.
+
+    IF IV_LOG_ID IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA LS_ITM TYPE ZWF_LOG_OD_I.
+
+    LS_ITM-MANDT        = SY-MANDT.
+    LS_ITM-LOG_ID       = IV_LOG_ID.
+    LS_ITM-SEQNR        = NEXT_SEQNR( IV_LOG_ID ).
+    LS_ITM-WI_ID        = IV_WI_ID.
+    LS_ITM-ACTION       = IV_ACTION.
+    LS_ITM-LEVEL_FROM   = IV_LEVEL_FROM.
+    LS_ITM-LEVEL_TO     = IV_LEVEL_TO.
+    LS_ITM-AGENT        = IV_AGENT.
+    LS_ITM-AGENT_DESC   = IV_AGENT_DESC.
+    LS_ITM-ACTUAL_AGENT = SY-UNAME.
+    LS_ITM-NOTE         = IV_NOTE.
+    LS_ITM-ACTION_ON    = SY-DATUM.
+    LS_ITM-ACTION_AT    = SY-UZEIT.
+    LS_ITM-CREATED_BY   = SY-UNAME.
+
+    INSERT ZWF_LOG_OD_I FROM LS_ITM.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->FIND_OPEN
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_WI_ID                       TYPE        SWW_WIID
+* | [<-()] RV_LOG_ID                      TYPE        ZWF_LOG_ID
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD FIND_OPEN.
+
+    SELECT SINGLE LOG_ID
+      FROM ZWF_LOG_OD_H
+      WHERE WI_ID  = @IV_WI_ID
+        AND STATUS = @GC_STATUS-IN_PROCESS
+      INTO @RV_LOG_ID.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->FIND_OPEN_BY_SO
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [<-()] RV_LOG_ID                      TYPE        ZWF_LOG_ID
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD FIND_OPEN_BY_SO.
+
+    SELECT SINGLE MAX( LOG_ID )
+      FROM ZWF_LOG_OD_H
+      WHERE VBELN  = @IV_VBELN
+        AND STATUS = @GC_STATUS-IN_PROCESS
+      INTO @RV_LOG_ID.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->FINISH
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_LOG_ID                      TYPE        ZWF_LOG_ID
+* | [--->] IV_STATUS                      TYPE        ZWF_STATUS1
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD FINISH.
+
+    IF IV_LOG_ID IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    UPDATE ZWF_LOG_OD_H
+      SET STATUS      = @IV_STATUS,
+          FINISHED_ON = @SY-DATUM,
+          FINISHED_AT = @SY-UZEIT
+      WHERE LOG_ID = @IV_LOG_ID.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_LOG_OD->NEXT_LOG_ID
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_LOG_ID                      TYPE        ZWF_LOG_ID
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD NEXT_LOG_ID.
+
+    CALL FUNCTION 'NUMBER_GET_NEXT'
+      EXPORTING
+        NR_RANGE_NR             = '01'
+        OBJECT                  = 'ZWF_LOG_OD'
+      IMPORTING
+        NUMBER                  = RV_LOG_ID
+      EXCEPTIONS
+        INTERVAL_NOT_FOUND      = 1
+        NUMBER_RANGE_NOT_INTERN = 2
+        OBJECT_NOT_FOUND        = 3
+        QUANTITY_IS_0           = 4
+        OTHERS                  = 5.
+
+    IF SY-SUBRC <> 0.
+      CLEAR RV_LOG_ID.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_LOG_OD->NEXT_SEQNR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_LOG_ID                      TYPE        ZWF_LOG_ID
+* | [<-()] RV_SEQNR                       TYPE        ZWF_LOG_SEQ
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD NEXT_SEQNR.
+
+    SELECT SINGLE MAX( SEQNR )
+      FROM ZWF_LOG_OD_I
+      WHERE LOG_ID = @IV_LOG_ID
+      INTO @DATA(LV_MAX).
+
+    RV_SEQNR = LV_MAX + 1.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->READ_BY_SO
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [<-()] RT_HDR                         TYPE        TT_ZWF_LOG_OD_H
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD READ_BY_SO.
+
+    SELECT *
+      FROM ZWF_LOG_OD_H
+      WHERE VBELN = @IV_VBELN
+      ORDER BY LOG_ID DESCENDING
+      INTO TABLE @RT_HDR.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->READ_HEADER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_LOG_ID                      TYPE        ZWF_LOG_ID
+* | [<-()] RS_HDR                         TYPE        ZWF_LOG_OD_H
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD READ_HEADER.
+
+    SELECT SINGLE *
+      FROM ZWF_LOG_OD_H
+      WHERE LOG_ID = @IV_LOG_ID
+      INTO @RS_HDR.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->READ_ITEMS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_LOG_ID                      TYPE        ZWF_LOG_ID
+* | [<-()] RT_ITEMS                       TYPE        TT_ITM
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD READ_ITEMS.
+
+    SELECT *
+      FROM ZWF_LOG_OD_I
+      WHERE LOG_ID = @IV_LOG_ID
+      ORDER BY SEQNR
+      INTO TABLE @RT_ITEMS.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->SET_LEVEL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_LOG_ID                      TYPE        ZWF_LOG_ID
+* | [--->] IV_LEVEL                       TYPE        INT2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD SET_LEVEL.
+
+    IF IV_LOG_ID IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    UPDATE ZWF_LOG_OD_H
+      SET CURRENT_LEVEL = @IV_LEVEL
+      WHERE LOG_ID = @IV_LOG_ID.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_LOG_OD->START
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_DATA                        TYPE        TY_S_HDR
+* | [--->] IT_USERS                       TYPE        ZWF_USERS_TY(optional)
+* | [<-()] RV_LOG_ID                      TYPE        ZWF_LOG_ID
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD START.
+
+    RV_LOG_ID = NEXT_LOG_ID( ).
+
+    IF RV_LOG_ID IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA LS_HDR TYPE ZWF_LOG_OD_H.
+
+    LS_HDR = IS_DATA.
+
+    LS_HDR-MANDT      = SY-MANDT.
+    LS_HDR-LOG_ID     = RV_LOG_ID.
+    LS_HDR-STATUS     = GC_STATUS-IN_PROCESS.
+    LS_HDR-STARTED_BY = SY-UNAME.
+    LS_HDR-STARTED_ON = SY-DATUM.
+    LS_HDR-STARTED_AT = SY-UZEIT.
+
+    IF IT_USERS IS NOT INITIAL.
+      READ TABLE IT_USERS INDEX 1 INTO DATA(LS_FIRST).
+      LS_HDR-CURRENT_LEVEL = LS_FIRST-SEQUENCE.
+    ENDIF.
+
+    INSERT ZWF_LOG_OD_H FROM LS_HDR.
+
+    IF SY-SUBRC <> 0.
+      CLEAR RV_LOG_ID.
+      RETURN.
+    ENDIF.
+
+    LOOP AT IT_USERS INTO DATA(LS_USER).
+
+      ADD_ITEM( IV_LOG_ID     = RV_LOG_ID
+                IV_ACTION     = GC_ACTION-START
+                IV_WI_ID      = IS_DATA-WI_ID
+                IV_LEVEL_TO   = CONV INT2( LS_USER-SEQUENCE )
+                IV_AGENT      = LS_USER-BNAME
+                IV_AGENT_DESC = LS_USER-USER_DESC
+                IV_NOTE       = |Approver planned at level { LS_USER-SEQUENCE }| ).
+
+    ENDLOOP.
+
+*    COMMIT WORK.
+
+  ENDMETHOD.
+ENDCLASS.

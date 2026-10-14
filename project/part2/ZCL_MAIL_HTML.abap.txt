@@ -1,0 +1,366 @@
+CLASS ZCL_MAIL_HTML DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC.
+
+  PUBLIC SECTION.
+
+    TYPES: BEGIN OF TY_S_CELL,
+             TEXT  TYPE STRING,
+             BOLD  TYPE ABAP_BOOL,
+             ALIGN TYPE CHAR6,
+             COLOR TYPE STRING,
+           END OF TY_S_CELL.
+
+    TYPES TT_CELL TYPE STANDARD TABLE OF TY_S_CELL WITH EMPTY KEY.
+
+    TYPES: BEGIN OF TY_S_PAIR,
+             LABEL TYPE STRING,
+             VALUE TYPE STRING,
+             COLOR TYPE STRING,
+             BOLD  TYPE ABAP_BOOL,
+           END OF TY_S_PAIR.
+
+    TYPES TT_PAIR TYPE STANDARD TABLE OF TY_S_PAIR WITH EMPTY KEY.
+
+    CONSTANTS: BEGIN OF GC_COLOUR,
+                 TEAL  TYPE STRING VALUE `#1E7B6B`,
+                 BLUE  TYPE STRING VALUE `#1F4E78`,
+                 AMBER TYPE STRING VALUE `#B7791F`,
+                 RED   TYPE STRING VALUE `#C0392B`,
+                 GREEN TYPE STRING VALUE `#2E7D32`,
+                 GREY  TYPE STRING VALUE `#555555`,
+               END OF GC_COLOUR.
+
+    METHODS CONSTRUCTOR
+      IMPORTING IV_ACCENT TYPE STRING DEFAULT `#1F4E78`.
+
+    METHODS OPEN_DOCUMENT
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS BANNER
+      IMPORTING IV_TITLE       TYPE STRING
+                IV_SUBTITLE    TYPE STRING OPTIONAL
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS PARAGRAPH
+      IMPORTING IV_TEXT        TYPE STRING
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS SECTION_TITLE
+      IMPORTING IV_TEXT        TYPE STRING
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS PAIR_TABLE
+      IMPORTING IT_PAIR        TYPE TT_PAIR
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS TABLE_OPEN
+      IMPORTING IT_HEADER      TYPE STRING_TABLE
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS DATA_ROW
+      IMPORTING IT_CELL        TYPE TT_CELL
+                IV_HIGHLIGHT   TYPE ABAP_BOOL DEFAULT ABAP_FALSE
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS TABLE_CLOSE
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS CALLOUT
+      IMPORTING IV_TEXT        TYPE STRING
+                IV_COLOUR      TYPE STRING DEFAULT `#C0392B`
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS FOOTER
+      IMPORTING IV_TEXT        TYPE STRING OPTIONAL
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+    METHODS CLOSE_DOCUMENT
+      RETURNING VALUE(RT_HTML) TYPE BCSY_TEXT.
+
+  PRIVATE SECTION.
+
+    DATA MV_ACCENT TYPE STRING.
+
+    METHODS ESCAPE
+      IMPORTING IV_TEXT        TYPE STRING
+      RETURNING VALUE(RV_TEXT) TYPE STRING.
+
+ENDCLASS.
+
+
+
+CLASS ZCL_MAIL_HTML IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->BANNER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TITLE                       TYPE        STRING
+* | [--->] IV_SUBTITLE                    TYPE        STRING(optional)
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD BANNER.
+
+    RT_HTML = VALUE #(
+      ( |<tr><td style="background:{ MV_ACCENT };padding:18px 24px;">| )
+      ( |<span style="color:#fff;font-size:18px;font-weight:bold;">| )
+      ( |{ ESCAPE( IV_TITLE ) }</span>| ) ).
+
+    IF IV_SUBTITLE IS NOT INITIAL.
+      APPEND LINES OF VALUE BCSY_TEXT(
+        ( |<br/><span style="color:#e8eef3;font-size:12px;">| )
+        ( |{ ESCAPE( IV_SUBTITLE ) }</span>| ) ) TO RT_HTML.
+    ENDIF.
+
+    APPEND |</td></tr>| TO RT_HTML.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->CALLOUT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TEXT                        TYPE        STRING
+* | [--->] IV_COLOUR                      TYPE        STRING (default =`#C0392B`)
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CALLOUT.
+
+    RT_HTML = VALUE #(
+      ( |<tr><td style="padding:4px 24px 16px 24px;">| )
+      ( |<div style="border-left:4px solid { IV_COLOUR };| )
+      ( |background:#fdf6f5;padding:12px 16px;font-size:13px;| )
+      ( |color:{ IV_COLOUR };font-weight:bold;">| )
+      ( |{ ESCAPE( IV_TEXT ) }</div></td></tr>| ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->CLOSE_DOCUMENT
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CLOSE_DOCUMENT.
+
+    RT_HTML = VALUE #( ( |</table></body></html>| ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACCENT                      TYPE        STRING (default =`#1F4E78`)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CONSTRUCTOR.
+
+    MV_ACCENT = IV_ACCENT.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->DATA_ROW
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_CELL                        TYPE        TT_CELL
+* | [--->] IV_HIGHLIGHT                   TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD DATA_ROW.
+
+    DATA(LV_BG) = COND #( WHEN IV_HIGHLIGHT = ABAP_TRUE
+                          THEN ` style="background:#f0f3f7;"`
+                          ELSE `` ).
+
+    RT_HTML = VALUE #( ( |<tr{ LV_BG }>| ) ).
+
+    LOOP AT IT_CELL INTO DATA(LS_CELL).
+
+      DATA(LV_COLOUR) = COND #( WHEN LS_CELL-COLOR IS NOT INITIAL
+                                THEN LS_CELL-COLOR
+                                ELSE `#333333` ).
+
+      DATA(LV_ALIGN)  = COND #( WHEN LS_CELL-ALIGN IS NOT INITIAL
+                                THEN LS_CELL-ALIGN
+                                ELSE `left` ).
+
+      DATA(LV_WEIGHT) = COND #( WHEN LS_CELL-BOLD = ABAP_TRUE
+                                THEN `font-weight:bold;`
+                                ELSE `` ).
+
+      APPEND LINES OF VALUE BCSY_TEXT(
+        ( |<td align="{ LV_ALIGN }" style="border:1px solid #d9dee5;| )
+        ( |color:{ LV_COLOUR };{ LV_WEIGHT }">| )
+        ( |{ ESCAPE( LS_CELL-TEXT ) }</td>| ) ) TO RT_HTML.
+
+    ENDLOOP.
+
+    APPEND |</tr>| TO RT_HTML.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_MAIL_HTML->ESCAPE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TEXT                        TYPE        STRING
+* | [<-()] RV_TEXT                        TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD ESCAPE.
+
+    RV_TEXT = IV_TEXT.
+
+    REPLACE ALL OCCURRENCES OF '&' IN RV_TEXT WITH '&amp;'.
+    REPLACE ALL OCCURRENCES OF '<' IN RV_TEXT WITH '&lt;'.
+    REPLACE ALL OCCURRENCES OF '>' IN RV_TEXT WITH '&gt;'.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->FOOTER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TEXT                        TYPE        STRING(optional)
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD FOOTER.
+
+    DATA(LV_TEXT) = COND STRING(
+      WHEN IV_TEXT IS NOT INITIAL
+      THEN IV_TEXT
+      ELSE `This is an automated notification. Please do not reply.` ).
+
+    RT_HTML = VALUE #(
+      ( |<tr><td style="background:#f0f3f7;border-top:1px solid #e0e0e0;| )
+      ( |padding:12px 24px;color:#999;font-size:11px;">| )
+      ( |{ ESCAPE( LV_TEXT ) }</td></tr>| ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->OPEN_DOCUMENT
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD OPEN_DOCUMENT.
+
+    RT_HTML = VALUE #(
+      ( |<html><head><meta charset="utf-8"></head>| )
+      ( |<body style="margin:0;padding:0;background:#f4f5f7;| )
+      ( |font-family:Arial,sans-serif;">| )
+      ( |<table width="700" cellpadding="0" cellspacing="0" align="center"| )
+      ( | style="margin:24px auto;background:#fff;border:1px solid #e0e0e0;">| ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->PAIR_TABLE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_PAIR                        TYPE        TT_PAIR
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD PAIR_TABLE.
+
+    RT_HTML = VALUE #(
+      ( |<tr><td style="padding:0 24px 16px 24px;">| )
+      ( |<table width="100%" cellpadding="8" cellspacing="0"| )
+      ( | style="border-collapse:collapse;font-size:13px;">| ) ).
+
+    LOOP AT IT_PAIR INTO DATA(LS_PAIR).
+
+      DATA(LV_COLOUR) = COND #( WHEN LS_PAIR-COLOR IS NOT INITIAL
+                                THEN LS_PAIR-COLOR
+                                ELSE `#333333` ).
+
+      DATA(LV_WEIGHT) = COND #( WHEN LS_PAIR-BOLD = ABAP_TRUE
+                                THEN `font-weight:bold;`
+                                ELSE `` ).
+
+      APPEND LINES OF VALUE BCSY_TEXT(
+        ( |<tr><td style="background:#f0f3f7;border:1px solid #d9dee5;| )
+        ( |font-weight:bold;width:35%;color:#333;">| )
+        ( |{ ESCAPE( LS_PAIR-LABEL ) }</td>| )
+        ( |<td style="border:1px solid #d9dee5;color:{ LV_COLOUR };| )
+        ( |{ LV_WEIGHT }">{ ESCAPE( LS_PAIR-VALUE ) }</td></tr>| ) )
+        TO RT_HTML.
+
+    ENDLOOP.
+
+    APPEND |</table></td></tr>| TO RT_HTML.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->PARAGRAPH
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TEXT                        TYPE        STRING
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD PARAGRAPH.
+
+    RT_HTML = VALUE #(
+      ( |<tr><td style="padding:16px 24px 8px 24px;color:#333;| )
+      ( |font-size:13px;line-height:1.5;">| )
+      ( |{ IV_TEXT }</td></tr>| ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->SECTION_TITLE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TEXT                        TYPE        STRING
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD SECTION_TITLE.
+
+    RT_HTML = VALUE #(
+      ( |<tr><td style="padding:12px 24px 4px 24px;font-size:13px;| )
+      ( |font-weight:bold;color:{ MV_ACCENT };">| )
+      ( |{ ESCAPE( IV_TEXT ) }</td></tr>| ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->TABLE_CLOSE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD TABLE_CLOSE.
+
+    RT_HTML = VALUE #( ( |</table></td></tr>| ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_MAIL_HTML->TABLE_OPEN
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_HEADER                      TYPE        STRING_TABLE
+* | [<-()] RT_HTML                        TYPE        BCSY_TEXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD TABLE_OPEN.
+
+    RT_HTML = VALUE #(
+      ( |<tr><td style="padding:0 24px 16px 24px;">| )
+      ( |<table width="100%" cellpadding="8" cellspacing="0"| )
+      ( | style="border-collapse:collapse;font-size:12px;">| )
+      ( |<tr style="background:{ MV_ACCENT };color:#fff;">| ) ).
+
+    LOOP AT IT_HEADER INTO DATA(LV_HEAD).
+      APPEND LINES OF VALUE BCSY_TEXT(
+        ( |<th align="left" style="border:1px solid { MV_ACCENT };">| )
+        ( |{ ESCAPE( LV_HEAD ) }</th>| ) ) TO RT_HTML.
+    ENDLOOP.
+
+    APPEND |</tr>| TO RT_HTML.
+
+  ENDMETHOD.
+ENDCLASS.
