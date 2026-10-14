@@ -1,0 +1,87 @@
+* Pasted in chat on 2026-10-14 (not an uploaded file).
+* User exits / enhancements in MV45AFZZ that touch WS99000010.
+* The last enhancement (ZEN_CMEXOD_KILL_WORKFLOW) was pasted without the
+* FORM it belongs to.
+
+FORM USEREXIT_DELETE_DOCUMENT.
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(1) Form USEREXIT_DELETE_DOCUMENT, Start                                                                                                              A
+*$*$-Start: (1)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 1  ZEN_CMEXOD_KILL_WORKFLOW_WDEL.    "active version
+*--- Begin of Enhancement | Hassan Diab | kill on change --------------
+  BREAK SNAG_HASSAN.
+  CHECK ( XVBAK_UPDKZ = 'D' AND T180-TRTYP = 'V' )   " SY-TCODE = 'VA02'
+     AND VBAK-VBELN IS NOT INITIAL.
+*     AND NEW ZCL_WF_SD_CREDIT( )->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
+
+
+
+  DATA(LO_CREDIT) = NEW ZCL_WF_SD_CREDIT( ).
+CHECK LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
+
+  LO_CREDIT->KILL_RUNNING_WORKFLOW(
+    IV_VBELN  = VBAK-VBELN
+    IV_REASON = CONV STRING( |Sales order Deleted In { SY-TCODE } by { SY-UNAME }.| && |Approval Cancel.| ) ).
+*  CALL FUNCTION 'Z_WF_SD_KILL_WORKFLOW_UPD'
+*    STARTING NEW TASK 'KILLWF'
+*    DESTINATION 'NONE'
+*    EXPORTING
+*      IV_VBELN              = VBAK-VBELN
+*      IV_REASON             = CONV STRING( |Sales order deleted by { SY-UNAME }| )
+*    EXCEPTIONS
+*      COMMUNICATION_FAILURE = 1
+*      SYSTEM_FAILURE        = 2
+*      OTHERS                = 3.
+*--- End of Enhancement -----------------------------------------------
+ENDENHANCEMENT.
+*$*$-End:   (1)---------------------------------------------------------------------------------$*$*
+
+ENDFORM.
+*---------------------------------------------------------------------*
+FORM USEREXIT_READ_DOCUMENT.
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(8) Form USEREXIT_READ_DOCUMENT, Start                                                                                                                A
+*$*$-Start: (8)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 1  ZEN_DISAB_VA02_CM_WF_RUNNINNG.    "active version
+
+  CHECK SY-TCODE = 'VA02'
+     AND VBAK-VBELN IS NOT INITIAL
+     AND NEW ZCL_WF_SD_CREDIT( )->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
+  MESSAGE S014(ZSD_WF) WITH VBAK-VBELN DISPLAY LIKE 'E'.
+  SET PARAMETER ID 'AUN' FIELD VBAK-VBELN.
+  LEAVE TO TRANSACTION 'VA03' AND SKIP FIRST SCREEN.
+ENDENHANCEMENT.
+ENHANCEMENT 1  ZSD_CW_QUALITYCHECK_WITH_CUST1.    "active version
+
+ENDENHANCEMENT.
+*$*$-End:   (8)---------------------------------------------------------------------------------$*$*
+
+ENDFORM.ENHANCEMENT 1  ZEN_CMEXOD_KILL_WORKFLOW.    "active version
+*
+*--- Begin of Enhancement | Hassan Diab | kill on change --------------
+  BREAK SNAG_HASSAN.
+  CHECK ( T180-TRTYP = 'V' AND T180-TCODE = 'VA02' )   "SY-TCODE = 'VA02'
+     AND VBAK-VBELN IS NOT INITIAL.
+*     AND NEW ZCL_WF_SD_CREDIT( )->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
+
+DATA(LO_CREDIT) = NEW ZCL_WF_SD_CREDIT( ).
+CHECK LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
+
+  LO_CREDIT->KILL_RUNNING_WORKFLOW(
+    IV_VBELN  = VBAK-VBELN
+    IV_REASON = CONV STRING( |Sales order changed in { SY-TCODE } by { SY-UNAME }.| &&
+                              |Approval Cancel, credit check will re-run.| )    ).
+
+*  CALL FUNCTION 'Z_WF_SD_KILL_WORKFLOW_UPD'
+*    STARTING NEW TASK 'KILLWF'
+*    DESTINATION 'NONE'
+*    EXPORTING
+*      IV_VBELN              = VBAK-VBELN
+*      IV_REASON             = CONV STRING( |Sales order changed in VA02 by { SY-UNAME }.| &&
+*                              |Approval killed, credit check will re-run.| )
+*    EXCEPTIONS
+*      COMMUNICATION_FAILURE = 1
+*      SYSTEM_FAILURE        = 2
+*      OTHERS                = 3.
+
+*--- End of Enhancement -----------------------------------------------
+
+ENDENHANCEMENT.

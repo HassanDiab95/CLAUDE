@@ -1,0 +1,1342 @@
+CLASS ZCL_WF_SD_CREDIT DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    TYPES:
+      BEGIN OF TY_ORDER,
+        VBELN TYPE VBELN_VA,
+        KKBER TYPE KKBER,
+        BUKRS TYPE BUKRS,
+        SPART TYPE SPART,
+        WERKS TYPE VBAP-WERKS,
+        ERNAM TYPE VBAK-ERNAM,
+        NETWR TYPE VBAK-NETWR,
+        WAERK TYPE VBAK-WAERK,
+      END OF TY_ORDER .
+    TYPES:
+      BEGIN OF TY_PARTNER,
+        PARTNER        TYPE BU_PARTNER,
+        BP_NAME        TYPE CHAR100,
+        CREDIT_SEGMENT TYPE UKM_CREDIT_SGMNT,
+        CREDIT_GROUP   TYPE UKMBP_CMS-CREDIT_GROUP,
+      END OF TY_PARTNER .
+    TYPES:
+      BEGIN OF TY_EXCEPTION,
+        LAST_DATE  TYPE CMFRE,
+        LAST_VALUE TYPE AMTBL_CM,
+      END OF TY_EXCEPTION .
+    TYPES:
+      BEGIN OF TY_CREDIT,
+        CURRENCY    TYPE UKM_SGM_CURRENCY,
+        EXPOSURE    TYPE UKM_COMM_ACTUAL,
+        LIMIT       TYPE UKM_CREDIT_LIMIT,
+        EXCEED_CURR TYPE UKM_COMM_ACTUAL,
+        EXCEED_PER  TYPE UKM_COMM_ACTUAL,
+      END OF TY_CREDIT .
+    TYPES:
+      BEGIN OF TY_OVERDUE,
+        AMOUNT       TYPE DMBTR,
+        DAYS         TYPE INT2,
+        PERCENT      TYPE NETWR,
+        TERM_TEXT    TYPE TEXT1_052,
+        PAYMENT_TERM TYPE INT1,
+      END OF TY_OVERDUE .
+    TYPES:
+      TT_RANGE_CODE TYPE STANDARD TABLE OF ZRANGE_CODE WITH EMPTY KEY .
+    TYPES:
+      BEGIN OF TY_PARTNER_BP,
+        BP_NAME      TYPE CHAR100,
+        BP_ID        TYPE CHAR10,
+        CREDIT_GROUP TYPE UKMBP_CMS-CREDIT_GROUP,
+        BUKRS        TYPE BUKRS,
+      END OF TY_PARTNER_BP .
+
+    CONSTANTS:
+      BEGIN OF GC_WF_TYPE,
+        LIMIT   TYPE ZWF_TYPE VALUE 1,
+        EXCEED  TYPE ZWF_TYPE VALUE 5,
+        OVERDUE TYPE ZWF_TYPE VALUE 6,
+      END OF GC_WF_TYPE .
+
+    METHODS CONSTRUCTOR
+      IMPORTING
+        !IO_FINDER TYPE REF TO ZCL_WF_SD_FINDER OPTIONAL .
+    METHODS GET_ORDER_DATA
+      IMPORTING
+        !IV_VBELN       TYPE VBELN_VA
+      RETURNING
+        VALUE(RS_ORDER) TYPE TY_ORDER .
+    METHODS GET_PARTNER_DATA
+      IMPORTING
+        !IV_CUSTOMER      TYPE KUNAG
+        !IV_KKBER         TYPE KKBER
+      RETURNING
+        VALUE(RS_PARTNER) TYPE TY_PARTNER .
+    METHODS GET_LAST_EXCEPTION
+      IMPORTING
+        !IV_CUSTOMER        TYPE KUNAG
+      RETURNING
+        VALUE(RS_EXCEPTION) TYPE TY_EXCEPTION .
+    METHODS GET_CREDIT_DATA
+      IMPORTING
+        !IV_PARTNER       TYPE BU_PARTNER
+        !IV_SEGMENT       TYPE UKM_CREDIT_SGMNT
+        !IV_SALESORD_DATA TYPE TY_ORDER
+      RETURNING
+        VALUE(RS_CREDIT)  TYPE TY_CREDIT .
+    METHODS GET_EXCEED_RANGES
+      IMPORTING
+        !IV_BUKRS        TYPE BUKRS
+        !IS_CREDIT       TYPE TY_CREDIT
+      RETURNING
+        VALUE(RT_RANGES) TYPE TT_RANGE_CODE .
+    METHODS GET_OVERDUE_DATA
+      IMPORTING
+        !IV_CUSTOMER      TYPE KUNAG
+        !IV_BUKRS         TYPE BUKRS
+        !IV_VBELN         TYPE VBELN_VA
+      RETURNING
+        VALUE(RS_OVERDUE) TYPE TY_OVERDUE .
+    METHODS GET_OVERDUE_RANGES
+      IMPORTING
+        !IV_BUKRS        TYPE BUKRS
+        !IV_PERCENT      TYPE NETWR
+      RETURNING
+        VALUE(RT_RANGES) TYPE TT_RANGE_CODE .
+    METHODS GET_APPROVERS
+      IMPORTING
+        !IV_WF_TYPE      TYPE ZWF_TYPE
+        !IV_BUKRS        TYPE BUKRS
+        !IV_CREDIT_GROUP TYPE UKM_CRED_GROUP
+        !IT_RANGES       TYPE TT_RANGE_CODE
+        !IV_VBELN        TYPE VBELN_VA OPTIONAL
+      RETURNING
+        VALUE(RT_USERS)  TYPE ZWF_USERS_TY .
+    METHODS BUILD_WI_USERS
+      IMPORTING
+        !IT_USERS    TYPE ZWF_USERS_TY
+      RETURNING
+        VALUE(RT_WI) TYPE ZWF_USERS_WI_TY .
+    METHODS GET_MAX_LEVEL
+      IMPORTING
+        !IT_USERS       TYPE ZWF_USERS_TY
+      RETURNING
+        VALUE(RV_LEVEL) TYPE INT2 .
+    METHODS GET_MIN_LEVEL
+      IMPORTING
+        !IT_USERS       TYPE ZWF_USERS_TY
+      RETURNING
+        VALUE(RV_LEVEL) TYPE INT2 .
+    METHODS SET_ORDER_LOCK
+      IMPORTING
+        !IV_VBELN TYPE VBELN_VA .
+    METHODS GET_PARTNER_INFO
+      IMPORTING
+        !IV_PARTNER       TYPE BU_PARTNER
+      RETURNING
+        VALUE(RS_PARTNER) TYPE TY_PARTNER_BP .
+    METHODS GET_OVERDUE_AMOUNT
+      IMPORTING
+        !IV_PARTNER       TYPE BU_PARTNER
+        !IV_BUKRS         TYPE BUKRS
+      RETURNING
+        VALUE(RS_OVERDUE) TYPE TY_OVERDUE .
+    METHODS GET_LIMIT_RANGES
+      IMPORTING
+        !IV_BUKRS        TYPE BUKRS
+        !IV_CURRENCY     TYPE UKM_SGM_CURRENCY
+        !IV_LIMIT        TYPE UKM_CREDIT_LIMIT
+      RETURNING
+        VALUE(RT_RANGES) TYPE TT_RANGE_CODE .
+    METHODS LOCK_PARTNER
+      IMPORTING
+        !IV_PARTNER TYPE BU_PARTNER .
+    METHODS IS_ORDER_LOCKED
+      IMPORTING
+        !IV_VBELN        TYPE VBELN_VA
+      RETURNING
+        VALUE(RV_LOCKED) TYPE ABAP_BOOL .
+    METHODS KILL_RUNNING_WORKFLOW
+      IMPORTING
+        !IV_VBELN        TYPE VBELN_VA
+        !IV_REASON       TYPE STRING OPTIONAL
+      RETURNING
+        VALUE(RV_KILLED) TYPE ABAP_BOOL .
+    METHODS KILL_RUNNING_WORKFLOW_BP
+      IMPORTING
+        !IV_PARTNER      TYPE BU_PARTNER
+        !IV_REASON       TYPE STRING OPTIONAL
+      RETURNING
+        VALUE(RV_KILLED) TYPE ABAP_BOOL .
+    METHODS TESTMETHOD
+      IMPORTING
+        !UNAME TYPE SYUNAME OPTIONAL
+      CHANGING
+        !USERS TYPE ZWF_USERS_TY OPTIONAL .
+
+    METHODS IS_START_ALLOWED
+      IMPORTING IV_VBELN        TYPE VBELN_VA
+      RETURNING VALUE(RV_START) TYPE ABAP_BOOL
+      RAISING   ZCX_WF_SD.
+
+    METHODS CHECK_SO_BLOCK
+      IMPORTING IV_VBELN        TYPE VBELN_VA
+      RETURNING VALUE(RV_BLOCK) TYPE CHAR1.
+  PRIVATE SECTION.
+
+    DATA MO_FINDER TYPE REF TO ZCL_WF_SD_FINDER.
+    TYPES TT_WI TYPE STANDARD TABLE OF SWW_WIID WITH EMPTY KEY.
+
+    METHODS RESOLVE_PARTNER
+      IMPORTING IV_CUSTOMER       TYPE KUNAG
+      RETURNING VALUE(RS_PARTNER) TYPE TY_PARTNER.
+
+    METHODS DEFAULT_SEGMENT
+      IMPORTING IV_KKBER          TYPE KKBER
+      RETURNING VALUE(RV_SEGMENT) TYPE UKM_CREDIT_SGMNT.
+
+    METHODS CONVERT_AMOUNT
+      IMPORTING IV_AMOUNT        TYPE UKM_COMM_ACTUAL
+                IV_FROM          TYPE UKM_SGM_CURRENCY
+                IV_TO            TYPE UKM_SGM_CURRENCY
+      RETURNING VALUE(RV_AMOUNT) TYPE UKM_COMM_ACTUAL.
+
+    METHODS FIND_RUNNING
+      IMPORTING IV_VBELN     TYPE VBELN_VA
+      RETURNING VALUE(RT_WI) TYPE TT_WI.
+
+    METHODS CLOSE_OPEN_LOGS
+      IMPORTING IV_VBELN  TYPE VBELN_VA
+                IV_REASON TYPE STRING.
+
+    METHODS FIND_RUNNING_BP
+      IMPORTING IV_PARTNER   TYPE BU_PARTNER
+      RETURNING VALUE(RT_WI) TYPE TT_WI.
+
+    METHODS CLOSE_OPEN_LOGS_BP
+      IMPORTING IV_PARTNER TYPE BU_PARTNER
+                IV_REASON  TYPE STRING.
+
+    CONSTANTS GC_TVARVC_START TYPE RVARI_VNAM
+                          VALUE 'ZWF_SO_WF_START_DATE'.
+
+    METHODS GET_WF_START_DATE
+      RETURNING VALUE(RV_DATE) TYPE DATS.
+
+
+
+ENDCLASS.
+
+
+
+CLASS ZCL_WF_SD_CREDIT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->BUILD_WI_USERS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_USERS                       TYPE        ZWF_USERS_TY
+* | [<-()] RT_WI                          TYPE        ZWF_USERS_WI_TY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD BUILD_WI_USERS.
+
+    LOOP AT IT_USERS INTO DATA(LS_USER).
+      APPEND VALUE #( SEQUENCE  = LS_USER-SEQUENCE
+                      USER_DESC = LS_USER-USER_DESC ) TO RT_WI.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_FINDER                      TYPE REF TO ZCL_WF_SD_FINDER(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CONSTRUCTOR.
+
+    MO_FINDER = COND #( WHEN IO_FINDER IS BOUND
+                        THEN IO_FINDER
+                        ELSE ZCL_WF_SD_FINDER=>CREATE( ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_SD_CREDIT->CONVERT_AMOUNT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_AMOUNT                      TYPE        UKM_COMM_ACTUAL
+* | [--->] IV_FROM                        TYPE        UKM_SGM_CURRENCY
+* | [--->] IV_TO                          TYPE        UKM_SGM_CURRENCY
+* | [<-()] RV_AMOUNT                      TYPE        UKM_COMM_ACTUAL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CONVERT_AMOUNT.
+
+    RV_AMOUNT = IV_AMOUNT.
+
+    IF IV_FROM = IV_TO OR IV_FROM IS INITIAL OR IV_TO IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE MIN( GDATU )
+      FROM TCURR
+      WHERE FCURR = @IV_FROM
+        AND TCURR = @IV_TO
+      INTO @DATA(LV_GDATU).
+
+    IF SY-SUBRC <> 0.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE UKURS
+      FROM TCURR
+      WHERE FCURR = @IV_FROM
+        AND TCURR = @IV_TO
+        AND GDATU = @LV_GDATU
+      INTO @DATA(LV_RATE).
+
+    IF SY-SUBRC = 0 AND LV_RATE <> 0.
+      RV_AMOUNT = IV_AMOUNT * LV_RATE.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_SD_CREDIT->DEFAULT_SEGMENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_KKBER                       TYPE        KKBER
+* | [<-()] RV_SEGMENT                     TYPE        UKM_CREDIT_SGMNT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD DEFAULT_SEGMENT.
+
+    RV_SEGMENT = SWITCH #( IV_KKBER
+                   WHEN '1400' THEN 'WFICS'
+                   WHEN '1600' THEN 'CPXCS'
+                   WHEN '1700' THEN 'WFICS(ETP)'
+                   ELSE '1000' ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_APPROVERS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_WF_TYPE                     TYPE        ZWF_TYPE
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [--->] IV_CREDIT_GROUP                TYPE        UKM_CRED_GROUP
+* | [--->] IT_RANGES                      TYPE        TT_RANGE_CODE
+* | [--->] IV_VBELN                       TYPE        VBELN_VA(optional)
+* | [<-()] RT_USERS                       TYPE        ZWF_USERS_TY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_APPROVERS.
+
+    LOOP AT IT_RANGES INTO DATA(LV_RANGE).
+
+      RT_USERS = MO_FINDER->GET_APPROVERS_WF(
+        IV_WF_TYPE      = IV_WF_TYPE
+        IV_BUKRS        = IV_BUKRS
+        IV_CREDIT_GROUP = IV_CREDIT_GROUP
+        IV_RANGE_CODE   = LV_RANGE
+        IV_VBELN        = IV_VBELN ).
+
+      IF RT_USERS IS NOT INITIAL.
+        EXIT.
+      ENDIF.
+
+    ENDLOOP.
+
+    SORT RT_USERS ASCENDING BY SEQUENCE.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_CREDIT_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PARTNER                     TYPE        BU_PARTNER
+* | [--->] IV_SEGMENT                     TYPE        UKM_CREDIT_SGMNT
+* | [--->] IV_SALESORD_DATA               TYPE        TY_ORDER
+* | [<-()] RS_CREDIT                      TYPE        TY_CREDIT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_CREDIT_DATA.
+
+    DATA LT_TOTALS        TYPE TABLE OF UKM_TOTALS.
+    DATA LT_TOTALS_SOURCE TYPE TABLE OF UKM_S_TOTALS_SOURCE.
+    DATA LV_LOCAL_CURR    TYPE UKM_SGM_CURRENCY.
+
+    SELECT SINGLE CURRENCY
+      FROM UKMCRED_SGM0C
+      WHERE CREDIT_SGMNT = @IV_SEGMENT
+      INTO @RS_CREDIT-CURRENCY.
+
+    CALL FUNCTION 'UKM_COMMTS_READ'
+      EXPORTING
+        I_PARTNER            = IV_PARTNER
+        I_SEGMENT            = IV_SEGMENT
+      TABLES
+        ET_UKM_TOTALS        = LT_TOTALS
+        ET_UKM_TOTALS_SOURCE = LT_TOTALS_SOURCE.
+
+    LOOP AT LT_TOTALS_SOURCE INTO DATA(LS_SOURCE).
+      RS_CREDIT-EXPOSURE = RS_CREDIT-EXPOSURE + LS_SOURCE-AMOUNT.
+      LV_LOCAL_CURR      = LS_SOURCE-CURRENCY.
+    ENDLOOP.
+
+    RS_CREDIT-EXPOSURE = CONVERT_AMOUNT( IV_AMOUNT = RS_CREDIT-EXPOSURE
+                                         IV_FROM   = LV_LOCAL_CURR
+                                         IV_TO     = RS_CREDIT-CURRENCY ).
+
+    SELECT SINGLE CREDIT_LIMIT
+      FROM UKMBP_CMS_SGM
+      WHERE PARTNER      = @IV_PARTNER
+        AND CREDIT_SGMNT = @IV_SEGMENT
+      INTO @RS_CREDIT-LIMIT.
+
+    IF RS_CREDIT-LIMIT <= 0.
+      RETURN.
+    ENDIF.
+    RS_CREDIT-EXPOSURE    += IV_SALESORD_DATA-NETWR.
+    RS_CREDIT-EXCEED_CURR = RS_CREDIT-EXPOSURE - RS_CREDIT-LIMIT.
+    RS_CREDIT-EXCEED_PER  = ( RS_CREDIT-EXCEED_CURR / RS_CREDIT-LIMIT ) * 100.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_EXCEED_RANGES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [--->] IS_CREDIT                      TYPE        TY_CREDIT
+* | [<-()] RT_RANGES                      TYPE        TT_RANGE_CODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_EXCEED_RANGES.
+
+    SELECT RANGE_CODE FROM ZWF_RANGES WHERE TYPE         = @IS_CREDIT-CURRENCY
+                                      AND   RANGE_FROM  <= @IS_CREDIT-EXCEED_CURR
+                                      AND   RANGE_TO    >= @IS_CREDIT-EXCEED_CURR
+                                      AND   COMPANY_CODE = @IV_BUKRS
+                                      INTO TABLE @RT_RANGES.
+    IF RT_RANGES IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+    SELECT RANGE_CODE FROM ZWF_RANGES WHERE TYPE         = '%'
+                                      AND   RANGE_FROM  <= @IS_CREDIT-EXCEED_PER
+                                      AND   RANGE_TO    >= @IS_CREDIT-EXCEED_PER
+                                      AND   COMPANY_CODE = @IV_BUKRS
+                                      INTO TABLE @RT_RANGES.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_LAST_EXCEPTION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CUSTOMER                    TYPE        KUNAG
+* | [<-()] RS_EXCEPTION                   TYPE        TY_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_LAST_EXCEPTION.
+
+    SELECT SINGLE MAX( CMFRE )
+      FROM VBAK
+      WHERE CMGST = 'D'
+        AND KNKLI = @IV_CUSTOMER
+      INTO @RS_EXCEPTION-LAST_DATE.
+
+    IF RS_EXCEPTION-LAST_DATE IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE AMTBL
+      FROM VBAK
+      WHERE CMGST = 'D'
+        AND KNKLI = @IV_CUSTOMER
+        AND CMFRE = @RS_EXCEPTION-LAST_DATE
+      INTO @RS_EXCEPTION-LAST_VALUE.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_LIMIT_RANGES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [--->] IV_CURRENCY                    TYPE        UKM_SGM_CURRENCY
+* | [--->] IV_LIMIT                       TYPE        UKM_CREDIT_LIMIT
+* | [<-()] RT_RANGES                      TYPE        TT_RANGE_CODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_LIMIT_RANGES.
+
+    SELECT RANGE_CODE
+      FROM ZWF_RANGES
+      WHERE TYPE         = @IV_CURRENCY
+        AND RANGE_FROM  <= @IV_LIMIT
+        AND RANGE_TO    >= @IV_LIMIT
+        AND COMPANY_CODE = @IV_BUKRS
+      INTO TABLE @RT_RANGES.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_MAX_LEVEL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_USERS                       TYPE        ZWF_USERS_TY
+* | [<-()] RV_LEVEL                       TYPE        INT2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_MAX_LEVEL.
+
+    RV_LEVEL = REDUCE INT2( INIT M = 0
+                            FOR LS IN IT_USERS
+                            NEXT M = COND #( WHEN LS-SEQUENCE > M
+                                             THEN LS-SEQUENCE
+                                             ELSE M ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_MIN_LEVEL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_USERS                       TYPE        ZWF_USERS_TY
+* | [<-()] RV_LEVEL                       TYPE        INT2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_MIN_LEVEL.
+
+    IF IT_USERS IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    RV_LEVEL = IT_USERS[ 1 ]-SEQUENCE.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_ORDER_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [<-()] RS_ORDER                       TYPE        TY_ORDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_ORDER_DATA.
+
+    SELECT SINGLE VBELN,
+                  KKBER,
+                  BUKRS_VF AS BUKRS,
+                  SPART,
+                  ERNAM,
+                  NETWR,
+                  WAERK
+
+      FROM VBAK
+      WHERE VBELN = @IV_VBELN
+      INTO CORRESPONDING FIELDS OF @RS_ORDER.
+
+    SELECT SINGLE WERKS
+      FROM VBAP
+      WHERE VBELN  = @IV_VBELN
+        AND WERKS <> @SPACE
+      INTO @RS_ORDER-WERKS.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_OVERDUE_AMOUNT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PARTNER                     TYPE        BU_PARTNER
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [<-()] RS_OVERDUE                     TYPE        TY_OVERDUE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_OVERDUE_AMOUNT.
+
+    DATA LT_ITEMS TYPE TABLE OF RFPOS.
+
+    SELECT SINGLE ZTERM
+      FROM KNB1
+      WHERE KUNNR = @IV_PARTNER
+        AND BUKRS = @IV_BUKRS
+      INTO @DATA(LV_ZTERM).
+
+    IF SY-SUBRC <> 0.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE TEXT1
+      FROM T052U
+      WHERE ZTERM = @LV_ZTERM
+        AND SPRAS = @SY-LANGU
+      INTO @RS_OVERDUE-TERM_TEXT.
+
+    SELECT SINGLE ZTAG1
+      FROM T052
+      WHERE ZTERM = @LV_ZTERM
+      INTO @DATA(LV_DAYS).
+
+    RS_OVERDUE-PAYMENT_TERM = LV_DAYS.
+
+    CALL FUNCTION 'CUSTOMER_OPEN_ITEMS'
+      EXPORTING
+        BUKRS         = IV_BUKRS
+        KUNNR         = IV_PARTNER
+      TABLES
+        T_POSTAB      = LT_ITEMS
+      EXCEPTIONS
+        NO_OPEN_ITEMS = 1
+        OTHERS        = 2.
+
+    IF SY-SUBRC <> 0 OR LT_ITEMS IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    LOOP AT LT_ITEMS INTO DATA(LS_ITEM)
+         WHERE BUDAT <= SY-DATUM - RS_OVERDUE-PAYMENT_TERM.
+      RS_OVERDUE-AMOUNT = RS_OVERDUE-AMOUNT + LS_ITEM-DMBE2.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_OVERDUE_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CUSTOMER                    TYPE        KUNAG
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [<-()] RS_OVERDUE                     TYPE        TY_OVERDUE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_OVERDUE_DATA.
+
+*    DATA LT_ITEMS TYPE TABLE OF RFPOS.
+*
+*    CALL FUNCTION 'CUSTOMER_OPEN_ITEMS'
+*      EXPORTING
+*        BUKRS         = IV_BUKRS
+*        KUNNR         = IV_CUSTOMER
+*      TABLES
+*        T_POSTAB      = LT_ITEMS
+*      EXCEPTIONS
+*        NO_OPEN_ITEMS = 1
+*        OTHERS        = 2.
+*
+*    IF SY-SUBRC <> 0 OR LT_ITEMS IS INITIAL.
+*      RETURN.
+*    ENDIF.
+*
+*    SORT LT_ITEMS ASCENDING BY BUDAT.
+*
+*    DATA(LV_DUE_DATE) = LT_ITEMS[ 1 ]-FAEDT.
+*
+*    SELECT SINGLE T~ZTAG1
+*      FROM T052 AS T
+*      INNER JOIN VBKD AS V ON T~ZTERM = V~ZTERM
+*      WHERE V~VBELN = @IV_VBELN
+*      INTO @DATA(LV_TERM_D).
+*
+*    RS_OVERDUE-PAYMENT_TERM = LV_TERM_D.
+*
+*    SELECT SINGLE U~TEXT1
+*      FROM T052U AS U
+*      INNER JOIN KNB1 AS K ON U~ZTERM = K~ZTERM
+*      WHERE K~KUNNR = @IV_CUSTOMER
+*        AND K~BUKRS = @IV_BUKRS
+*        AND U~TEXT1 <> @SPACE
+*      INTO @RS_OVERDUE-TERM_TEXT.
+*
+**    LOOP AT LT_ITEMS INTO DATA(LS_ITEM)
+**         WHERE BUDAT <= SY-DATUM - RS_OVERDUE-PAYMENT_TERM.
+**      RS_OVERDUE-AMOUNT = RS_OVERDUE-AMOUNT + LS_ITEM-DMBE2.
+**    ENDLOOP.
+*    SORT LT_ITEMS ASCENDING BY ZFBDT.
+*    LOOP AT LT_ITEMS INTO DATA(LS_ITEM)
+*     WHERE ZFBDT <= SY-DATUM - RS_OVERDUE-PAYMENT_TERM.
+*      RS_OVERDUE-AMOUNT = RS_OVERDUE-AMOUNT + LS_ITEM-DMBE2.
+*    ENDLOOP.
+*
+*    RS_OVERDUE-DAYS = SY-DATUM - LV_DUE_DATE.
+*
+*    IF RS_OVERDUE-PAYMENT_TERM <> 0.
+*      RS_OVERDUE-PERCENT = ( RS_OVERDUE-DAYS / RS_OVERDUE-PAYMENT_TERM ) * 100.
+*    ENDIF.
+*
+
+
+    "New Logic
+
+    DATA: LO_OPEN_ITEMS TYPE REF TO ZCL_FI_CUSTOMER_OPEN_ITEMS,
+          LT_DATA       TYPE ZCL_FI_CUSTOMER_OPEN_ITEMS=>TY_T_DATA,
+          LS_DATA       TYPE ZCL_FI_CUSTOMER_OPEN_ITEMS=>TY_S_DATA,
+          LV_DUE_DATE   TYPE DATS,
+          LV_TERM_D     TYPE T052-ZTAG1.
+
+    CLEAR RS_OVERDUE.
+
+    CREATE OBJECT LO_OPEN_ITEMS.
+
+    CALL METHOD LO_OPEN_ITEMS->GET_OPEN_ITEMS_WITH_OVERDUE
+      EXPORTING
+        IV_BUKRS            = IV_BUKRS
+        IV_KUNNR            = IV_CUSTOMER
+        IV_KEY_DATE         = SY-DATUM
+        IV_APPLY_AUTH_CHECK = ABAP_FALSE
+      IMPORTING
+        ET_DATA             = LT_DATA.
+
+    IF LT_DATA IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SORT LT_DATA ASCENDING BY BUDAT.
+*    READ TABLE LT_DATA INTO LS_DATA INDEX 1.
+    LS_DATA = VALUE #( LT_DATA[ 1 ] OPTIONAL ).
+    LV_DUE_DATE = LS_DATA-MADAT.
+
+
+    SELECT SINGLE T~ZTAG1 , V~ZTERM
+      FROM T052 AS T
+      INNER JOIN VBKD AS V ON T~ZTERM = V~ZTERM
+      WHERE V~VBELN = @IV_VBELN
+      INTO ( @LV_TERM_D , @DATA(LV_ZTERM) ).
+
+    RS_OVERDUE-PAYMENT_TERM = LV_TERM_D.
+
+*    SELECT SINGLE U~TEXT1
+*      FROM T052U AS U
+*      INNER JOIN KNB1 AS K ON U~ZTERM = K~ZTERM
+*      WHERE K~KUNNR = @IV_CUSTOMER
+*        AND K~BUKRS = @IV_BUKRS
+*        AND U~TEXT1 <> @SPACE
+*      INTO @RS_OVERDUE-TERM_TEXT.
+
+    SELECT SINGLE TEXT1 FROM T052U
+      INTO @RS_OVERDUE-TERM_TEXT WHERE ZTERM = @LV_ZTERM AND TEXT1 <> @SPACE.
+    LOOP AT LT_DATA INTO LS_DATA.
+      RS_OVERDUE-AMOUNT = RS_OVERDUE-AMOUNT + LS_DATA-OVR_DUE.
+    ENDLOOP.
+    RS_OVERDUE-DAYS = SY-DATUM - LV_DUE_DATE.
+    IF RS_OVERDUE-PAYMENT_TERM <> 0.
+      RS_OVERDUE-PERCENT = ( RS_OVERDUE-DAYS / RS_OVERDUE-PAYMENT_TERM ) * 100.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_OVERDUE_RANGES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [--->] IV_PERCENT                     TYPE        NETWR
+* | [<-()] RT_RANGES                      TYPE        TT_RANGE_CODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_OVERDUE_RANGES.
+
+    SELECT RANGE_CODE FROM ZWF_RANGES WHERE TYPE         = '%'
+                                      AND   RANGE_TO    >= @IV_PERCENT
+                                      AND   COMPANY_CODE = @IV_BUKRS
+                                      AND   RANGE_FROM  <= @IV_PERCENT
+                                      INTO TABLE @RT_RANGES.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_PARTNER_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CUSTOMER                    TYPE        KUNAG
+* | [--->] IV_KKBER                       TYPE        KKBER
+* | [<-()] RS_PARTNER                     TYPE        TY_PARTNER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_PARTNER_DATA.
+
+    RS_PARTNER = RESOLVE_PARTNER( IV_CUSTOMER ).
+
+    IF RS_PARTNER-PARTNER IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE CREDIT_GROUP
+      FROM UKMBP_CMS
+      WHERE PARTNER = @RS_PARTNER-PARTNER
+      INTO @RS_PARTNER-CREDIT_GROUP.
+
+    SELECT SINGLE CREDIT_SGMNT
+      FROM UKMBP_CMS_SGM
+      WHERE PARTNER = @RS_PARTNER-PARTNER
+      INTO @RS_PARTNER-CREDIT_SEGMENT.
+
+    IF SY-SUBRC <> 0.
+      RS_PARTNER-CREDIT_SEGMENT = DEFAULT_SEGMENT( IV_KKBER ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->GET_PARTNER_INFO
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PARTNER                     TYPE        BU_PARTNER
+* | [<-()] RS_PARTNER                     TYPE        TY_PARTNER_BP
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_PARTNER_INFO.
+
+    SELECT SINGLE CONCAT_WITH_SPACE( NAME_ORG1, NAME_ORG2, 1 )
+      FROM BUT000
+      WHERE PARTNER = @IV_PARTNER
+      INTO @RS_PARTNER-BP_NAME.
+
+    IF RS_PARTNER-BP_NAME IS INITIAL.
+      SELECT SINGLE CONCAT_WITH_SPACE( NAME_FIRST, NAME_LAST, 1 )
+        FROM BUT000
+        WHERE PARTNER = @IV_PARTNER
+        INTO @RS_PARTNER-BP_NAME.
+    ENDIF.
+
+    RS_PARTNER-BP_ID = IV_PARTNER.
+    SHIFT RS_PARTNER-BP_ID LEFT DELETING LEADING '0'.
+
+    SELECT SINGLE CREDIT_GROUP
+      FROM UKMBP_CMS
+      WHERE PARTNER = @IV_PARTNER
+      INTO @RS_PARTNER-CREDIT_GROUP.
+
+    SELECT SINGLE BUKRS
+      FROM KNB1
+      WHERE KUNNR = @IV_PARTNER
+      INTO @RS_PARTNER-BUKRS.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->IS_ORDER_LOCKED
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [<-()] RV_LOCKED                      TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD IS_ORDER_LOCKED.
+
+    IF IV_VBELN IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE @ABAP_TRUE
+      FROM ZSD_WF_SO
+      WHERE SALES_DOCUMENT = @IV_VBELN
+      INTO @RV_LOCKED.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->LOCK_PARTNER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PARTNER                     TYPE        BU_PARTNER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD LOCK_PARTNER.
+
+    DATA LT_RETURN TYPE TABLE OF BAPIRET2.
+
+    CALL FUNCTION 'BUPA_ENQUEUE'
+      EXPORTING
+        IV_PARTNER = IV_PARTNER
+      TABLES
+        ET_RETURN  = LT_RETURN.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_SD_CREDIT->RESOLVE_PARTNER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_CUSTOMER                    TYPE        KUNAG
+* | [<-()] RS_PARTNER                     TYPE        TY_PARTNER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD RESOLVE_PARTNER.
+
+    SELECT SINGLE PARTNER_GUID
+      FROM CVI_CUST_LINK
+      WHERE CUSTOMER = @IV_CUSTOMER
+      INTO @DATA(LV_GUID).
+
+    IF SY-SUBRC <> 0.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE CONCAT_WITH_SPACE( NAME_ORG1, NAME_ORG2, 1 )
+      FROM BUT000
+      WHERE PARTNER_GUID = @LV_GUID
+      INTO @RS_PARTNER-BP_NAME.
+
+    IF RS_PARTNER-BP_NAME IS INITIAL.
+      SELECT SINGLE CONCAT_WITH_SPACE( NAME_FIRST, NAME_LAST, 1 )
+        FROM BUT000
+        WHERE PARTNER_GUID = @LV_GUID
+        INTO @RS_PARTNER-BP_NAME.
+    ENDIF.
+
+    SELECT SINGLE PARTNER
+      FROM BUT000
+      WHERE PARTNER_GUID = @LV_GUID
+      INTO @RS_PARTNER-PARTNER.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->SET_ORDER_LOCK
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD SET_ORDER_LOCK.
+
+    SELECT SINGLE @ABAP_TRUE
+      FROM ZSD_WF_SO
+      WHERE SALES_DOCUMENT = @IV_VBELN
+      INTO @DATA(LV_EXISTS).
+
+    IF LV_EXISTS = ABAP_TRUE.
+      RETURN.
+    ENDIF.
+    DATA(LS_LOCK) = VALUE ZSD_WF_SO( MANDT = SY-MANDT SALES_DOCUMENT = IV_VBELN ).
+    INSERT ZSD_WF_SO FROM LS_LOCK.
+*    COMMIT WORK.
+    CLEAR LS_LOCK.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_SD_CREDIT->CLOSE_OPEN_LOGS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [--->] IV_REASON                      TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CLOSE_OPEN_LOGS.
+
+    "--- exceed ------------------------------------------------------
+    SELECT LOG_ID
+      FROM ZWF_LOG_EX_H
+      WHERE VBELN  = @IV_VBELN
+        AND STATUS = @ZCL_WF_LOG_EX=>GC_STATUS-IN_PROCESS
+      INTO TABLE @DATA(LT_EX).
+
+    IF LT_EX IS NOT INITIAL.
+
+      DATA(LO_EX) = NEW ZCL_WF_LOG_EX( ).
+
+      LOOP AT LT_EX INTO DATA(LV_EX).
+
+        LO_EX->ADD_ITEM( IV_LOG_ID = CONV ZWF_LOG_ID( LV_EX )
+                         IV_ACTION = ZCL_WF_LOG_EX=>GC_ACTION-KILL
+                         IV_NOTE   = CONV #( IV_REASON ) ).
+
+        LO_EX->FINISH( IV_LOG_ID = CONV ZWF_LOG_ID( LV_EX )
+                       IV_STATUS = ZCL_WF_LOG_EX=>GC_STATUS-KILLED ).
+
+      ENDLOOP.
+
+    ENDIF.
+
+    "--- overdue -----------------------------------------------------
+    SELECT LOG_ID
+      FROM ZWF_LOG_OD_H
+      WHERE VBELN  = @IV_VBELN
+        AND STATUS = @ZCL_WF_LOG_OD=>GC_STATUS-IN_PROCESS
+      INTO TABLE @DATA(LT_OD).
+
+    IF LT_OD IS NOT INITIAL.
+
+      DATA(LO_OD) = NEW ZCL_WF_LOG_OD( ).
+
+      LOOP AT LT_OD INTO DATA(LV_OD).
+
+        LO_OD->ADD_ITEM( IV_LOG_ID = CONV ZWF_LOG_ID( LV_OD )
+                         IV_ACTION = ZCL_WF_LOG_OD=>GC_ACTION-KILL
+                         IV_NOTE   = CONV #( IV_REASON ) ).
+
+        LO_OD->FINISH( IV_LOG_ID = CONV ZWF_LOG_ID( LV_OD )
+                       IV_STATUS = ZCL_WF_LOG_OD=>GC_STATUS-KILLED ).
+
+      ENDLOOP.
+
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_SD_CREDIT->FIND_RUNNING
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [<-()] RT_WI                          TYPE        TT_WI
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD FIND_RUNNING.
+
+    CHECK IV_VBELN IS NOT INITIAL.
+
+    DATA LV_RC       TYPE SY-SUBRC.
+    DATA LT_TASK     TYPE STANDARD TABLE OF SWR_TASK.
+    DATA LT_WORKLIST TYPE STANDARD TABLE OF SWR_WIHDR.
+    DATA LS_POR      TYPE SIBFLPORB.
+
+    LS_POR = VALUE #( INSTID = IV_VBELN
+                      TYPEID = 'BUS2032'
+                      CATID  = 'BO' ).
+
+    CALL FUNCTION 'SAP_WAPI_WORKITEMS_TO_OBJECT'
+      EXPORTING
+        OBJECT_POR               = LS_POR
+        OBJTYPE                  = CONV SWOTOBJID-OBJTYPE( 'BUS2032' )
+        OBJKEY                   = CONV SWOTOBJID-OBJKEY( IV_VBELN )
+        TOP_LEVEL_ITEMS          = CONV SWR_STRUCT-TOP_LEVEL( 'X' )
+        SELECTION_STATUS_VARIANT = CONV SWR_STRUCT-SELSTAVAR( 0001 )
+        TEXT                     = CONV XFELD( 'X' )
+        OUTPUT_ONLY_TOP_LEVEL    = CONV XFELD( SPACE )
+        LANGUAGE                 = SY-LANGU
+        DETERMINE_TASK_FILTER    = CONV XFELD( 'X' )
+        REMOVED_OBJECTS          = CONV XFELD( SPACE )
+      IMPORTING
+        RETURN_CODE              = LV_RC
+      TABLES
+        TASK_FILTER              = LT_TASK
+        WORKLIST                 = LT_WORKLIST.
+
+    CHECK LV_RC = 0.
+
+    LOOP AT LT_WORKLIST ASSIGNING FIELD-SYMBOL(<FS_WI>) WHERE WI_STAT = 'STARTED'.
+      CHECK <FS_WI> IS ASSIGNED.
+      SELECT SINGLE TOP_TASK FROM SWWWIHEAD INTO @DATA(TOP_TASK) WHERE WI_ID = @<FS_WI>-WI_ID .
+      CHECK TOP_TASK = 'WS99000010'.
+      APPEND <FS_WI>-WI_ID TO RT_WI.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->KILL_RUNNING_WORKFLOW
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [--->] IV_REASON                      TYPE        STRING(optional)
+* | [<-()] RV_KILLED                      TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD KILL_RUNNING_WORKFLOW.
+
+    CHECK IV_VBELN IS NOT INITIAL.
+
+    DATA(LV_REASON) = COND STRING(
+      WHEN IV_REASON IS NOT INITIAL
+      THEN IV_REASON
+      ELSE |Workflow killed, sales order changed| ).
+
+    DATA(LT_WI) = FIND_RUNNING( IV_VBELN ).
+
+    DATA LV_NEW_STATUS TYPE SWWWIHEAD-WI_STAT.
+    DATA LV_CODE       TYPE SWWWIRET-CODE VALUE 0000.
+
+    LOOP AT LT_WI INTO DATA(LV_WI).
+
+      DATA : MESSAGE TYPE SWF_T100MS.
+      CALL FUNCTION 'SWW_WI_ADMIN_CANCEL'
+        EXPORTING
+          WI_ID                       = CONV SWWWIHEAD-WI_ID( LV_WI )
+          DO_COMMIT                   = ' '
+          LOG_MESSAGE                 = MESSAGE
+        IMPORTING
+          NEW_STATUS                  = LV_NEW_STATUS
+        EXCEPTIONS
+          UPDATE_FAILED               = 1
+          NO_AUTHORIZATION            = 2
+          INFEASIBLE_STATE_TRANSITION = 3
+          OTHERS                      = 4.
+      IF SY-SUBRC = 0.
+        RV_KILLED = ABAP_TRUE.
+      ENDIF.
+*      CALL FUNCTION 'SWW_WI_ADMIN_COMPLETE'
+*        EXPORTING
+*          WI_ID                       = CONV SWWWIHEAD-WI_ID( LV_WI )
+*          DO_COMMIT                   = CONV SWWCOMMIT-COMMITFLAG( 'X' )
+*          AUTHORIZATION_CHECKED       = CONV SWWCOMMIT-AUTHCKFLAG( SPACE )
+*          PRECONDITIONS_CHECKED       = CONV SWWCOMMIT-CHECKFLAG( SPACE )
+*          RETURN_CODE                 = CONV SWWWIRET-CODE( LV_CODE )
+*          EXECUTED_BY_USER            = SY-UNAME
+*          EXECUTED_BY_ADDRESS         = CONV SWWADDRKEY( SPACE )
+*          CALLED_BY_PROXY             = CONV SWWCOMMIT-COMMITFLAG( SPACE )
+*        IMPORTING
+*          NEW_STATUS                  = LV_NEW_STATUS
+*        EXCEPTIONS
+*          UPDATE_FAILED               = 1
+*          NO_AUTHORIZATION            = 2
+*          INFEASIBLE_STATE_TRANSITION = 3
+*          OTHERS                      = 4.
+*
+*      IF SY-SUBRC = 0.
+*        RV_KILLED = ABAP_TRUE.
+*      ENDIF.
+
+    ENDLOOP.
+
+    "--- close the logs whether or not a work item was found ---------
+    CLOSE_OPEN_LOGS( IV_VBELN  = IV_VBELN
+                     IV_REASON = LV_REASON ).
+
+    "--- release the order lock so a new check can run ---------------
+    DELETE FROM ZSD_WF_SO WHERE SALES_DOCUMENT = IV_VBELN.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->CHECK_SO_BLOCK
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [<-()] RV_BLOCK                       TYPE        CHAR1
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CHECK_SO_BLOCK.
+
+    CLEAR RV_BLOCK.
+
+    CHECK IV_VBELN IS NOT INITIAL.
+
+    SELECT SINGLE CMGST, ABSTK FROM VBAK
+      WHERE VBELN = @IV_VBELN
+      INTO @DATA(LS_VBAK).
+
+    CHECK SY-SUBRC = 0.
+
+    IF LS_VBAK-CMGST = 'B' AND LS_VBAK-ABSTK <> 'C'.
+      RV_BLOCK = 'X'.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_SD_CREDIT->CLOSE_OPEN_LOGS_BP
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PARTNER                     TYPE        BU_PARTNER
+* | [--->] IV_REASON                      TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CLOSE_OPEN_LOGS_BP.
+
+    SELECT LOG_ID
+      FROM ZWF_LOG_CL_H
+      WHERE BP_ID = @IV_PARTNER
+        AND STATUS  = @ZCL_WF_LOG_CL=>GC_STATUS-IN_PROCESS
+      INTO TABLE @DATA(LT_CL).
+
+    CHECK LT_CL IS NOT INITIAL.
+
+    DATA(LO_CL) = NEW ZCL_WF_LOG_CL( ).
+
+    LOOP AT LT_CL INTO DATA(LV_CL).
+
+      LO_CL->ADD_ITEM( IV_LOG_ID = CONV ZWF_LOG_ID( LV_CL )
+                       IV_ACTION = ZCL_WF_LOG_CL=>GC_ACTION-KILL
+                       IV_NOTE   = CONV #( IV_REASON ) ).
+
+      LO_CL->FINISH( IV_LOG_ID = CONV ZWF_LOG_ID( LV_CL )
+                     IV_STATUS = ZCL_WF_LOG_CL=>GC_STATUS-KILLED ).
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_SD_CREDIT->FIND_RUNNING_BP
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PARTNER                     TYPE        BU_PARTNER
+* | [<-()] RT_WI                          TYPE        TT_WI
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD FIND_RUNNING_BP.
+
+    CHECK IV_PARTNER IS NOT INITIAL.
+
+    TYPES: BEGIN OF TY_OBJ,
+             POR      TYPE SIBFLPORB,
+             TOP_TASK TYPE SWWWIHEAD-TOP_TASK,
+           END OF TY_OBJ.
+
+    DATA LT_OBJ       TYPE STANDARD TABLE OF TY_OBJ WITH EMPTY KEY.
+    DATA LV_RC        TYPE SY-SUBRC.
+    DATA LT_TASK      TYPE STANDARD TABLE OF SWR_TASK.
+    DATA LT_WORKLIST  TYPE STANDARD TABLE OF SWR_WIHDR.
+
+    LT_OBJ = VALUE #(
+      ( POR      = VALUE #( INSTID = IV_PARTNER TYPEID = 'BUS1006'        CATID = 'BO' )
+        TOP_TASK = 'WS99000007' )
+      ( POR      = VALUE #( INSTID = IV_PARTNER TYPEID = 'CL_UKM_ACCOUNT' CATID = 'CL' )
+        TOP_TASK = 'WS99000007' )
+    ).
+
+    LOOP AT LT_OBJ INTO DATA(LS_OBJ).
+
+      CLEAR: LT_TASK, LT_WORKLIST, LV_RC.
+
+      CALL FUNCTION 'SAP_WAPI_WORKITEMS_TO_OBJECT'
+        EXPORTING
+          OBJECT_POR               = LS_OBJ-POR
+          OBJTYPE                  = CONV SWOTOBJID-OBJTYPE( LS_OBJ-POR-TYPEID )
+          OBJKEY                   = CONV SWOTOBJID-OBJKEY( LS_OBJ-POR-INSTID )
+          TOP_LEVEL_ITEMS          = CONV SWR_STRUCT-TOP_LEVEL( 'X' )
+          SELECTION_STATUS_VARIANT = CONV SWR_STRUCT-SELSTAVAR( 0001 )
+          TEXT                     = CONV XFELD( 'X' )
+          OUTPUT_ONLY_TOP_LEVEL    = CONV XFELD( SPACE )
+          LANGUAGE                 = SY-LANGU
+          DETERMINE_TASK_FILTER    = CONV XFELD( 'X' )
+          REMOVED_OBJECTS          = CONV XFELD( SPACE )
+        IMPORTING
+          RETURN_CODE              = LV_RC
+        TABLES
+          TASK_FILTER              = LT_TASK
+          WORKLIST                 = LT_WORKLIST.
+
+      CHECK LV_RC = 0.
+
+      LOOP AT LT_WORKLIST ASSIGNING FIELD-SYMBOL(<FS_WI>) WHERE WI_STAT = 'STARTED'.
+        CHECK <FS_WI> IS ASSIGNED.
+        SELECT SINGLE TOP_TASK FROM SWWWIHEAD INTO @DATA(TOP_TASK) WHERE WI_ID = @<FS_WI>-WI_ID.
+        CHECK TOP_TASK = LS_OBJ-TOP_TASK.
+        APPEND <FS_WI>-WI_ID TO RT_WI.
+      ENDLOOP.
+
+    ENDLOOP.
+
+    SORT RT_WI.
+    DELETE ADJACENT DUPLICATES FROM RT_WI.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_WF_SD_CREDIT->GET_WF_START_DATE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_DATE                        TYPE        DATS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_WF_START_DATE.
+
+    DATA LV_LOW TYPE RVARI_VAL_255.
+
+    SELECT SINGLE LOW FROM TVARVC
+      WHERE NAME = @GC_TVARVC_START
+        AND TYPE = 'P'
+        AND NUMB = '0000'
+      INTO @LV_LOW.
+
+    IF SY-SUBRC <> 0 OR LV_LOW IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    RV_DATE = LV_LOW(8).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->IS_START_ALLOWED
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN_VA
+* | [<-()] RV_START                       TYPE        ABAP_BOOL
+* | [!CX!] ZCX_WF_SD
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD IS_START_ALLOWED.
+
+    DATA LV_ERDAT    TYPE ERDAT.
+    DATA LV_START_ON TYPE DATS.
+    DATA LV_BLOCK    TYPE CHAR1.
+
+    CLEAR RV_START.
+
+    IF IV_VBELN IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE ERDAT FROM VBAK
+      WHERE VBELN = @IV_VBELN
+      INTO @LV_ERDAT.
+
+    IF SY-SUBRC <> 0.
+      RAISE EXCEPTION TYPE ZCX_WF_SD
+        EXPORTING
+          TEXTID   = ZCX_WF_SD=>ORDER_NOT_FOUND
+          IV_ATTR1 = IV_VBELN.
+    ENDIF.
+
+    LV_START_ON = GET_WF_START_DATE( ).
+
+    IF LV_START_ON IS NOT INITIAL AND LV_ERDAT < LV_START_ON.
+      RETURN.
+    ENDIF.
+
+    LV_BLOCK = CHECK_SO_BLOCK( IV_VBELN ).
+
+    RV_START = XSDBOOL( LV_BLOCK = 'X' ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->KILL_RUNNING_WORKFLOW_BP
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PARTNER                     TYPE        BU_PARTNER
+* | [--->] IV_REASON                      TYPE        STRING(optional)
+* | [<-()] RV_KILLED                      TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD KILL_RUNNING_WORKFLOW_BP.
+
+    CHECK IV_PARTNER IS NOT INITIAL.
+
+    DATA(LV_REASON) = COND STRING(
+      WHEN IV_REASON IS NOT INITIAL
+      THEN IV_REASON
+      ELSE |Workflow killed, business partner changed| ).
+
+    DATA(LT_WI) = FIND_RUNNING_BP( IV_PARTNER ).
+
+    DATA LV_NEW_STATUS TYPE SWWWIHEAD-WI_STAT.
+    DATA LV_CODE       TYPE SWWWIRET-CODE VALUE 0000.
+
+    LOOP AT LT_WI INTO DATA(LV_WI).
+      CALL FUNCTION 'SWW_WI_ADMIN_COMPLETE'
+        EXPORTING
+          WI_ID                       = CONV SWWWIHEAD-WI_ID( LV_WI )
+          DO_COMMIT                   = CONV SWWCOMMIT-COMMITFLAG( 'X' )
+          AUTHORIZATION_CHECKED       = CONV SWWCOMMIT-AUTHCKFLAG( SPACE )
+          PRECONDITIONS_CHECKED       = CONV SWWCOMMIT-CHECKFLAG( SPACE )
+          RETURN_CODE                 = CONV SWWWIRET-CODE( LV_CODE )
+          EXECUTED_BY_USER            = SY-UNAME
+          EXECUTED_BY_ADDRESS         = CONV SWWADDRKEY( SPACE )
+          CALLED_BY_PROXY             = CONV SWWCOMMIT-COMMITFLAG( SPACE )
+        IMPORTING
+          NEW_STATUS                  = LV_NEW_STATUS
+        EXCEPTIONS
+          UPDATE_FAILED               = 1
+          NO_AUTHORIZATION            = 2
+          INFEASIBLE_STATE_TRANSITION = 3
+          OTHERS                      = 4.
+
+      IF SY-SUBRC = 0.
+        RV_KILLED = ABAP_TRUE.
+      ENDIF.
+
+    ENDLOOP.
+
+    CLOSE_OPEN_LOGS_BP( IV_PARTNER = IV_PARTNER
+                        IV_REASON  = LV_REASON ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_WF_SD_CREDIT->TESTMETHOD
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] UNAME                          TYPE        SYUNAME(optional)
+* | [<-->] USERS                          TYPE        ZWF_USERS_TY(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD TESTMETHOD.
+    CHECK SY-UNAME = 'SNAG_HASSAN' AND SY-SYSID = 'QE3'.
+    LOOP AT USERS ASSIGNING FIELD-SYMBOL(<FS>).
+      CHECK <FS> IS  ASSIGNED.
+      <FS>-BNAME = UNAME.
+      <FS>-USER_DESC = |Level No.{ <FS>-SEQUENCE }|.
+    ENDLOOP.
+  ENDMETHOD.
+ENDCLASS.
