@@ -1,7 +1,7 @@
 * Pasted in chat on 2026-10-14 (not an uploaded file).
 * User exits / enhancements in MV45AFZZ that touch WS99000010.
-* The last enhancement (ZEN_CMEXOD_KILL_WORKFLOW) was pasted without the
-* FORM it belongs to.
+* ZEN_CMEXOD_KILL_WORKFLOW sits in FORM USEREXIT_SAVE_DOCUMENT
+* (confirmed by the user; the FORM wrapper below was added for context).
 
 FORM USEREXIT_DELETE_DOCUMENT.
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(1) Form USEREXIT_DELETE_DOCUMENT, Start                                                                                                              A
@@ -54,7 +54,10 @@ ENHANCEMENT 1  ZSD_CW_QUALITYCHECK_WITH_CUST1.    "active version
 ENDENHANCEMENT.
 *$*$-End:   (8)---------------------------------------------------------------------------------$*$*
 
-ENDFORM.ENHANCEMENT 1  ZEN_CMEXOD_KILL_WORKFLOW.    "active version
+ENDFORM.
+*---------------------------------------------------------------------*
+FORM USEREXIT_SAVE_DOCUMENT.
+ENHANCEMENT 1  ZEN_CMEXOD_KILL_WORKFLOW.    "active version
 *
 *--- Begin of Enhancement | Hassan Diab | kill on change --------------
   BREAK SNAG_HASSAN.
@@ -85,3 +88,5 @@ CHECK LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
 *--- End of Enhancement -----------------------------------------------
 
 ENDENHANCEMENT.
+
+ENDFORM.
