@@ -14,7 +14,7 @@ Draft – not compiled or tested in SAP.
 | # | Object | Changes |
 |---|---|---|
 | A | `ZCL_WF_SD_CREDIT` → `IS_START_ALLOWED` | 1 insert |
-| B | `MV45AFZZ` | B1–B2 kill on change, B3 new enhancement (save), B4 kill on delete, B5 new enhancement (prepare), B6–B7 `ZSD_CHECK_APPROVAL`, B8 VA02 redirect |
+| B | `MV45AFZZ` | B1–B2 kill on change (+ tell the release cycle), B3 new enhancement (save), B4 kill on delete (+ tell the release cycle), B5 new enhancement (prepare), B6–B7 `ZSD_CHECK_APPROVAL`, B8 CHECK → IF |
 | C | YSDA `YSP_MTOSO_APPROVE` | C1 list filter, C2–C5 `APPROVE_FUN`, C6–C7 `REJECT_FUN` |
 | D | YSDAX `YSP_MTOSO_APPROVE_CX` | D1 list filter, D2–D4 `APPROVE_FUN`, D5–D6 `REJECT_FUN` |
 | E | Workflow `WS99000010` | see `WS99000010_workflow_changes.md` |
@@ -32,11 +32,21 @@ Draft – not compiled or tested in SAP.
 ```
 **Insert after it:**
 ```abap
+    IF FIND_RUNNING( IV_VBELN ) IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
     IF NEW ZCL_SD_SO_RELEASE( )->CAN_START_CREDIT_WF( IV_VBELN )
        = ZCL_SD_SO_RELEASE=>GC_START-NO.
       RETURN.
     ENDIF.
 ```
+- `FIND_RUNNING` (existing private method of this class): a WS99000010 is already running for the order →
+  no second start. This is checked **before** the workflow starts, so no work item and no log is created.
+  It applies to every order (also normal orders).
+- `CAN_START_CREDIT_WF`: for a release-cycle order the workflow starts only after all production lines are
+  decided in YSDA / YSDAX; normal orders are not affected.
+
 The check FM `Z_FM_SD_WF_CHECK_CREDIT` itself does not change.
 
 ---
@@ -59,8 +69,7 @@ The check FM `Z_FM_SD_WF_CHECK_CREDIT` itself does not change.
 **Replace with:**
 ```abap
   IF ( T180-TRTYP = 'V' AND T180-TCODE = 'VA02' )
-     AND VBAK-VBELN IS NOT INITIAL
-     AND NEW ZCL_SD_SO_RELEASE( )->IS_MANAGED( VBAK-VBELN ) = ABAP_FALSE.
+     AND VBAK-VBELN IS NOT INITIAL.
 ```
 
 #### B2 – REPLACE + INSERT
@@ -78,9 +87,13 @@ IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
 ```
 **Insert after it:**
 ```abap
+  NEW ZCL_SD_SO_RELEASE( )->ON_WORKFLOW_KILLED( VBAK-VBELN ).
   ENDIF.
   ENDIF.
 ```
+Your existing rule stays for **every** order: a change in VA02 while the workflow runs cancels it.
+`ON_WORKFLOW_KILLED` only tells the release cycle (credit status back to "open", so the next start is allowed);
+for normal orders it does nothing.
 
 ### B3 – NEW enhancement implementation in `USEREXIT_SAVE_DOCUMENT`
 At the enhancement point at the start of `USEREXIT_SAVE_DOCUMENT` (where `ZEN_CMEXOD_KILL_WORKFLOW` is):
@@ -120,10 +133,6 @@ ENDENHANCEMENT.
 ```abap
   IF ( XVBAK_UPDKZ = 'D' AND T180-TRTYP = 'V' )
      AND VBAK-VBELN IS NOT INITIAL.
-
-  IF NEW ZCL_SD_SO_RELEASE( )->IS_MANAGED( VBAK-VBELN ) = ABAP_TRUE.
-    NEW ZCL_SD_SO_RELEASE( )->ON_ORDER_DELETED( VBAK-VBELN ).
-  ELSE.
 ```
 **Find:**
 ```abap
@@ -140,9 +149,11 @@ IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
 **Insert after it:**
 ```abap
   ENDIF.
-  ENDIF.
+  NEW ZCL_SD_SO_RELEASE( )->ON_ORDER_DELETED( VBAK-VBELN ).
   ENDIF.
 ```
+The existing kill on delete stays for every order; `ON_ORDER_DELETED` only marks a release-cycle order as
+deleted (nothing for normal orders).
 
 ### B5 – NEW enhancement implementation in `USEREXIT_SAVE_DOCUMENT_PREPARE`
 At the enhancement point at the start of `USEREXIT_SAVE_DOCUMENT_PREPARE`, create `ZEN_SO_RELEASE_NO_VKM`:
@@ -198,7 +209,7 @@ The complete code of every MV45AFZZ enhancement (after B1–B8) is in `MV45AFZZ_
 
 ### FORM `USEREXIT_READ_DOCUMENT`, enhancement `ZEN_DISAB_VA02_CM_WF_RUNNINNG`
 
-#### B8 – REPLACE + INSERT
+#### B8 – REPLACE + INSERT (only CHECK → IF – the existing rule stays for every order)
 **Find:**
 ```abap
   CHECK SY-TCODE = 'VA02'
@@ -209,8 +220,7 @@ The complete code of every MV45AFZZ enhancement (after B1–B8) is in `MV45AFZZ_
 ```abap
   IF SY-TCODE = 'VA02'
      AND VBAK-VBELN IS NOT INITIAL
-     AND NEW ZCL_WF_SD_CREDIT( )->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE
-     AND NEW ZCL_SD_SO_RELEASE( )->IS_MANAGED( VBAK-VBELN ) = ABAP_FALSE.
+     AND NEW ZCL_WF_SD_CREDIT( )->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
 ```
 **Find:**
 ```abap

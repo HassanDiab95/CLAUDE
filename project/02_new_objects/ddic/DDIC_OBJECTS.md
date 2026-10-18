@@ -168,12 +168,7 @@ appears in commented code of YSDAX) is approved in YSDA/YSDAX in real life, add 
 | `VBAK-AUDAT` between the screen dates | not needed – the screen date range only limits the list |
 | YSDA `ABGRU = '' OR 'Z8'` / YSDAX `ABSTA <> 'C'` | status, not scope: a line with another reason is "rejected" (`REFRESH_ITEM_STATUS`) |
 
-## 7. Lock object `EZSD_SO_REL`
-
-Primary table `ZSD_SO_REL_H`, lock mode E, lock parameters MANDT, VBELN.
-Generates `ENQUEUE_EZSD_SO_REL` / `DEQUEUE_EZSD_SO_REL`.
-
-## 8. Messages – class `ZSD_WF` (SE91)
+## 7. Messages – class `ZSD_WF` (SE91)
 
 015 and 016 are already used, so the release cycle uses 017 and 018.
 
@@ -183,7 +178,7 @@ Generates `ENQUEUE_EZSD_SO_REL` / `DEQUEUE_EZSD_SO_REL`.
 | 018 | `Item &1: no CN->CP before credit approval` | MV45AFZZ, manual change CN -> CP refused (B7) |
 
 
-## 9. TVARVC – one entry only
+## 8. TVARVC – one entry only
 
 | Name | Type | Value |
 |---|---|---|
