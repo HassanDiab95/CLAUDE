@@ -1,9 +1,10 @@
 *&---------------------------------------------------------------------*
 *& Report ZSD_SO_REL_MONITOR   (transaction ZSD_SO_REL_MON)
 *&---------------------------------------------------------------------*
-*& Monitor of the release cycle: one line per order item with costing,
-*& credit and production status. Double click on a line shows the
-*& history (ZSD_SO_REL_LOG) of the order.
+*& Monitor of the release cycle: one line per order item with the
+*& YSDA/YSDAX decision (who / when / reason), the release plan, credit
+*& and production status. Double click shows the history of the order
+*& (ZSD_SO_REL_LOG: order rows POSNR 000000 + one row per line change).
 *& DRAFT - not compiled / not tested in SAP
 *&---------------------------------------------------------------------*
 REPORT ZSD_SO_REL_MONITOR.
@@ -27,8 +28,13 @@ TYPES: BEGIN OF TY_S_OUT,
          CREDIT_CYCLE   TYPE ZSD_SO_REL_H-CREDIT_CYCLE,
          WI_ID          TYPE ZSD_SO_REL_H-WI_ID,
          ITEM_COST      TYPE ZSD_SO_REL_I-COST_STATUS,
+         DECIDED_BY     TYPE ZSD_SO_REL_I-DECIDED_BY,
+         DECIDED_ON     TYPE ZSD_SO_REL_I-DECIDED_ON,
+         REJ_ABGRU      TYPE ZSD_SO_REL_I-REJ_ABGRU,
+         REL_PLAN       TYPE ZSD_SO_REL_I-REL_PLAN,
          ITEM_PROD      TYPE ZSD_SO_REL_I-PROD_STATUS,
          PROD_REL_ON    TYPE ZSD_SO_REL_I-PROD_REL_ON,
+         CANCEL_ABGRU   TYPE ZSD_SO_REL_I-CANCEL_ABGRU,
          SNAP_NETWR     TYPE ZSD_SO_REL_H-SNAP_NETWR,
          SNAP_WAERK     TYPE ZSD_SO_REL_H-SNAP_WAERK,
          CHANGED_ON     TYPE ZSD_SO_REL_H-CHANGED_ON,
@@ -52,7 +58,7 @@ CLASS LCL_EVENTS IMPLEMENTATION.
 
     SELECT * FROM ZSD_SO_REL_LOG
       WHERE VBELN = @LS_OUT-VBELN
-      ORDER BY LOG_TS DESCENDING
+      ORDER BY LOG_TS DESCENDING, POSNR
       INTO TABLE @DATA(LT_LOG).
 
     TRY.
@@ -74,7 +80,8 @@ START-OF-SELECTION.
 
   SELECT H~VBELN, I~POSNR, H~VKORG, H~AUART, H~ERDAT, H~OVERALL_STATUS,
          H~CREDIT_STATUS, H~CREDIT_CYCLE, H~WI_ID,
-         I~COST_STATUS AS ITEM_COST, I~PROD_STATUS AS ITEM_PROD, I~PROD_REL_ON,
+         I~COST_STATUS AS ITEM_COST, I~DECIDED_BY, I~DECIDED_ON, I~REJ_ABGRU, I~REL_PLAN,
+         I~PROD_STATUS AS ITEM_PROD, I~PROD_REL_ON, I~CANCEL_ABGRU,
          H~SNAP_NETWR, H~SNAP_WAERK, H~CHANGED_ON, H~CHANGED_BY
     FROM ZSD_SO_REL_H AS H
     INNER JOIN ZSD_SO_REL_I AS I ON I~VBELN = H~VBELN

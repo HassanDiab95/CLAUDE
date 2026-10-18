@@ -7,7 +7,7 @@
 *&                   static method:
 *&                     CREDIT_STARTED  - first step of the workflow
 *&                     CREDIT_APPROVED - after the final approval
-*&                     CREDIT_REJECTED - after the rejection
+*&                     CREDIT_REJECTED - after the rejection (cancels order)
 *&                   All three are "Background processing" tasks with
 *&                   synchronous object method.
 *&---------------------------------------------------------------------*
@@ -35,10 +35,12 @@ CLASS ZCL_WF_SD_SO_REL_STEP DEFINITION
       IMPORTING IV_VBELN TYPE VBELN_VA
       RAISING   CX_BO_TEMPORARY.
 
-    "! After the rejection.
+    "! After the rejection: the order is cancelled (rejection reason on
+    "! every open line). CX_BO_TEMPORARY -> retry (order locked in VA02).
     CLASS-METHODS CREDIT_REJECTED
       IMPORTING IV_VBELN TYPE VBELN_VA
-                IV_NOTE  TYPE ZWF_NOTE OPTIONAL.
+                IV_NOTE  TYPE ZWF_NOTE OPTIONAL
+      RAISING   CX_BO_TEMPORARY.
 
 ENDCLASS.
 
@@ -67,9 +69,11 @@ CLASS ZCL_WF_SD_SO_REL_STEP IMPLEMENTATION.
 
   METHOD CREDIT_REJECTED.
 
-    NEW ZCL_SD_SO_RELEASE( )->ON_CREDIT_REJECTED(
-      IV_VBELN = IV_VBELN
-      IV_NOTE  = IV_NOTE ).
+    IF NEW ZCL_SD_SO_RELEASE( )->ON_CREDIT_REJECTED(
+         IV_VBELN = IV_VBELN
+         IV_NOTE  = IV_NOTE ) = ABAP_FALSE.
+      RAISE EXCEPTION TYPE CX_BO_TEMPORARY.
+    ENDIF.
 
   ENDMETHOD.
 

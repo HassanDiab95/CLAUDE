@@ -41,7 +41,9 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     CONSTANTS: BEGIN OF GC_PROD,
                  BLOCKED  TYPE ZSD_REL_PROD VALUE 'B',
                  RELEASED TYPE ZSD_REL_PROD VALUE 'R',
-                 ERROR    TYPE ZSD_REL_PROD VALUE 'E',
+                 ERROR     TYPE ZSD_REL_PROD VALUE 'E',
+                 KEPT      TYPE ZSD_REL_PROD VALUE 'K',   " rejected in YSDA/YSDAX, stays CN
+                 CANCELLED TYPE ZSD_REL_PROD VALUE 'X',   " credit rejected, order cancelled
                END OF GC_PROD.
 
     CONSTANTS: BEGIN OF GC_OVERALL,
@@ -88,6 +90,20 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     TYPES TT_ITEM  TYPE STANDARD TABLE OF TY_S_ITEM WITH EMPTY KEY.
     TYPES TT_POSNR TYPE STANDARD TABLE OF POSNR_VA WITH EMPTY KEY.
 
+    "! One order line with its YSDA/YSDAX decision and what happens to it
+    "! at the credit final approval (for the workflow mail / monitor)
+    TYPES: BEGIN OF TY_S_PLAN,
+             POSNR         TYPE VBAP-POSNR,
+             MATNR         TYPE VBAP-MATNR,
+             ARKTX         TYPE VBAP-ARKTX,
+             KWMENG        TYPE VBAP-KWMENG,
+             VRKME         TYPE VBAP-VRKME,
+             DECISION      TYPE STRING,      " approved / rejected by ... on ...
+             TARGET        TYPE STRING,      " CN -> CP / stays CN / ...
+             TO_PRODUCTION TYPE ABAP_BOOL,
+           END OF TY_S_PLAN.
+    TYPES TT_PLAN TYPE STANDARD TABLE OF TY_S_PLAN WITH EMPTY KEY.
+
     "--- sales order: MV45AFZZ (no COMMIT, written with the order) ------
     "! USEREXIT_SAVE_DOCUMENT
     METHODS ON_ORDER_SAVED
@@ -126,6 +142,11 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
                 IV_POSNR       TYPE POSNR_VA
       RETURNING VALUE(RV_TEXT) TYPE STRING.
 
+    "! Every production line: YSDA/YSDAX decision and planned result
+    METHODS GET_RELEASE_PLAN
+      IMPORTING IV_VBELN       TYPE VBELN_VA
+      RETURNING VALUE(RT_PLAN) TYPE TT_PLAN.
+
     "--- credit workflow ---------------------------------------------------
     "! Check FM Z_FM_SD_WF_CHECK_CREDIT via ZCL_WF_SD_CREDIT->IS_START_ALLOWED
     METHODS CAN_START_CREDIT_WF
@@ -143,9 +164,13 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
       IMPORTING IV_VBELN           TYPE VBELN_VA
       RETURNING VALUE(RV_RELEASED) TYPE ABAP_BOOL.
 
+    "! Rejection step: credit rejected -> the order is cancelled (every open
+    "! line gets the rejection reason of ZSD_SO_REL_CFG-REJ_ABGRU).
+    "! RV_CANCELLED = false -> retry (order locked)
     METHODS ON_CREDIT_REJECTED
-      IMPORTING IV_VBELN TYPE VBELN_VA
-                IV_NOTE  TYPE CSEQUENCE OPTIONAL.
+      IMPORTING IV_VBELN            TYPE VBELN_VA
+                IV_NOTE             TYPE CSEQUENCE OPTIONAL
+      RETURNING VALUE(RV_CANCELLED) TYPE ABAP_BOOL.
 
     "--- engine / job ------------------------------------------------------
     "! Re-evaluates the whole order and releases every item that may go
@@ -203,6 +228,21 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     METHODS TAKE_SNAPSHOT
       CHANGING CS_HDR   TYPE ZSD_SO_REL_H
                CT_ITEMS TYPE TT_REL_I.
+
+    METHODS SET_RELEASE_PLAN
+      CHANGING CT_ITEMS      TYPE TT_REL_I
+      RETURNING VALUE(RV_NOTE) TYPE STRING.
+
+    METHODS CANCEL_ORDER
+      IMPORTING IV_VBELN       TYPE VBELN_VA
+      CHANGING  CS_HDR         TYPE ZSD_SO_REL_H
+                CT_ITEMS       TYPE TT_REL_I
+      RETURNING VALUE(RV_DONE) TYPE ABAP_BOOL.
+
+    METHODS ITEM_LOG
+      IMPORTING IS_OLD         TYPE ZSD_SO_REL_I
+                IS_NEW         TYPE ZSD_SO_REL_I
+      RETURNING VALUE(RV_NOTE) TYPE STRING.
 
     METHODS IS_CONFIGURED
       IMPORTING IS_ORDER         TYPE TY_S_ORDER
@@ -307,19 +347,17 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
     ENDLOOP.
 
-    "--- credit decided or running: compare with what credit approved ----
+    "--- credit running or approved: compare with what credit approved ---
+    "    (after a credit rejection the order is cancelled - nothing to compare)
     IF LS_HDR-CREDIT_STATUS = GC_CREDIT-IN_APPROVAL
-    OR LS_HDR-CREDIT_STATUS = GC_CREDIT-APPROVED
-    OR LS_HDR-CREDIT_STATUS = GC_CREDIT-REJECTED.
+    OR LS_HDR-CREDIT_STATUS = GC_CREDIT-APPROVED.
 
       DATA LV_REASON TYPE STRING.
 
-      " after a rejection any change of value / quantity asks again
       DATA(LV_RELEVANT) = IS_CREDIT_RELEVANT_CHANGE(
-        EXPORTING IS_ORDER      = IS_ORDER
-                  IT_ITEMS      = IT_ITEMS
-                  IV_ANY_CHANGE = XSDBOOL( LS_HDR-CREDIT_STATUS = GC_CREDIT-REJECTED )
-        IMPORTING EV_REASON     = LV_REASON ).
+        EXPORTING IS_ORDER  = IS_ORDER
+                  IT_ITEMS  = IT_ITEMS
+        IMPORTING EV_REASON = LV_REASON ).
 
       IF LV_RELEVANT = ABAP_TRUE.
 
@@ -510,8 +548,10 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     RV_TEXT = COND #(
       WHEN LS_HDR IS INITIAL OR LS_ITM-PROD_RELEVANT = ABAP_FALSE
         THEN ``
+      WHEN LS_ITM-PROD_STATUS = GC_PROD-CANCELLED
+        THEN |Cancelled - credit rejected (reason { LS_ITM-REJ_ABGRU })|
       WHEN LS_ITM-COST_STATUS = GC_COST-REJECTED
-        THEN `Item rejected - production stays blocked`
+        THEN |Rejected in YSDA/YSDAX (reason { LS_ITM-REJ_ABGRU }) - stays CN|
       WHEN LS_ITM-COST_STATUS = GC_COST-PENDING
         THEN `Waiting for SD and FI approval`
       WHEN LS_ITM-PROD_STATUS = GC_PROD-RELEASED
@@ -522,6 +562,8 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
         THEN `Credit rejected - production stays blocked`
       WHEN LS_HDR-COST_STATUS = GC_COST-PENDING
         THEN `Approved - credit approval starts when all items are decided`
+      WHEN LS_ITM-REL_PLAN = ABAP_TRUE
+        THEN `Approved - goes CN -> CP at the credit final approval`
       ELSE `Approved - production blocked until credit approval` ).
 
   ENDMETHOD.
@@ -584,12 +626,15 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     TAKE_SNAPSHOT( CHANGING CS_HDR   = LS_HDR
                             CT_ITEMS = LT_ITM ).
 
+    " which lines go CN -> CP at the final approval and which stay CN
+    DATA(LV_PLAN) = SET_RELEASE_PLAN( CHANGING CT_ITEMS = LT_ITM ).
+
     SAVE( IS_HDR   = LS_HDR
           IT_ITEMS = LT_ITM
           IV_EVENT = 'CREDIT_ST'
           IV_NOTE  = |Credit workflow { IV_WI_ID ALPHA = OUT } started, cycle | &&
-                     |{ LS_HDR-CREDIT_CYCLE }, approved value { LS_HDR-SNAP_NETWR } | &&
-                     |{ LS_HDR-SNAP_WAERK }| ).
+                     |{ LS_HDR-CREDIT_CYCLE }, value { LS_HDR-SNAP_NETWR } | &&
+                     |{ LS_HDR-SNAP_WAERK }. { LV_PLAN }| ).
 
     " the workflow runtime commits after the step; the lock goes with it
 
@@ -629,16 +674,33 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
   METHOD ON_CREDIT_REJECTED.
 
     DATA(LS_HDR) = READ_HEADER( IV_VBELN ).
-    CHECK LS_HDR IS NOT INITIAL.
 
-    LS_HDR-CREDIT_STATUS  = GC_CREDIT-REJECTED.
-    LS_HDR-CREDIT_DONE_ON = SY-DATUM.
+    IF LS_HDR IS INITIAL.
+      RV_CANCELLED = ABAP_TRUE.     " not managed - nothing to do
+      RETURN.
+    ENDIF.
 
-    SAVE( IS_HDR   = LS_HDR
-          IT_ITEMS = READ_ITEMS( IV_VBELN )
-          IV_EVENT = 'CREDIT_NOK'
-          IV_NOTE  = COND #( WHEN IV_NOTE IS NOT INITIAL THEN IV_NOTE
-                             ELSE |Credit workflow rejected - production stays blocked| ) ).
+    IF LS_HDR-CREDIT_STATUS <> GC_CREDIT-REJECTED.
+
+      LS_HDR-CREDIT_STATUS  = GC_CREDIT-REJECTED.
+      LS_HDR-CREDIT_DONE_ON = SY-DATUM.
+
+      SAVE( IS_HDR   = LS_HDR
+            IT_ITEMS = READ_ITEMS( IV_VBELN )
+            IV_EVENT = 'CREDIT_NOK'
+            IV_NOTE  = COND #( WHEN IV_NOTE IS NOT INITIAL
+                               THEN |Credit rejected: { IV_NOTE }|
+                               ELSE |Credit rejected - order will be cancelled| ) ).
+
+      COMMIT WORK AND WAIT.
+
+    ENDIF.
+
+    " every open line gets the credit rejection reason (commits)
+    DATA(LT_ITM) = READ_ITEMS( IV_VBELN ).
+    RV_CANCELLED = CANCEL_ORDER( EXPORTING IV_VBELN = IV_VBELN
+                                 CHANGING  CS_HDR   = LS_HDR
+                                           CT_ITEMS = LT_ITM ).
 
   ENDMETHOD.
 
@@ -729,6 +791,16 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
       RV_NOTE = `Credit workflow start requested`.
     ENDIF.
 
+    "--- credit rejected: the order must be cancelled (retry of the job) --
+    IF LS_HDR-CREDIT_STATUS = GC_CREDIT-REJECTED.
+      RV_NOTE = COND #( WHEN CANCEL_ORDER( EXPORTING IV_VBELN = IV_VBELN
+                                           CHANGING  CS_HDR   = LS_HDR
+                                                     CT_ITEMS = LT_ITM ) = ABAP_TRUE
+                        THEN `Credit rejected - order cancelled`
+                        ELSE `Credit rejected - cancellation failed, see log` ).
+      RETURN.
+    ENDIF.
+
     "--- 3. production: every approved item, if credit allows ---------
     CHECK LS_HDR-CREDIT_STATUS = GC_CREDIT-APPROVED
        OR LS_HDR-CREDIT_STATUS = GC_CREDIT-NOT_NEEDED.
@@ -769,6 +841,9 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
     LOOP AT CT_ITEMS ASSIGNING FIELD-SYMBOL(<LS_ITM>) WHERE PROD_RELEVANT = ABAP_TRUE.
 
+      " cancelled after a credit rejection: final, keep the YSDA decision
+      CHECK <LS_ITM>-PROD_STATUS <> GC_PROD-CANCELLED.
+
       DATA(LV_ABGRU) = VALUE ABGRU_VA( LT_VBAP[ POSNR = <LS_ITM>-POSNR ]-ABGRU OPTIONAL ).
       DATA(LV_EXIST) = XSDBOOL( LINE_EXISTS( LT_VBAP[ POSNR = <LS_ITM>-POSNR ] ) ).
 
@@ -780,8 +855,18 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
         WHEN LINE_EXISTS( LT_OK[ POSNR = <LS_ITM>-POSNR ] )             THEN GC_COST-APPROVED
         ELSE                                                                 GC_COST-PENDING ).
 
-      IF LV_COST <> <LS_ITM>-COST_STATUS AND LV_COST <> GC_COST-PENDING.
-        <LS_ITM>-COST_DONE_ON = SY-DATUM.
+      " YSDA / YSDAX decision of this line: who, when, reason
+      IF LV_COST <> <LS_ITM>-COST_STATUS.
+        IF LV_COST = GC_COST-PENDING.
+          CLEAR: <LS_ITM>-COST_DONE_ON, <LS_ITM>-DECIDED_BY,
+                 <LS_ITM>-DECIDED_ON, <LS_ITM>-DECIDED_AT, <LS_ITM>-REJ_ABGRU.
+        ELSE.
+          <LS_ITM>-COST_DONE_ON = SY-DATUM.
+          <LS_ITM>-DECIDED_BY   = SY-UNAME.
+          <LS_ITM>-DECIDED_ON   = SY-DATUM.
+          <LS_ITM>-DECIDED_AT   = SY-UZEIT.
+          <LS_ITM>-REJ_ABGRU    = COND #( WHEN LV_COST = GC_COST-REJECTED THEN LV_ABGRU ).
+        ENDIF.
       ENDIF.
       <LS_ITM>-COST_STATUS = LV_COST.
 
@@ -793,6 +878,11 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
         ENDIF.
       ELSEIF <LS_ITM>-PROD_STATUS = GC_PROD-RELEASED.
         <LS_ITM>-PROD_STATUS = GC_PROD-BLOCKED.       " CN again
+      ELSEIF LV_COST = GC_COST-REJECTED.
+        <LS_ITM>-PROD_STATUS = GC_PROD-KEPT.          " rejected: stays CN
+        CLEAR <LS_ITM>-REL_PLAN.
+      ELSEIF <LS_ITM>-PROD_STATUS = GC_PROD-KEPT.
+        <LS_ITM>-PROD_STATUS = GC_PROD-BLOCKED.       " rejection removed
       ENDIF.
 
     ENDLOOP.
@@ -844,12 +934,21 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     DATA LT_RETURN TYPE STANDARD TABLE OF BAPIRET2.
     DATA LR_POSNR  TYPE RANGE OF POSNR_VA.
 
-    " approved items that are still blocked (B) or failed before (E)
+    " approved lines still blocked (B) or failed before (E); after a credit
+    " approval only the lines of the release plan fixed at workflow start
+    DATA(LV_PLAN_ONLY) = XSDBOOL( CS_HDR-CREDIT_STATUS = GC_CREDIT-APPROVED ).
+
     LR_POSNR = VALUE #( FOR L IN CT_ITEMS
                         WHERE ( PROD_RELEVANT = ABAP_TRUE
                             AND COST_STATUS   = GC_COST-APPROVED
-                            AND PROD_STATUS  <> GC_PROD-RELEASED )
+                            AND ( PROD_STATUS = GC_PROD-BLOCKED OR PROD_STATUS = GC_PROD-ERROR ) )
                         ( SIGN = 'I' OPTION = 'EQ' LOW = L-POSNR ) ).
+
+    IF LV_PLAN_ONLY = ABAP_TRUE.
+      LOOP AT CT_ITEMS INTO DATA(LS_NOPLAN) WHERE REL_PLAN = ABAP_FALSE.
+        DELETE LR_POSNR WHERE LOW = LS_NOPLAN-POSNR.
+      ENDLOOP.
+    ENDIF.
 
     CHECK LR_POSNR IS NOT INITIAL.
 
@@ -995,6 +1094,208 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
 
 *======================================================================*
+* Release plan, cancellation, line log
+*======================================================================*
+  METHOD SET_RELEASE_PLAN.
+
+    " fixed when the credit workflow starts: approved lines go CN -> CP at
+    " the final approval, rejected lines stay CN
+    DATA LV_GO   TYPE STRING.
+    DATA LV_KEEP TYPE STRING.
+
+    LOOP AT CT_ITEMS ASSIGNING FIELD-SYMBOL(<LS_ITM>) WHERE PROD_RELEVANT = ABAP_TRUE.
+
+      CASE <LS_ITM>-COST_STATUS.
+
+        WHEN GC_COST-APPROVED.
+          <LS_ITM>-REL_PLAN = XSDBOOL( <LS_ITM>-PROD_STATUS <> GC_PROD-RELEASED ).
+          IF <LS_ITM>-REL_PLAN = ABAP_TRUE.
+            LV_GO = |{ LV_GO } { <LS_ITM>-POSNR ALPHA = OUT }|.
+          ENDIF.
+
+        WHEN OTHERS.
+          CLEAR <LS_ITM>-REL_PLAN.
+          IF <LS_ITM>-PROD_STATUS <> GC_PROD-RELEASED.
+            <LS_ITM>-PROD_STATUS = GC_PROD-KEPT.
+          ENDIF.
+          LV_KEEP = |{ LV_KEEP } { <LS_ITM>-POSNR ALPHA = OUT }|.
+
+      ENDCASE.
+
+    ENDLOOP.
+
+    RV_NOTE = |Release plan - CN->CP:{ COND string( WHEN LV_GO IS INITIAL THEN ` none` ELSE LV_GO ) }; | &&
+              |stay CN:{ COND string( WHEN LV_KEEP IS INITIAL THEN ` none` ELSE LV_KEEP ) }|.
+
+  ENDMETHOD.
+
+
+  METHOD CANCEL_ORDER.
+
+    DATA LT_ITEM_IN  TYPE STANDARD TABLE OF BAPISDITM.
+    DATA LT_ITEM_INX TYPE STANDARD TABLE OF BAPISDITMX.
+    DATA LT_RETURN   TYPE STANDARD TABLE OF BAPIRET2.
+
+    " rejection reason for "credit rejected" from the customizing
+    DATA(LV_ABGRU) = READ_CONFIG( IV_BUKRS = CS_HDR-BUKRS
+                                  IV_AUART = CS_HDR-AUART )-REJ_ABGRU.
+
+    IF LV_ABGRU IS INITIAL.
+      SAVE( IS_HDR   = CS_HDR
+            IT_ITEMS = CT_ITEMS
+            IV_EVENT = 'CANCEL_ERR'
+            IV_NOTE  = |No rejection reason in ZSD_SO_REL_CFG for { CS_HDR-BUKRS }/{ CS_HDR-AUART }| ).
+      COMMIT WORK.
+      RETURN.
+    ENDIF.
+
+    " every line that is still open (not rejected, or only the automatic Z8)
+    SELECT POSNR
+      FROM VBAP
+      WHERE VBELN = @IV_VBELN
+        AND ( ABGRU = @SPACE OR ABGRU = @GC_REJ_AUTO )
+      INTO TABLE @DATA(LT_OPEN).
+
+    IF LT_OPEN IS INITIAL.
+      RV_DONE = ABAP_TRUE.          " already cancelled
+      RETURN.
+    ENDIF.
+
+    LOOP AT LT_OPEN INTO DATA(LV_POSNR).
+      APPEND VALUE #( ITM_NUMBER = LV_POSNR
+                      REASON_REJ = LV_ABGRU ) TO LT_ITEM_IN.
+      APPEND VALUE #( ITM_NUMBER = LV_POSNR
+                      UPDATEFLAG = 'U'
+                      REASON_REJ = 'X' ) TO LT_ITEM_INX.
+    ENDLOOP.
+
+    CALL FUNCTION 'BAPI_SALESORDER_CHANGE'  "#EC CI_USAGE_OK[2438131]
+      EXPORTING
+        SALESDOCUMENT    = IV_VBELN
+        ORDER_HEADER_INX = VALUE BAPISDH1X( UPDATEFLAG = 'U' )
+      TABLES
+        RETURN           = LT_RETURN
+        ORDER_ITEM_IN    = LT_ITEM_IN
+        ORDER_ITEM_INX   = LT_ITEM_INX.
+
+    IF LINE_EXISTS( LT_RETURN[ TYPE = 'E' ] )
+    OR LINE_EXISTS( LT_RETURN[ TYPE = 'A' ] ).
+      CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+      DATA(LS_ERR) = VALUE BAPIRET2( LT_RETURN[ TYPE = 'E' ] OPTIONAL ).
+      SAVE( IS_HDR   = CS_HDR
+            IT_ITEMS = CT_ITEMS
+            IV_EVENT = 'CANCEL_ERR'
+            IV_NOTE  = |Order cancellation failed, retry: { LS_ERR-MESSAGE }| ).
+      COMMIT WORK.
+      RETURN.
+    ENDIF.
+
+    " every line keeps its YSDA decision, production status = cancelled
+    LOOP AT CT_ITEMS ASSIGNING FIELD-SYMBOL(<LS_ITM>).
+      CHECK LINE_EXISTS( LT_OPEN[ TABLE_LINE = <LS_ITM>-POSNR ] ).
+      CLEAR <LS_ITM>-REL_PLAN.
+      IF <LS_ITM>-PROD_RELEVANT = ABAP_TRUE.
+        <LS_ITM>-PROD_STATUS = GC_PROD-CANCELLED.
+      ENDIF.
+      <LS_ITM>-CANCEL_ABGRU = LV_ABGRU.
+      <LS_ITM>-CANCEL_ON    = SY-DATUM.
+    ENDLOOP.
+
+    SAVE( IS_HDR   = CS_HDR
+          IT_ITEMS = CT_ITEMS
+          IV_EVENT = 'CANCELLED'
+          IV_NOTE  = |Credit rejected: { LINES( LT_OPEN ) } line(s) rejected with reason { LV_ABGRU }| ).
+
+    " one commit for the order change and the release tables
+    CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+      EXPORTING
+        WAIT = ABAP_TRUE.
+
+    RV_DONE = ABAP_TRUE.
+
+  ENDMETHOD.
+
+
+  METHOD ITEM_LOG.
+
+    " new production line
+    IF IS_OLD IS INITIAL.
+      RV_NOTE = `Line added - waiting for YSDA/YSDAX`.
+      RETURN.
+    ENDIF.
+
+    " YSDA / YSDAX decision
+    IF IS_NEW-COST_STATUS <> IS_OLD-COST_STATUS.
+      RV_NOTE = SWITCH #( IS_NEW-COST_STATUS
+        WHEN GC_COST-APPROVED THEN |Approved in YSDA/YSDAX (SD + FI), completed by { IS_NEW-DECIDED_BY }|
+        WHEN GC_COST-REJECTED THEN |Rejected in YSDA/YSDAX, reason { IS_NEW-REJ_ABGRU }, by { IS_NEW-DECIDED_BY }|
+        ELSE                       `Back to waiting for YSDA/YSDAX` ).
+    ENDIF.
+
+    " release plan at credit workflow start
+    IF IS_NEW-REL_PLAN = ABAP_TRUE AND IS_OLD-REL_PLAN = ABAP_FALSE.
+      RV_NOTE = |{ RV_NOTE }{ COND string( WHEN RV_NOTE IS NOT INITIAL THEN `; ` ) }| &&
+                `Release plan: CN -> CP at the credit final approval`.
+    ENDIF.
+
+    " production
+    IF IS_NEW-PROD_STATUS <> IS_OLD-PROD_STATUS.
+      DATA(LV_PROD) = SWITCH STRING( IS_NEW-PROD_STATUS
+        WHEN GC_PROD-RELEASED  THEN `Released to production: CN -> CP`
+        WHEN GC_PROD-KEPT      THEN `Stays CN - not released to production`
+        WHEN GC_PROD-ERROR     THEN `CN -> CP failed - job retries`
+        WHEN GC_PROD-CANCELLED THEN |Cancelled - credit rejected, reason { IS_NEW-CANCEL_ABGRU }|
+        WHEN GC_PROD-BLOCKED   THEN `Production blocked (CN)` ).
+      RV_NOTE = |{ RV_NOTE }{ COND string( WHEN RV_NOTE IS NOT INITIAL THEN `; ` ) }{ LV_PROD }|.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD GET_RELEASE_PLAN.
+
+    DATA(LS_HDR) = READ_HEADER( IV_VBELN ).
+    CHECK LS_HDR IS NOT INITIAL.
+
+    DATA(LT_ITM) = READ_ITEMS( IV_VBELN ).
+
+    SELECT POSNR, MATNR, ARKTX, KWMENG, VRKME
+      FROM VBAP
+      WHERE VBELN = @IV_VBELN
+      ORDER BY POSNR
+      INTO TABLE @DATA(LT_VBAP).
+
+    LOOP AT LT_VBAP INTO DATA(LS_VBAP).
+
+      DATA(LS_ITM) = VALUE ZSD_SO_REL_I( LT_ITM[ POSNR = LS_VBAP-POSNR ] OPTIONAL ).
+      CHECK LS_ITM-PROD_RELEVANT = ABAP_TRUE.
+
+      DATA(LS_PLAN) = CORRESPONDING TY_S_PLAN( LS_VBAP ).
+
+      LS_PLAN-DECISION = SWITCH #( LS_ITM-COST_STATUS
+        WHEN GC_COST-APPROVED THEN |Approved { LS_ITM-DECIDED_ON DATE = USER } { LS_ITM-DECIDED_BY }|
+        WHEN GC_COST-REJECTED THEN |Rejected ({ LS_ITM-REJ_ABGRU }) { LS_ITM-DECIDED_ON DATE = USER } { LS_ITM-DECIDED_BY }|
+        ELSE                       `Waiting for YSDA/YSDAX` ).
+
+      LS_PLAN-TO_PRODUCTION = XSDBOOL( LS_ITM-REL_PLAN = ABAP_TRUE
+                                    OR LS_ITM-PROD_STATUS = GC_PROD-RELEASED ).
+
+      LS_PLAN-TARGET = SWITCH #( LS_ITM-PROD_STATUS
+        WHEN GC_PROD-RELEASED  THEN `Released (CP)`
+        WHEN GC_PROD-CANCELLED THEN `Cancelled`
+        WHEN GC_PROD-KEPT      THEN `Stays CN`
+        ELSE COND #( WHEN LS_ITM-REL_PLAN = ABAP_TRUE THEN `CN -> CP after approval`
+                     WHEN LS_ITM-COST_STATUS = GC_COST-REJECTED THEN `Stays CN`
+                     ELSE `Blocked (CN)` ) ).
+
+      APPEND LS_PLAN TO RT_PLAN.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+*======================================================================*
 * Configuration / persistence
 *======================================================================*
   METHOD IS_CONFIGURED.
@@ -1072,16 +1373,44 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     DATA LV_TS TYPE TIMESTAMPL.
     GET TIME STAMP FIELD LV_TS.
 
-    DATA(LS_LOG) = VALUE ZSD_SO_REL_LOG( VBELN          = LS_HDR-VBELN
-                                         LOG_TS         = LV_TS
-                                         EVENT          = IV_EVENT
-                                         COST_STATUS    = LS_HDR-COST_STATUS
-                                         CREDIT_STATUS  = LS_HDR-CREDIT_STATUS
-                                         PROD_STATUS    = LS_HDR-PROD_STATUS
-                                         OVERALL_STATUS = LS_HDR-OVERALL_STATUS
-                                         NOTE           = IV_NOTE
-                                         UNAME          = SY-UNAME
-                                         TCODE          = SY-TCODE ).
+    "--- order level log row (POSNR 000000) ---------------------------------
+    DATA LT_LOG TYPE ZSD_SO_REL_LOG_TT.
+
+    APPEND VALUE #( VBELN          = LS_HDR-VBELN
+                    LOG_TS         = LV_TS
+                    POSNR          = '000000'
+                    EVENT          = IV_EVENT
+                    COST_STATUS    = LS_HDR-COST_STATUS
+                    CREDIT_STATUS  = LS_HDR-CREDIT_STATUS
+                    PROD_STATUS    = LS_HDR-PROD_STATUS
+                    OVERALL_STATUS = LS_HDR-OVERALL_STATUS
+                    NOTE           = IV_NOTE
+                    UNAME          = SY-UNAME
+                    TCODE          = SY-TCODE ) TO LT_LOG.
+
+    "--- one log row per line whose status changed --------------------------
+    DATA(LT_OLD) = READ_ITEMS( LS_HDR-VBELN ).
+
+    LOOP AT IT_ITEMS INTO DATA(LS_NEW) WHERE PROD_RELEVANT = ABAP_TRUE.
+
+      DATA(LS_OLD) = VALUE ZSD_SO_REL_I( LT_OLD[ POSNR = LS_NEW-POSNR ] OPTIONAL ).
+      DATA(LV_ITEM_NOTE) = ITEM_LOG( IS_OLD = LS_OLD
+                                     IS_NEW = LS_NEW ).
+      CHECK LV_ITEM_NOTE IS NOT INITIAL.
+
+      APPEND VALUE #( VBELN          = LS_HDR-VBELN
+                      LOG_TS         = LV_TS
+                      POSNR          = LS_NEW-POSNR
+                      EVENT          = 'ITEM'
+                      COST_STATUS    = LS_NEW-COST_STATUS
+                      CREDIT_STATUS  = LS_HDR-CREDIT_STATUS
+                      PROD_STATUS    = LS_NEW-PROD_STATUS
+                      OVERALL_STATUS = LS_HDR-OVERALL_STATUS
+                      NOTE           = LV_ITEM_NOTE
+                      UNAME          = SY-UNAME
+                      TCODE          = SY-TCODE ) TO LT_LOG.
+
+    ENDLOOP.
 
     DATA LT_ITEMS TYPE ZSD_SO_REL_I_TT.
     LT_ITEMS = IT_ITEMS.
@@ -1091,7 +1420,7 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
       EXPORTING
         IS_HEADER = LS_HDR
         IT_ITEMS  = LT_ITEMS
-        IS_LOG    = LS_LOG.
+        IT_LOG    = LT_LOG.
 
     "--- buffer, so later reads in this LUW see the change ----------------
     MODIFY TABLE MT_HDR_BUF FROM LS_HDR.

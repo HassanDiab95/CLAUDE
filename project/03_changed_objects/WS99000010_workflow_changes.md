@@ -13,10 +13,11 @@ Agent assignment → General task).
 |---|---|---|---|
 | TS9xxxxxx1 | `SO_REL_START` – Release cycle: credit started | `CREDIT_STARTED` | IV_VBELN, IV_WI_ID (import), EV_DUPLICATE (export) |
 | TS9xxxxxx2 | `SO_REL_APPROVED` – Release cycle: credit approved | `CREDIT_APPROVED` | IV_VBELN (import) |
-| TS9xxxxxx3 | `SO_REL_REJECTED` – Release cycle: credit rejected | `CREDIT_REJECTED` | IV_VBELN, IV_NOTE (import) |
+| TS9xxxxxx3 | `SO_REL_REJECTED` – Release cycle: credit rejected → cancel order | `CREDIT_REJECTED` | IV_VBELN, IV_NOTE (import) |
 
-For `SO_REL_APPROVED`: tab *Temporary error* → retry 10 times every 15 minutes (the order may be open
-in VA02 when production is released; after the retries the job `ZSD_SO_REL_RECONCILE` still releases it).
+For `SO_REL_APPROVED` **and** `SO_REL_REJECTED`: tab *Temporary error* → retry 10 times every 15 minutes
+(the order may be open in VA02 when production is released / the order is cancelled; after the retries the
+job `ZSD_SO_REL_RECONCILE` still does it).
 
 ## B. Workflow container (SWDD → Container)
 
@@ -41,7 +42,11 @@ in VA02 when production is released; after the retries the job `ZSD_SO_REL_RECON
    - Activity, task `SO_REL_APPROVED`, binding `&SALES_ORDER&` → `IV_VBELN`.
    - It must come **after** the credit block release, so CN → CP happens only when the credit is
      really approved.
-4. **Rejection branch** – after the rejection step (*REJECT_STEP*, after the decision note is read):
+   - It converts **only the lines of the release plan** (approved in YSDA/YSDAX, fixed when the workflow
+     started); lines rejected in YSDA/YSDAX stay CN.
+4. **Rejection branch** – after the rejection step (*REJECT_STEP*, after the decision note is read).
+   This step **cancels the order**: every open line gets the rejection reason `ZSD_SO_REL_CFG-REJ_ABGRU`
+   (lines already rejected in YSDA/YSDAX keep their reason 63).
    - Activity, task `SO_REL_REJECTED`, binding `&SALES_ORDER&` → `IV_VBELN`, decision note → `IV_NOTE`
      (the same note the workflow already writes to the log via `ZCL_WF_NOTE_READER`).
 

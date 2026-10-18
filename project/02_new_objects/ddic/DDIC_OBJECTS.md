@@ -8,7 +8,7 @@ All objects are new. Activate each group before the next one.
 |---|---|---|
 | `ZSD_REL_COST` | CHAR 1 | `P` Waiting for YSDA/YSDAX · `A` Approved · `R` Rejected |
 | `ZSD_REL_CREDIT` | CHAR 1 | ` ` Not decided · `N` Not needed (no credit block) · `W` Waiting for workflow start · `I` In approval · `A` Approved · `R` Rejected |
-| `ZSD_REL_PROD` | CHAR 1 | `B` Blocked (CN) · `R` Released (CP) · `E` Release failed |
+| `ZSD_REL_PROD` | CHAR 1 | `B` Blocked (CN) · `R` Released (CP) · `E` Release failed · `K` Kept on CN (rejected in YSDA/YSDAX) · `X` Cancelled (credit rejected) |
 | `ZSD_REL_OVERALL` | CHAR 1 | `1` Waiting costing · `2` Waiting credit · `3` Released · `9` Rejected · `D` Order deleted |
 | `ZSD_REL_EVENT` | CHAR 10 | (no fixed values) |
 
@@ -70,7 +70,14 @@ Same technical settings as the header.
 | POSNR | X | POSNR_VA | |
 | PROD_RELEVANT | | XFELD | item had a CN schedule line = goes through YSDA/YSDAX |
 | COST_STATUS | | ZSD_REL_COST | from ZSOAPPROVAL / rejection reason |
-| PROD_STATUS | | ZSD_REL_PROD | CN or CP |
+| PROD_STATUS | | ZSD_REL_PROD | B / R / E / K / X (see domain) |
+| DECIDED_BY | | SYUNAME | user who completed the YSDA/YSDAX decision of this line |
+| DECIDED_ON | | DATS | date of the decision |
+| DECIDED_AT | | TIMS | time of the decision |
+| REJ_ABGRU | | ABGRU_VA | rejection reason given in YSDA/YSDAX (e.g. 63) |
+| REL_PLAN | | XFELD | `X` = line goes CN → CP at the credit final approval (fixed at workflow start) |
+| CANCEL_ABGRU | | ABGRU_VA | rejection reason set when credit was rejected (order cancelled) |
+| CANCEL_ON | | DATS | cancellation date |
 | SNAP_TAKEN | | XFELD | snapshot exists for this item |
 | SNAP_KWMENG | | KWMENG | quantity approved by credit – unit SNAP_VRKME |
 | SNAP_VRKME | | VRKME | |
@@ -91,7 +98,8 @@ Currency/quantity tab: SNAP_KWMENG → ZSD_SO_REL_I-SNAP_VRKME; SNAP_NETWR → Z
 | MANDT | X | MANDT |
 | VBELN | X | VBELN_VA |
 | LOG_TS | X | TIMESTAMPL |
-| EVENT | | ZSD_REL_EVENT |
+| POSNR | X | POSNR_VA – `000000` = order row, otherwise the line the row is about |
+| EVENT | | ZSD_REL_EVENT (`ITEM` for line rows) |
 | COST_STATUS | | ZSD_REL_COST |
 | CREDIT_STATUS | | ZSD_REL_CREDIT |
 | PROD_STATUS | | ZSD_REL_PROD |
@@ -113,20 +121,24 @@ function group `ZSD_SO_REL_CFG`, one step) and transaction `ZSD_SO_REL_CFG` → 
 | ACTIVE | | XFELD | cycle active |
 | TOL_PCT | | DEC 5 / 2 (create `ZSD_REL_TOL_PCT`) | allowed growth of net value without restart, % |
 | ANY_CHANGE | | XFELD | `X` = restart also when value / quantity goes down |
+| REJ_ABGRU | | ABGRU_VA | rejection reason set on every open line when credit is rejected (order cancelled) |
 
-Initial entries (confirm with the business):
+Initial entries (confirm with the business; create the rejection reason, e.g. `ZC` "Credit rejected", in
+SPRO → Sales and Distribution → Sales → Sales Documents → Sales Document Item → Define Reasons for Rejection, OVAG):
 
-| BUKRS | AUART | ACTIVE | TOL_PCT | ANY_CHANGE |
-|---|---|---|---|---|
-| 1200 | YPMT | X | 0 | |
-| 1400 | ZEM | X | 0 | |
-| 1400 | ZMT | X | 0 | |
-| 1500 | YCMT | X | 0 | |
-| 1600 | YXMT | X | 0 | |
+| BUKRS | AUART | ACTIVE | TOL_PCT | ANY_CHANGE | REJ_ABGRU |
+|---|---|---|---|---|---|
+| 1200 | YPMT | X | 0 | | ZC |
+| 1400 | ZEM | X | 0 | | ZC |
+| 1400 | ZMT | X | 0 | | ZC |
+| 1500 | YCMT | X | 0 | | ZC |
+| 1600 | YXMT | X | 0 | | ZC |
 
-## 7. Table type `ZSD_SO_REL_I_TT`
+## 7. Table types `ZSD_SO_REL_I_TT` and `ZSD_SO_REL_LOG_TT`
 
 Line type `ZSD_SO_REL_I`, standard table, standard key.
+
+Also table type **`ZSD_SO_REL_LOG_TT`**: line type `ZSD_SO_REL_LOG`, standard table, standard key.
 
 ## 8. Lock object `EZSD_SO_REL`
 

@@ -38,7 +38,12 @@ complete code.
 4. **Credit block** (credit limit exceeded and/or overdue, CMGST = B): approved items **stay CN**. The credit
    workflow starts **only when every production item of the order is approved or rejected** (and at least
    one is approved). If all items are rejected, no workflow starts.
-5. **Credit workflow final approval** → all approved items **CN → CP**. **Rejection** → items stay CN.
+5. **Release plan per line.** When the credit workflow starts, every production line is marked: approved in
+   YSDA/YSDAX → **goes CN → CP at the final approval**; rejected in YSDA/YSDAX → **stays CN**. The approver
+   sees this list in the workflow mail / work item.
+   **Final approval** → exactly the planned lines **CN → CP**, the others stay CN.
+   **Credit rejected** → the **order is cancelled**: every open line gets the rejection reason from
+   `ZSD_SO_REL_CFG-REJ_ABGRU` (e.g. `ZC` "Credit rejected"); lines rejected in YSDA/YSDAX keep reason 63.
 6. **Approved items are not shown again in YSDA / YSDAX** even though they stay CN while credit runs
    (the list now filters on the SD + FI approval, not only on CN).
 7. **Snapshot.** When the workflow starts, the order net value, every item quantity / value / rejection,
@@ -52,7 +57,6 @@ complete code.
    | item quantity higher than approved, new item, rejection removed | restarted (new item goes to YSDA first) |
    | lower value / quantity, items rejected (Z8, 63, 00 of ZSD_MASS_CLOSING) | **no restart** (unless `ANY_CHANGE = X`) |
    | texts, dates, partners, delivery block, schedule line category | **no restart** |
-   | any value / quantity change **after a credit rejection** | credit approval asked again |
 
    Every decision is written to `ZSD_SO_REL_LOG` with the reason.
 9. **One workflow per order.** A second start is refused by the check function module, and if two events
@@ -60,7 +64,10 @@ complete code.
 10. **Manual shortcuts are closed.** VKM1 / VKM3 / VKM4 release is refused while the credit workflow runs;
     CN → CP by hand in VA02 is refused until the item is approved in YSDA/YSDAX **and** credit is approved
     or not needed.
-11. **Safety net.** Job `ZSD_SO_REL_RECONCILE` releases items whose release failed (order locked), raises
+11. **Line log.** For every line the decision is stored on the line (approved / rejected, by whom, when,
+    reason) and every change is written to `ZSD_SO_REL_LOG` as its own row (POSNR = line): approved, rejected,
+    release plan, CN → CP, stays CN, cancelled. Monitor `ZSD_SO_REL_MON` shows it per line.
+12. **Safety net.** Job `ZSD_SO_REL_RECONCILE` releases items whose release failed (order locked), raises
     a lost workflow start again and reports workflows that are no longer active.
 
 ---
@@ -105,10 +112,11 @@ File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
 1. Domains `ZSD_REL_COST`, `ZSD_REL_CREDIT`, `ZSD_REL_PROD`, `ZSD_REL_OVERALL`, `ZSD_REL_EVENT` (+ `ZSD_REL_TOL_PCT`).
 2. Data elements with the same names.
 3. Tables `ZSD_SO_REL_H`, `ZSD_SO_REL_I`, `ZSD_SO_REL_LOG`, `ZSD_SO_REL_CFG` (+ table maintenance for CFG).
-4. Table type `ZSD_SO_REL_I_TT`.
+4. Table types `ZSD_SO_REL_I_TT` and `ZSD_SO_REL_LOG_TT`.
 5. Lock object `EZSD_SO_REL`.
 6. Messages 015 and 016 in class `ZSD_WF`.
-7. TVARVC variable `ZSD_SO_REL_START_DATE` – **leave it empty until go-live** (empty = cycle switched off).
+7. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG, entered in `ZSD_SO_REL_CFG-REJ_ABGRU`.
+8. TVARVC variable `ZSD_SO_REL_START_DATE` – **leave it empty until go-live** (empty = cycle switched off).
 
 ### Step 3 – Update function module (SE37)
 File: `02_new_objects/Z_SD_SO_REL_UPDATE.abap`.
@@ -152,6 +160,8 @@ Apply changes **D1–D6** (same logic; YSDAX FI approval never set CP, so there 
 File: `03_changed_objects/WS99000010_workflow_changes.md`.
 Create three background tasks on `ZCL_WF_SD_SO_REL_STEP` and insert them as: first step (+ duplicate
 condition), after the final approval (after the credit block release), after the rejection.
+Then apply change **F1** of `CHANGES_TO_EXISTING_OBJECTS.md` in `ZCL_WF_SD_ALERT->BUILD_HTML`: the approver mail
+and the work item show every order line with its YSDA/YSDAX decision and "CN → CP" or "stays CN".
 Event linkages in SWE2 stay as they are.
 
 ### Step 9 – Reports and transactions
@@ -173,12 +183,13 @@ SM30 `ZSD_SO_REL_CFG`: entries from `DDIC_OBJECTS.md` §6 (confirm the order typ
 | 5 | Blocked order, 3 items: approve 1, approve 2 | no workflow yet, items CN |
 | 6 | … then reject item 3 | workflow starts now; after approval items 1 + 2 CP, item 3 stays rejected |
 | 7 | Blocked order, all items rejected | no workflow, overall 9 |
-| 8 | Workflow rejects | items stay CN, overall 9, log `CREDIT_NOK` |
+| 8 | Workflow rejects | all open lines get reason `ZC` (order cancelled), overall 9, log `CREDIT_NOK` + `CANCELLED`, one `ITEM` row per line |
+| 8a | Blocked order, YSDA approves line 10, rejects line 20 → credit approved | line 10 CP, line 20 stays CN (reason 63); mail shows the plan; log per line |
 | 9 | During workflow: change text / delivery date in VA02 | VA02 allowed, log `NO_RESTART`, workflow continues |
 | 10 | During workflow: increase quantity | workflow cancelled, new workflow, log `RESTART` with reason |
 | 11 | During workflow: add an item | workflow cancelled; new item in YSDA; after its decision workflow starts again |
 | 12 | During workflow: reject an item (YSDA Z8 or ZSD_MASS_CLOSING) | `NO_RESTART` |
-| 13 | After rejection: reduce quantity | credit asked again (new workflow) |
+| 13 | Order open in VA02 when credit is rejected | rejection step retries; else job cancels; log `CANCEL_ERR` then `CANCELLED` |
 | 14 | Final approval while the order is open in VA02 | step retries; else job releases; log `PROD_ERR` then `PROD_REL` |
 | 15 | VKM1 release while workflow runs | error 015 |
 | 16 | VA02: change CN → CP by hand before credit approval | error 016 |
@@ -207,7 +218,7 @@ Use transaction `ZSD_SO_REL_MON` (double click = history) and SWI1 / SWIA to fol
 | 2 | Restart after a credit relevant change | new workflow from level 1 |
 | 3 | VA02 while the workflow runs | allowed for release-cycle orders (restart rule protects credit); other orders still go to VA03 |
 | 4 | Quantity / price change after YSDA approval | YSDA not asked again (only new items go back to YSDA) |
-| 5 | Credit rejected | items stay CN; a later value / quantity change asks credit again |
+| 5 | Credit rejected | order cancelled: rejection reason `ZC` on every open line (reason code to confirm) |
 | 6 | Credit block after items were released | released items stay CP; standard credit block stops the delivery; unreleased items wait for the new approval |
 | 7 | Workflow cancelled by an admin | job reports it, does not restart it |
 | 8 | Credit start rule | after **all** production items are approved or rejected |
@@ -222,4 +233,7 @@ Use transaction `ZSD_SO_REL_MON` (double click = history) and SWI1 / SWIA to fol
    get two credit approvals.
 3. **YSDA FI auto-decision** – YSDA still sets FI "Not Approved" (+ Z8) when the customer exceeds the credit
    limit. With the credit workflow in place, decide whether YSDA should judge only cost / profit.
-4. **Message numbers** 015 / 016 in `ZSD_WF` – take free numbers if these are used.
+4. **Credit rejection = order cancelled** – confirm the rejection reason code (proposal `ZC` "Credit rejected",
+   to create in OVAG) and that **all open lines** are rejected, including lines that were already released
+   to production in an earlier credit cycle.
+5. **Message numbers** 015 / 016 in `ZSD_WF` – take free numbers if these are used.
