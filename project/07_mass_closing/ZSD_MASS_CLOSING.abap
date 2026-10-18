@@ -98,7 +98,7 @@ CLASS lcl_closing IMPLEMENTATION.
                                                            THEN |{ ls_item-posnr ALPHA = OUT }|
                                                            ELSE |{ lv_list }, { ls_item-posnr ALPHA = OUT }| ) ).
 
-    LOOP AT lt_return INTO DATA(ls_return) WHERE type CA 'EA'.
+    LOOP AT lt_return INTO DATA(ls_return) WHERE type = 'E' OR type = 'A'.
       EXIT.
     ENDLOOP.
 
