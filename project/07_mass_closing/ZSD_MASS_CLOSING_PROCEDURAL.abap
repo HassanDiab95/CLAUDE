@@ -95,16 +95,14 @@ TYPES: BEGIN OF st_outputdata,
 DATA: it TYPE  TABLE OF st_outputdata,
       wa TYPE st_outputdata.
 
-*--- Begin of change | SAP incident | only items without rejection reason
 SELECT vbak~vbeln
   vbap~posnr vbap~matnr vbap~lfsta
   FROM vbak INNER JOIN vbap ON ( vbak~vbeln = vbap~vbeln )
    INTO CORRESPONDING FIELDS OF TABLE it WHERE  vbak~vkorg IN ('1200','1500','1600') AND  vbak~erdat <= ld_calc_date  AND vbak~vbeln IN s_vbeln AND
-  vbak~vbtyp <> 'B' AND vbak~gbstk <> 'C' AND vbap~lfsta <> 'C' AND vbap~abgru = space.
-*--- End of change ----------------------------------------------------
+  vbak~vbtyp <> 'B' AND vbak~gbstk <> 'C' AND vbap~lfsta <> 'C' AND vbap~abgru <> '00'.
 
 IF sy-subrc EQ 0.
-  SORT it BY vbeln posnr. "ATC Changes by REHM on 17.11.2025
+  SORT it BY vbeln. "ATC Changes by REHM on 17.11.2025
   LOOP AT it INTO wa.
 
 *   (Order Item Level)
