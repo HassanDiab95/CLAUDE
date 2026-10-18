@@ -1437,7 +1437,7 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     GET TIME STAMP FIELD LV_TS.
 
     "--- order level log row (POSNR 000000) ---------------------------------
-    DATA LT_LOG TYPE ZSD_SO_REL_LOG_TT.
+    DATA LT_LOG TYPE STANDARD TABLE OF ZSD_SO_REL_LOG WITH EMPTY KEY.
 
     APPEND VALUE #( VBELN          = LS_HDR-VBELN
                     LOG_TS         = LV_TS
@@ -1475,15 +1475,20 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
     ENDLOOP.
 
-    DATA LT_ITEMS TYPE ZSD_SO_REL_I_TT.
-    LT_ITEMS = IT_ITEMS.
+    "--- write directly - no COMMIT here --------------------------------------
+    "    The caller's COMMIT WORK saves it: the sales order save in VA01 / VA02
+    "    (MV45AFZZ), the commit in PROCESS after a YSDA / YSDAX decision, the
+    "    workflow runtime after a workflow step, the commit of the job.
+    "    A ROLLBACK of the caller removes it again.
+    MODIFY ZSD_SO_REL_H FROM @LS_HDR.
 
-    " written with the caller's commit: order save, YSDA, workflow, job
-    CALL FUNCTION 'Z_SD_SO_REL_UPDATE' IN UPDATE TASK
-      EXPORTING
-        IS_HEADER = LS_HDR
-        IT_ITEMS  = LT_ITEMS
-        IT_LOG    = LT_LOG.
+    " all items of the order are always passed
+    DELETE FROM ZSD_SO_REL_I WHERE VBELN = @LS_HDR-VBELN.
+    IF IT_ITEMS IS NOT INITIAL.
+      INSERT ZSD_SO_REL_I FROM TABLE @IT_ITEMS.
+    ENDIF.
+
+    INSERT ZSD_SO_REL_LOG FROM TABLE @LT_LOG ACCEPTING DUPLICATE KEYS.
 
     "--- buffer, so later reads in this LUW see the change ----------------
     MODIFY TABLE MT_HDR_BUF FROM LS_HDR.

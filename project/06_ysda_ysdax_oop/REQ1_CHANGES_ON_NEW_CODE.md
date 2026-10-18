@@ -353,5 +353,5 @@ The release cycle is told about the rejection (last open line -> credit workflow
 ## After applying
 
 1. Activate the `_C01` include.
-2. Check: `ZCL_SD_SO_RELEASE` must exist and be active (step 4 of the implementation guide).
+2. Check: `ZCL_SD_SO_RELEASE` must exist and be active (step 3 of the implementation guide).
 3. Run tests 1–8a and 21 of the implementation guide in YSDA and YSDAX.

@@ -16,7 +16,6 @@ complete code.
 | `01_current_objects/` | your objects as you sent them (reference only, do not import) |
 | `02_new_objects/ddic/DDIC_OBJECTS.md` | every new domain, data element, table, table type, lock object, message |
 | `02_new_objects/ZCL_SD_SO_RELEASE.abap` | central class – the only owner of the release tables and of CN → CP |
-| `02_new_objects/Z_SD_SO_REL_UPDATE.abap` | update function module (function group `ZSD_SO_REL`) |
 | `02_new_objects/ZCL_WF_SD_SO_REL_STEP.abap` | workflow step class for WS99000010 |
 | `02_new_objects/ZSD_SO_REL_RECONCILE.abap` | background job (safety net) |
 | `02_new_objects/ZSD_SO_REL_MONITOR.abap` | monitor report |
@@ -26,6 +25,25 @@ complete code.
 | `04_optional/ZCL_SD_COST_DELIV_BLOCK.abap` | earlier, separate proposal for delivery block 80 – not part of this change |
 
 ---
+
+## Purpose of `ZCL_SD_SO_RELEASE` – who uses it
+
+One class that keeps the release status of a production order (tables `ZSD_SO_REL_H` / `_I` / `_LOG`) and is the
+**only code that changes CN → CP** for orders of the cycle. It is **not** only for the workflow and **not** only
+for YSDA / YSDAX – every participant calls it, so the rules sit in one place:
+
+| Caller | Methods | Why |
+|---|---|---|
+| VA01 / VA02 save (MV45AFZZ, B1–B8) | `ON_ORDER_SAVED`, `ON_ORDER_DELETED`, `IS_MANAGED`, `IS_IN_CREDIT_APPROVAL`, `IS_ITEM_RELEASE_ALLOWED` | create the release rows, detect credit relevant changes, block VKM1 / manual CN → CP |
+| YSDA / YSDAX (C5, C7 / D3, D6 or N4, N7 / X3, X6) | `ON_ITEM_DECISION`, `GET_ITEM_STATUS_TEXT` | after each approve / reject: CN → CP now (no credit block), or start the credit workflow when the last line is decided |
+| Check FM of the workflow start (`ZCL_WF_SD_CREDIT->IS_START_ALLOWED`, A1) | `CAN_START_CREDIT_WF` | WS99000010 may start only after YSDA / YSDAX are complete |
+| Workflow WS99000010 (via `ZCL_WF_SD_SO_REL_STEP`) | `ON_CREDIT_STARTED`, `ON_CREDIT_APPROVED`, `ON_CREDIT_REJECTED` | record the start + release plan, CN → CP after final approval, cancel the order after rejection |
+| Approver mail (`ZCL_WF_SD_ALERT`, F1) | `GET_RELEASE_PLAN` | list of lines "CN → CP" / "stays CN" in the mail |
+| Job `ZSD_SO_REL_RECONCILE` | `PROCESS` | safety net: retry a lost workflow start or a CN → CP that failed (order was locked) |
+
+The class writes its tables **directly** (no update function module). It never commits inside the sales order
+save – the `COMMIT WORK` of VA01 / VA02 saves the rows together with the order. Outside the order save
+(YSDA / YSDAX, workflow, job) the class or the workflow runtime commits.
 
 ## 1. Business rules implemented
 
@@ -124,19 +142,13 @@ File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
 1. Domains `ZSD_REL_COST`, `ZSD_REL_CREDIT`, `ZSD_REL_PROD`, `ZSD_REL_OVERALL`, `ZSD_REL_EVENT` .
 2. Data elements with the same names.
 3. Tables `ZSD_SO_REL_H`, `ZSD_SO_REL_I`, `ZSD_SO_REL_LOG`, `ZSD_SO_REL_CFG` (+ table maintenance for CFG).
-4. Table types `ZSD_SO_REL_I_TT` and `ZSD_SO_REL_LOG_TT`.
-5. Lock object `EZSD_SO_REL`.
-6. Messages 015 and 016 in class `ZSD_WF`.
-7. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG.
-8. TVARVC (STVARV): create **only** `ZSD_SO_REL_START_DATE` (go-live date) – **leave it empty until
+4. Lock object `EZSD_SO_REL`.
+5. Messages 017 and 018 in class `ZSD_WF` (015 / 016 are already used).
+6. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG.
+7. TVARVC (STVARV): create **only** `ZSD_SO_REL_START_DATE` (go-live date) – **leave it empty until
    go-live** (empty = cycle switched off). Nothing else goes into TVARVC.
 
-### Step 3 – Update function module (SE37)
-File: `02_new_objects/Z_SD_SO_REL_UPDATE.abap`.
-Create function group `ZSD_SO_REL`, then function module `Z_SD_SO_REL_UPDATE`:
-Attributes → **Update module, Start immediately**; import parameters **pass by value** as in the file.
-
-### Step 4 – Classes (SE24)
+### Step 3 – Classes (SE24)
 1. `02_new_objects/ZCL_SD_SO_RELEASE.abap` – create the class in source-code based mode and paste.
    The settings are written in the class code itself (constants at the top of the class, nothing to create
    anywhere): tolerance `GC_TOL_PCT` = 0 %, restart on any change `GC_ANY_CHANGE` = off, credit rejection
@@ -146,7 +158,7 @@ Attributes → **Update module, Start immediately**; import parameters **pass by
 3. Activate both classes **together** (they call each other).
 4. `02_new_objects/ZCL_WF_SD_SO_REL_STEP.abap` – create and activate.
 
-### Step 5 – Sales order user exits (SE80 → include MV45AFZZ)
+### Step 4 – Sales order user exits (SE80 → include MV45AFZZ)
 Apply changes **B1–B8** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`:
 
 | # | User exit (FORM) | Enhancement | Change |
@@ -166,7 +178,7 @@ Apply changes **B1–B8** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`
 > **Existing bug fixed by B6:** YSDA/YSDAX store the **plant** in `ZSOAPPROVAL-BUKRS`, so the old
 > `BUKRS = VBAK-BUKRS_VF` never found the approval for plants 1202 / 1501.
 
-### Step 6 – YSDA (module pool `YSP_MTOSO_APPROVE`)
+### Step 5 – YSDA (module pool `YSP_MTOSO_APPROVE`)
 Choose **one** of the two ways, depending on which YSDA code you have:
 
 | YSDA code in the system | Apply |
@@ -178,12 +190,12 @@ Both ways do the same: list filter (lines approved by SD + FI are hidden), per-r
 FI approval no longer sets CP alone, release-cycle decision when SD + FI are done, release-cycle call after
 each rejection.
 
-### Step 7 – YSDAX (module pool `YSP_MTOSO_APPROVE_CX`)
+### Step 6 – YSDAX (module pool `YSP_MTOSO_APPROVE_CX`)
 Old code: changes **D1–D6** below. OOP version: changes **X1–X6** in
 `06_ysda_ysdax_oop/REQ1_CHANGES_ON_NEW_CODE.md` – only in include `YSP_MTOSO_APPROVE_CX_C01`.
 (Same logic; YSDAX FI approval never set CP, so there is no FI change.)
 
-### Step 8 – Workflow WS99000010 (PFTC + SWDD)
+### Step 7 – Workflow WS99000010 (PFTC + SWDD)
 File: `03_changed_objects/WS99000010_workflow_changes.md`.
 Create three background tasks on `ZCL_WF_SD_SO_REL_STEP` and insert them as: first step (+ duplicate
 condition), after the final approval (after the credit block release), after the rejection.
@@ -191,17 +203,17 @@ Then apply change **F1** of `CHANGES_TO_EXISTING_OBJECTS.md` in `ZCL_WF_SD_ALERT
 and the work item show every order line with its YSDA/YSDAX decision and "CN → CP" or "stays CN".
 Event linkages in SWE2 stay as they are.
 
-### Step 9 – Reports and transactions
+### Step 8 – Reports and transactions
 1. `02_new_objects/ZSD_SO_REL_RECONCILE.abap` → SE38, variant `DEFAULT` (P_WAIT = 30),
    SM36 job **every 30 minutes**, user with SD change authorization (e.g. the workflow batch user).
 2. `02_new_objects/ZSD_SO_REL_MONITOR.abap` → SE38, transaction `ZSD_SO_REL_MON` (SE93).
 
-### Step 10 – Customizing
+### Step 9 – Customizing
 SM30 `ZSD_SO_REL_CFG`: the 14 entries from `DDIC_OBJECTS.md` §6 – they are the selection of YSDA / YSDAX
 (plants 1200, 1202, 1500, 1501, 1600, 1400). Add a row `<plant> | * | * | YSDAX` for any other plant that is
 approved in YSDAX in real life. If YSDA / YSDAX selection is changed later, change this table the same way.
 
-### Step 11 – Test in QA (all must pass before transport to production)
+### Step 10 – Test in QA (all must pass before transport to production)
 
 | # | Scenario | Expected |
 |---|---|---|
@@ -220,20 +232,20 @@ approved in YSDAX in real life. If YSDA / YSDAX selection is changed later, chan
 | 12 | During workflow: reject an item (YSDA Z8 or ZSD_MASS_CLOSING) | `NO_RESTART` |
 | 13 | Order open in VA02 when credit is rejected | rejection step retries; else job cancels; log `CANCEL_ERR` then `CANCELLED` |
 | 14 | Final approval while the order is open in VA02 | step retries; else job releases; log `PROD_ERR` then `PROD_REL` |
-| 15 | VKM1 release while workflow runs | error 015 |
-| 16 | VA02: change CN → CP by hand before credit approval | error 016 |
+| 15 | VKM1 release while workflow runs | error 017 |
+| 16 | VA02: change CN → CP by hand before credit approval | error 018 |
 | 17 | Delete order during workflow | workflow cancelled, overall D |
 | 18 | Plant / item category / order type not in ZSD_SO_REL_CFG (= not shown in YSDA/YSDAX) or created before go-live | exactly as today |
 | 18a | Plant 1400, order type ZOR, CN line | managed (same as YSDAX shows it) |
 | 18b | Plant 1200, item category other than ZTAW / ZFRE with CN | not managed – YSDA does not show it, so it does not block the credit start |
-| 19 | VA01 / VA02 save of any order | `ZO2C_CREDITLMIT_CHECK`, `ZSAVE_DIFF_COST_PROFIT`, sales office check etc. run (bug fix of step 5) |
+| 19 | VA01 / VA02 save of any order | `ZO2C_CREDITLMIT_CHECK`, `ZSAVE_DIFF_COST_PROFIT`, sales office check etc. run (bug fix of step 4) |
 | 20 | YSDA plants 1202 / 1501: VA02 schedule line change after approval | no false "not yet approved" error |
 | 21 | Approve 2 rows of different orders in one YSDA click | each order handled separately (BAPI table fix) |
 
 Use transaction `ZSD_SO_REL_MON` (double click = history) and SWI1 / SWIA to follow every test.
 
-### Step 12 – Go-live
-1. Transport in this order: DDIC → function group → classes → workflow tasks → workflow → user exits →
+### Step 11 – Go-live
+1. Transport in this order: DDIC → classes → workflow tasks → workflow → user exits →
    YSDA / YSDAX → reports → customizing. If you use the OOP version of YSDA / YSDAX, transport and test the
    pure conversion first (it changes nothing in the logic), then the REQ1 changes N1–N7 / X1–X6.
 2. Schedule the reconcile job.
@@ -268,4 +280,3 @@ Use transaction `ZSD_SO_REL_MON` (double click = history) and SWI1 / SWIA to fol
 4. **Credit rejection = order cancelled** – confirm the rejection reason code (proposal `ZC` "Credit rejected",
    to create in OVAG) and that **all open lines** are rejected, including lines that were already released
    to production in an earlier credit cycle.
-5. **Message numbers** 015 / 016 in `ZSD_WF` – take free numbers if these are used.

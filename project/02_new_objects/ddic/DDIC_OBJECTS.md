@@ -165,28 +165,22 @@ appears in commented code of YSDAX) is approved in YSDA/YSDAX in real life, add 
 | `VBAK-AUDAT` between the screen dates | not needed – the screen date range only limits the list |
 | YSDA `ABGRU = '' OR 'Z8'` / YSDAX `ABSTA <> 'C'` | status, not scope: a line with another reason is "rejected" (`REFRESH_ITEM_STATUS`) |
 
-## 7. Table types `ZSD_SO_REL_I_TT` and `ZSD_SO_REL_LOG_TT`
-
-Line type `ZSD_SO_REL_I`, standard table, standard key.
-
-Also table type **`ZSD_SO_REL_LOG_TT`**: line type `ZSD_SO_REL_LOG`, standard table, standard key.
-
-## 8. Lock object `EZSD_SO_REL`
+## 7. Lock object `EZSD_SO_REL`
 
 Primary table `ZSD_SO_REL_H`, lock mode E, lock parameters MANDT, VBELN.
 Generates `ENQUEUE_EZSD_SO_REL` / `DEQUEUE_EZSD_SO_REL`.
 
-## 9. Messages – class `ZSD_WF` (SE91)
+## 8. Messages – class `ZSD_WF` (SE91)
 
-Check that the numbers are free; if not, take the next free ones and change the code.
+015 and 016 are already used, so the release cycle uses 017 and 018.
 
-| No. | Text |
-|---|---|
-| 015 | `Order &1 is in credit approval - release only through the approval workflow` |
-| 016 | `Item &1: credit approval not completed - schedule line category cannot be changed` |
+| No. | Text | Used in |
+|---|---|---|
+| 017 | `Order &1 in credit approval - release via workflow` | MV45AFZZ, release of the credit block (VKM1) refused while the workflow runs (B5) |
+| 018 | `Item &1: no CN->CP before credit approval` | MV45AFZZ, manual change CN -> CP refused (B7) |
 
 
-## 10. TVARVC – one entry only
+## 9. TVARVC – one entry only
 
 | Name | Type | Value |
 |---|---|---|

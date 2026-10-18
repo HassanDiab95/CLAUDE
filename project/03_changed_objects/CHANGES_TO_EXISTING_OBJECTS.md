@@ -159,7 +159,7 @@ ENHANCEMENT 1  ZEN_SO_RELEASE_NO_VKM.    "active version
   IF ( SY-TCODE = 'VKM1' OR SY-TCODE = 'VKM3' OR SY-TCODE = 'VKM4' )
      AND VBAK-VBELN IS NOT INITIAL
      AND NEW ZCL_SD_SO_RELEASE( )->IS_IN_CREDIT_APPROVAL( VBAK-VBELN ) = ABAP_TRUE.
-    MESSAGE E015(ZSD_WF) WITH VBAK-VBELN.
+    MESSAGE E017(ZSD_WF) WITH VBAK-VBELN.
   ENDIF.
 ENDENHANCEMENT.
 ```
@@ -191,7 +191,7 @@ ENDENHANCEMENT.
          AND NEW ZCL_SD_SO_RELEASE( )->IS_ITEM_RELEASE_ALLOWED(
                IV_VBELN = VBEP-VBELN
                IV_POSNR = VBEP-POSNR ) = ABAP_FALSE.
-        MESSAGE E016(ZSD_WF) WITH VBEP-POSNR.
+        MESSAGE E018(ZSD_WF) WITH VBEP-POSNR.
       ENDIF.
 ```
 
@@ -523,7 +523,7 @@ approval (CN → CP or stays CN).
 
 ## Check after applying
 
-1. Activate in this order: new DDIC → `Z_SD_SO_REL_UPDATE` → `ZCL_SD_SO_RELEASE` + `ZCL_WF_SD_CREDIT` (together)
+1. Activate in this order: new DDIC → `ZCL_SD_SO_RELEASE` + `ZCL_WF_SD_CREDIT` (together)
    → `ZCL_WF_SD_SO_REL_STEP` → MV45AFZZ → YSDA → YSDAX.
 2. Syntax check of `SAPMV45A` (all enhancements) and of both module pools.
 3. Search each object for `"REQ1` – every marked line must be there:
