@@ -4,9 +4,9 @@ Only the lines that change. Every change gives:
 - **Where** – object / include / FORM or method,
 - **Find** – the existing line(s) exactly as they are in your system today,
 - **Action** – INSERT AFTER, INSERT BEFORE, REPLACE or DELETE,
-- **Code** – the new lines (marked `"REQ1`).
+- **Code** – the new lines (without comments).
 
-New objects (tables, `ZCL_SD_SO_RELEASE`, update FM, workflow step class, job, monitor) are in
+New objects (tables, `ZCL_SD_SO_RELEASE`, workflow step class, job, monitor) are in
 `02_new_objects` and must exist **before** these changes are activated.
 
 Draft – not compiled or tested in SAP.
@@ -33,8 +33,6 @@ Draft – not compiled or tested in SAP.
 ```
 **Insert after it:**
 ```abap
-    "REQ1: production orders - every item decided in YSDA/YSDAX first,
-    "      only one workflow at a time, no new start after approval/rejection
     IF NEW ZCL_SD_SO_RELEASE( )->CAN_START_CREDIT_WF( IV_VBELN )
        = ZCL_SD_SO_RELEASE=>GC_START-NO.
       RETURN.
@@ -61,8 +59,7 @@ The check FM `Z_FM_SD_WF_CHECK_CREDIT` itself does not change.
 ```
 **Replace with:**
 ```abap
-  "REQ1: IF instead of CHECK; release-cycle orders handled by ZEN_SO_RELEASE_SAVE
-  IF ( T180-TRTYP = 'V' AND T180-TCODE = 'VA02' )   "SY-TCODE = 'VA02'
+  IF ( T180-TRTYP = 'V' AND T180-TCODE = 'VA02' )
      AND VBAK-VBELN IS NOT INITIAL
      AND NEW ZCL_SD_SO_RELEASE( )->IS_MANAGED( VBAK-VBELN ) = ABAP_FALSE.
 ```
@@ -74,7 +71,7 @@ CHECK LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
 ```
 **Replace with:**
 ```abap
-IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.          "REQ1
+IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
 ```
 **Then find** (the end of the active code, before the commented `CALL FUNCTION 'Z_WF_SD_KILL_WORKFLOW_UPD'`):
 ```abap
@@ -82,17 +79,15 @@ IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.          "REQ1
 ```
 **Insert after it:**
 ```abap
-  ENDIF.                                                           "REQ1
-  ENDIF.                                                           "REQ1
+  ENDIF.
+  ENDIF.
 ```
 
 ### B3 – NEW enhancement implementation in `USEREXIT_SAVE_DOCUMENT`
 At the enhancement point at the start of `USEREXIT_SAVE_DOCUMENT` (where `ZEN_CMEXOD_KILL_WORKFLOW` is):
 right click → Enhancement Implementation → Create → name `ZEN_SO_RELEASE_SAVE`.
 ```abap
-ENHANCEMENT 1  ZEN_SO_RELEASE_SAVE.    "active version
-*--- REQ1 release cycle: create the release row, detect new items,
-*--- restart the credit workflow only on a credit relevant change.
+ENHANCEMENT 1  ZEN_SO_RELEASE_SAVE.
   IF XVBAK_UPDKZ <> 'D' AND VBAK-VBELN IS NOT INITIAL.
     NEW ZCL_SD_SO_RELEASE( )->ON_ORDER_SAVED(
       IS_ORDER    = VALUE #( VBELN = VBAK-VBELN
@@ -124,8 +119,7 @@ ENDENHANCEMENT.
 ```
 **Replace with:**
 ```abap
-  "REQ1: IF instead of CHECK; release-cycle orders are closed by the release class
-  IF ( XVBAK_UPDKZ = 'D' AND T180-TRTYP = 'V' )   " SY-TCODE = 'VA02'
+  IF ( XVBAK_UPDKZ = 'D' AND T180-TRTYP = 'V' )
      AND VBAK-VBELN IS NOT INITIAL.
 
   IF NEW ZCL_SD_SO_RELEASE( )->IS_MANAGED( VBAK-VBELN ) = ABAP_TRUE.
@@ -138,7 +132,7 @@ CHECK LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
 ```
 **Replace with:**
 ```abap
-IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.          "REQ1
+IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
 ```
 **Find:**
 ```abap
@@ -146,16 +140,15 @@ IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.          "REQ1
 ```
 **Insert after it:**
 ```abap
-  ENDIF.                                                           "REQ1
-  ENDIF.                                                           "REQ1
-  ENDIF.                                                           "REQ1
+  ENDIF.
+  ENDIF.
+  ENDIF.
 ```
 
 ### B5 – NEW enhancement implementation in `USEREXIT_SAVE_DOCUMENT_PREPARE`
 At the enhancement point at the start of `USEREXIT_SAVE_DOCUMENT_PREPARE`, create `ZEN_SO_RELEASE_NO_VKM`:
 ```abap
-ENHANCEMENT 1  ZEN_SO_RELEASE_NO_VKM.    "active version
-*--- REQ1: no manual credit release while the credit workflow runs
+ENHANCEMENT 1  ZEN_SO_RELEASE_NO_VKM.
   IF ( SY-TCODE = 'VKM1' OR SY-TCODE = 'VKM3' OR SY-TCODE = 'VKM4' )
      AND VBAK-VBELN IS NOT INITIAL
      AND NEW ZCL_SD_SO_RELEASE( )->IS_IN_CREDIT_APPROVAL( VBAK-VBELN ) = ABAP_TRUE.
@@ -174,7 +167,7 @@ ENDENHANCEMENT.
 ```
 **Replace with:**
 ```abap
-        AND   POSNR = VBEP-POSNR.      "REQ1: no BUKRS - YSDA/YSDAX store the plant in it
+        AND   POSNR = VBEP-POSNR.
 ```
 
 #### B7 – INSERT AFTER
@@ -186,7 +179,6 @@ ENDENHANCEMENT.
 ```
 **Insert after it:**
 ```abap
-      "REQ1: release cycle - the item leaves CN only after the credit approval
       IF *VBEP-ETTYP = 'CN'
          AND NEW ZCL_SD_SO_RELEASE( )->IS_ITEM_RELEASE_ALLOWED(
                IV_VBELN = VBEP-VBELN
@@ -206,8 +198,6 @@ ENDENHANCEMENT.
 ```
 **Replace with:**
 ```abap
-  "REQ1: IF instead of CHECK; release-cycle orders may be changed during the
-  "      workflow (the release class restarts it only on a credit change)
   IF SY-TCODE = 'VA02'
      AND VBAK-VBELN IS NOT INITIAL
      AND NEW ZCL_WF_SD_CREDIT( )->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE
@@ -219,7 +209,7 @@ ENDENHANCEMENT.
 ```
 **Insert after it:**
 ```abap
-  ENDIF.                                                           "REQ1
+  ENDIF.
 ```
 
 ---
@@ -236,8 +226,6 @@ ENDENHANCEMENT.
 ```
 **Insert between these two lines:**
 ```abap
-      "REQ1: item already approved by SD and FI - it stays CN while the
-      "      credit workflow runs, but must not be shown again
       SELECT SINGLE @abap_true FROM zsoapproval
         WHERE vbeln      = @so_wa-so_num
           AND posnr      = @so_wa-posnr
@@ -260,8 +248,6 @@ ENDENHANCEMENT.
 ```
 **Insert after it:**
 ```abap
-    "REQ1: every selected row starts clean (the header-line tables kept the
-    "      lines of the previous row and sent them again)
     REFRESH: ORDER_ITEM_IN, ORDER_ITEM_INX, LT_SCHDL, LT_SCHDLX, LT_RETURN.
     CLEAR:   ORDER_ITEM_IN, ORDER_ITEM_INX, LT_SCHDL, LT_SCHDLX,
              ORDER_HEADER_INX, WA_LOG, SD_APPROVE, FI_APPROVE.
@@ -293,7 +279,7 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Replace with:**
 ```abap
-            ORDER_ITEM_INX   = ORDER_ITEM_INX.     "REQ1: no schedule line change
+            ORDER_ITEM_INX   = ORDER_ITEM_INX.
 ```
 
 #### C5 – INSERT BEFORE / INSERT AFTER (both approvals done)
@@ -306,15 +292,12 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert between `IF SD_APPROVE ...` and `ORDER_HEADER_INX-UPDATEFLAG = 'U'.`:**
 ```abap
-      "REQ1: production order of the release cycle -> the cycle decides
-      "      (this item CN -> CP now, or after the credit workflow)
       DATA(LO_RELEASE) = NEW ZCL_SD_SO_RELEASE( ).
       IF LO_RELEASE->ON_ITEM_DECISION( SO_WA-SO_NUM ) = ABAP_TRUE.
         WA_LOG-NOTE = LO_RELEASE->GET_ITEM_STATUS_TEXT( IV_VBELN = SO_WA-SO_NUM
                                                         IV_POSNR = SO_WA-POSNR ).
         MESSAGE |{ SO_WA-SO_NUM ALPHA = OUT }/{ SO_WA-POSNR ALPHA = OUT }: { WA_LOG-NOTE }| TYPE 'S'.
       ELSE.
-      "order not in the release cycle: old logic below
 ```
 **Then find** (end of the V1 message loop, just before `*INSERT LOG`):
 ```abap
@@ -326,7 +309,7 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert between `ENDLOOP.` and `*INSERT LOG`:**
 ```abap
-      ENDIF.                                                       "REQ1
+      ENDIF.
 ```
 
 ### Include `YSP_MTOSO_APPROVE_REJECT_FUF01`, FORM `REJECT_FUN`
@@ -339,7 +322,6 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert after it:**
 ```abap
-   "REQ1: every selected row starts clean
    REFRESH: ORDER_ITEM_IN, ORDER_ITEM_INX, LT_RETURN.
    CLEAR:   ORDER_ITEM_IN, ORDER_ITEM_INX, ORDER_HEADER_INX, WA_LOG.
 ```
@@ -354,8 +336,6 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert after it:**
 ```abap
-  "REQ1: item rejected - if it was the last open item of a blocked order,
-  "      the credit workflow starts for the approved items
   NEW ZCL_SD_SO_RELEASE( )->ON_ITEM_DECISION( SO_WA-SO_NUM ).
 ```
 
@@ -372,8 +352,6 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert after it** (before the comment `*1)	Select Cost estimate number (KALNR) ...`):
 ```abap
-      "REQ1: item already approved by SD and FI - it stays CN while the
-      "      credit workflow runs, but must not be shown again
       SELECT SINGLE @ABAP_TRUE FROM ZSOAPPROVAL
         WHERE VBELN      = @SO_WA-SO_NUM
           AND POSNR      = @SO_WA-POSNR
@@ -396,7 +374,7 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert after it:**
 ```abap
-    CLEAR: SD_APPROVE, FI_APPROVE, WA_LOG.                          "REQ1
+    CLEAR: SD_APPROVE, FI_APPROVE, WA_LOG.
 ```
 
 #### D3 – INSERT (both approvals done)
@@ -407,19 +385,15 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert between the DATA block and `ORDER_HEADER_INX-UPDATEFLAG = 'U'.`:**
 ```abap
-      "REQ1: every selected row starts clean
       REFRESH: LT_SCHDL, LT_SCHDLX, LT_RETURN.
       CLEAR:   LT_SCHDL, LT_SCHDLX, ORDER_HEADER_INX.
 
-      "REQ1: production order of the release cycle -> the cycle decides
-      "      (this item CN -> CP now, or after the credit workflow)
       DATA(LO_RELEASE) = NEW ZCL_SD_SO_RELEASE( ).
       IF LO_RELEASE->ON_ITEM_DECISION( SO_WA-SO_NUM ) = ABAP_TRUE.
         WA_LOG-NOTE = LO_RELEASE->GET_ITEM_STATUS_TEXT( IV_VBELN = SO_WA-SO_NUM
                                                         IV_POSNR = SO_WA-POSNR ).
         MESSAGE |{ SO_WA-SO_NUM ALPHA = OUT }/{ SO_WA-POSNR ALPHA = OUT }: { WA_LOG-NOTE }| TYPE 'S'.
       ELSE.
-      "order not in the release cycle: old logic below
 ```
 
 #### D4 – INSERT
@@ -433,7 +407,7 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert between `ENDLOOP.` and `*INSERT LOG`:**
 ```abap
-      ENDIF.                                                       "REQ1
+      ENDIF.
 ```
 
 ### Include `YSP_MTOSO_APP_REJECT_FUF01_CX`, FORM `REJECT_FUN`
@@ -446,7 +420,6 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert after it:**
 ```abap
-   "REQ1: every selected row starts clean
    REFRESH: ORDER_ITEM_IN, ORDER_ITEM_INX, LT_RETURN.
    CLEAR:   ORDER_ITEM_IN, ORDER_ITEM_INX, ORDER_HEADER_INX, WA_LOG.
 ```
@@ -461,8 +434,6 @@ In the `ELSEIF ZPOSNUM = 'FI'.` branch, under `" added by hager mohsen 24.12.202
 ```
 **Insert after it:**
 ```abap
-  "REQ1: item rejected - if it was the last open item of a blocked order,
-  "      the credit workflow starts for the approved items
   NEW ZCL_SD_SO_RELEASE( )->ON_ITEM_DECISION( SO_WA-SO_NUM ).
 ```
 
@@ -487,7 +458,6 @@ approval (CN → CP or stays CN).
 ```
 **Insert before it:**
 ```abap
-    "--- REQ1: order lines - YSDA/YSDAX decision and release plan ------
     DATA(LT_PLAN) = NEW ZCL_SD_SO_RELEASE( )->GET_RELEASE_PLAN( LS-VBELN ).
 
     IF LT_PLAN IS NOT INITIAL.
@@ -516,7 +486,6 @@ approval (CN → CP or stays CN).
       APPEND LINES OF LO_HTML->TABLE_CLOSE( ) TO RT_HTML.
 
     ENDIF.
-    "--- end REQ1 ----------------------------------------------------------
 ```
 
 ---
@@ -526,7 +495,7 @@ approval (CN → CP or stays CN).
 1. Activate in this order: new DDIC → `ZCL_SD_SO_RELEASE` + `ZCL_WF_SD_CREDIT` (together)
    → `ZCL_WF_SD_SO_REL_STEP` → MV45AFZZ → YSDA → YSDAX.
 2. Syntax check of `SAPMV45A` (all enhancements) and of both module pools.
-3. Search each object for `"REQ1` – every marked line must be there:
+3. Check each change against this document (the new lines have no comments, so compare with the list):
    - A: 1 block
    - B: B1–B8
    - C: C1–C7

@@ -1,23 +1,11 @@
-*&---------------------------------------------------------------------*
-*& Report ZSD_SO_REL_RECONCILE
-*&---------------------------------------------------------------------*
-*& Safety net of the release cycle - schedule every 30 minutes (SM36).
-*& For every order that is not finished it calls
-*& ZCL_SD_SO_RELEASE->PROCESS, which:
-*&   - releases approved items that are still on CN (order was locked)
-*&   - raises the workflow start event again if it got lost
-*&   - sets credit "not needed" when the credit block disappeared
-*& and it reports workflows that are no longer active.
-*& DRAFT - not compiled / not tested in SAP
-*&---------------------------------------------------------------------*
 REPORT ZSD_SO_REL_RECONCILE.
 
 TABLES ZSD_SO_REL_H.
 
 SELECT-OPTIONS S_VBELN FOR ZSD_SO_REL_H-VBELN.
 SELECT-OPTIONS S_VKORG FOR ZSD_SO_REL_H-VKORG.
-PARAMETERS     P_WAIT  TYPE I DEFAULT 30.   " minutes before a lost start is retried
-PARAMETERS     P_TEST  AS CHECKBOX.          " list only, change nothing
+PARAMETERS     P_WAIT  TYPE I DEFAULT 30.
+PARAMETERS     P_TEST  AS CHECKBOX.
 
 START-OF-SELECTION.
 
@@ -25,8 +13,8 @@ START-OF-SELECTION.
     FROM ZSD_SO_REL_H
     WHERE VBELN IN @S_VBELN
       AND VKORG IN @S_VKORG
-      AND ( OVERALL_STATUS IN ( '1', '2' )      " waiting costing / credit
-         OR PROD_STATUS = 'E' )                 " release failed
+      AND ( OVERALL_STATUS IN ( '1', '2' )
+         OR PROD_STATUS = 'E' )
     INTO TABLE @DATA(LT_ORDER).
 
   IF LT_ORDER IS INITIAL.
@@ -42,7 +30,6 @@ START-OF-SELECTION.
 
   LOOP AT LT_ORDER INTO DATA(LS_ORDER).
 
-    " workflow should run but its work item is gone
     IF LS_ORDER-CREDIT_STATUS = ZCL_SD_SO_RELEASE=>GC_CREDIT-IN_APPROVAL.
       SELECT SINGLE WI_STAT FROM SWWWIHEAD
         WHERE WI_ID = @LS_ORDER-WI_ID
@@ -55,7 +42,6 @@ START-OF-SELECTION.
 
     CHECK P_TEST = ABAP_FALSE.
 
-    " a lost start event is retried only after P_WAIT minutes
     CONVERT DATE LS_ORDER-CHANGED_ON TIME LS_ORDER-CHANGED_AT
             INTO TIME STAMP LV_LAST TIME ZONE SY-ZONLO.
     DATA(LV_RETRY) = XSDBOOL( LS_ORDER-CREDIT_STATUS = ZCL_SD_SO_RELEASE=>GC_CREDIT-WAITING

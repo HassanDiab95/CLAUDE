@@ -74,8 +74,8 @@ no `TABLES` statement).
 
 ## 4. Old behaviour kept 1:1 (please read – these look like bugs)
 
-You asked not to change the logic, so these points behave exactly as before. Each one is marked in the code
-with "as in the old code".
+You asked not to change the logic, so these points behave exactly as before. The code has no comments, so
+this table is the list of these points.
 
 | # | Where | What happens (old and new) | Fixed by REQ1? |
 |---|---|---|---|

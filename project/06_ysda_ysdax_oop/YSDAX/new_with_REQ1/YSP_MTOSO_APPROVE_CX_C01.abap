@@ -1,14 +1,3 @@
-*&---------------------------------------------------------------------*
-*& Include          YSP_MTOSO_APPROVE_CX_C01   (YSDAX)  – WITH REQ1 CHANGES (reference copy)
-*&---------------------------------------------------------------------*
-*& Class implementations. Same logic as the old FORM routines:
-*&   SCREEN_START -> LCL_APP->SCREEN_START / LOAD_ROWS / SET_*
-*&   APPROVE_FUN  -> LCL_APP->APPROVE
-*&   REJECT_FUN   -> LCL_APP->REJECT
-*&   EXECUTE      -> LCL_APP->EXECUTE
-*&   STATUS_0100 (ALV part) -> LCL_VIEW->SHOW
-*&---------------------------------------------------------------------*
-
 CLASS lcl_view IMPLEMENTATION.
 
   METHOD show.
@@ -47,20 +36,17 @@ CLASS lcl_view IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD refresh_soft.
 
     mo_grid->refresh_table_display( i_soft_refresh = abap_true ).
 
   ENDMETHOD.
 
-
   METHOD get_selected_rows.
 
     mo_grid->get_selected_rows( IMPORTING et_index_rows = rt_rows ).
 
   ENDMETHOD.
-
 
   METHOD build_fieldcat.
 
@@ -71,7 +57,7 @@ CLASS lcl_view IMPLEMENTATION.
       ( fieldname = 'MATNR'         coltext = 'Material'        outputlen = 8 )
       ( fieldname = 'DESIGN_CODE'   coltext = 'Design Code'     outputlen = 8 )
       ( fieldname = 'DC_DESC'       coltext = 'Design Desc.'    outputlen = 8 )
-      ( fieldname = 'Posnr'         coltext = 'ITEM'            outputlen = 8 )   " as in the old code
+      ( fieldname = 'Posnr'         coltext = 'ITEM'            outputlen = 8 )
       ( fieldname = 'DOC_DATE'      coltext = 'Date'            outputlen = 8 )
       ( fieldname = 'SALES_OFF'     coltext = 'Sales Office'    outputlen = 4 )
       ( fieldname = 'DELV_DATE'     coltext = 'Delivery Date'   outputlen = 8 )
@@ -87,7 +73,6 @@ CLASS lcl_view IMPLEMENTATION.
       ( fieldname = 'AR_APPROVAL'   coltext = 'FI Approval'     outputlen = 12 emphasize = 'C511' ) ).
 
   ENDMETHOD.
-
 
   METHOD build_toolbar_exclude.
 
@@ -115,13 +100,8 @@ CLASS lcl_view IMPLEMENTATION.
 
 ENDCLASS.
 
-
-
 CLASS lcl_app IMPLEMENTATION.
 
-*======================================================================*
-* Screens
-*======================================================================*
   METHOD execute.
 
     mv_plant     = iv_plant.
@@ -138,7 +118,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD pbo_0100.
 
     IF mo_view IS NOT BOUND.
@@ -151,12 +130,10 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD pai_0100.
 
     CASE iv_ucomm.
       WHEN 'SEARCH'.
-        " the old FORM SEARCH is empty (all code commented out)
       WHEN 'APPROVE'.
         approve( ).
       WHEN 'REJECT'.
@@ -167,13 +144,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-*======================================================================*
-* Selection (old FORM SCREEN_START)
-*======================================================================*
   METHOD screen_start.
 
-    " read once; APPROVE / REJECT reset the flag to read again
     CHECK mv_loaded = abap_false.
 
     CLEAR mt_out.
@@ -187,22 +159,18 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD load_rows.
 
     DATA lr_pstyv TYPE RANGE OF vbap-pstyv.
     DATA lr_auart TYPE RANGE OF vbak-auart.
     DATA lv_count TYPE int8.
-    " not cleared between the rows - as in the old code (README, part 4)
     DATA lv_kalnr TYPE keko-kalnr.
     DATA ls_cost  TYPE ty_s_var_cost.
 
-    " item categories only for plant 1600 (empty range = all)
     IF mv_plant = '1600'.
       lr_pstyv = VALUE #( sign = 'I' option = 'EQ' ( low = 'YZTC' ) ( low = 'YFRE' ) ).
     ENDIF.
 
-    " T0000281 / T00005692: order types only for plant 1400 (empty range = all)
     IF mv_plant = '1400'.
       lr_auart = VALUE #( sign = 'I' option = 'EQ' ( low = 'ZEM' ) ( low = 'ZMT' )
                                                    ( low = 'ZOR' ) ( low = 'ZFC' ) ).
@@ -224,7 +192,7 @@ CLASS lcl_app IMPLEMENTATION.
       INNER JOIN vbep ON vbep~vbeln = vbap~vbeln
                      AND vbep~posnr = vbap~posnr
       WHERE vbap~pstyv IN @lr_pstyv
-        AND vbep~ettyp = 'CN'                        " T00002023
+        AND vbep~ettyp = 'CN'
         AND vbap~werks = @mv_plant
         AND vbap~absta <> 'C'
         AND ( vbak~vbtyp = 'C' OR vbak~vbtyp = 'I' )
@@ -234,8 +202,6 @@ CLASS lcl_app IMPLEMENTATION.
       INTO TABLE @DATA(lt_db).
 
     LOOP AT lt_db INTO DATA(ls_db).
-      " REQ1: line already approved by SD and FI - it stays CN while the
-      "       credit workflow runs, but must not be shown again
       SELECT SINGLE @abap_true FROM zsoapproval
         WHERE vbeln      = @ls_db-so_num
           AND posnr      = @ls_db-posnr
@@ -253,7 +219,6 @@ CLASS lcl_app IMPLEMENTATION.
                                  cv_kalnr = lv_kalnr
                                  cs_cost  = ls_cost ).
 
-      " lines with sales order stock are not shown
       CHECK has_stock( ls_row ) = abap_false.
 
       SELECT SINGLE name1 FROM kna1
@@ -272,13 +237,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD set_contribution.
 
-    " contribution = net value - variable production cost
-    " (cost estimate KEKO of the item, KEPH KST001 + KST002 + KST003 + KST004)
-    " If KEKO / KEPH has no entry, the values of the previous line stay -
-    " as in the old code.
     SELECT SINGLE kalnr FROM keko
       WHERE vbeln = @cs_row-so_num
         AND posnr = @cs_row-posnr
@@ -294,7 +254,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD has_stock.
 
     SELECT SINGLE kalab FROM mska
@@ -307,10 +266,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD set_profit.
 
-    " cost = VBAP-WAVWR + condition types ZBPC and ZOVC (T00002507)
     SELECT SUM( kwert ) FROM prcd_elements
       WHERE knumv = @cs_row-knumv
         AND kposn = @cs_row-posnr
@@ -338,7 +295,6 @@ CLASS lcl_app IMPLEMENTATION.
     ENDIF.
 
   ENDMETHOD.
-
 
   METHOD set_credit.
 
@@ -372,7 +328,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD set_approval.
 
     DATA lv_count_c TYPE c LENGTH 8.
@@ -384,8 +339,6 @@ CLASS lcl_app IMPLEMENTATION.
       INTO (@mv_sd_approve, @mv_fi_approve).
 
     IF sy-subrc <> 0.
-      " first time this line is shown: create the approval row
-      " (FI is pre-approved when profit and credit are OK)
       ms_apprv-vbeln = cs_row-so_num.
       ms_apprv-bukrs = mv_plant.
       IF cs_row-ar_approval = gc_text-approved.
@@ -418,7 +371,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD set_configuration.
 
     DATA lt_conf TYPE STANDARD TABLE OF conf_out.
@@ -444,14 +396,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-*======================================================================*
-* User actions
-*======================================================================*
   METHOD approve.
 
-    " As in the old code the BAPI tables collect all selected rows of
-    " this click and are not cleared between the rows (README, part 4).
     DATA lt_schdl    TYPE ty_t_schdl.
     DATA lt_schdlx   TYPE ty_t_schdlx.
     DATA lt_return   TYPE ty_t_return.
@@ -466,12 +412,9 @@ CLASS lcl_app IMPLEMENTATION.
 
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " REQ1: every selected row starts clean (the tables kept the lines of
-      "       the previous row and sent them again)
       CLEAR: lt_schdl, lt_schdlx, lt_return,
              ms_log, mv_sd_approve, mv_fi_approve.
 
-      " T00002246: the approver role (SD / FI) depends on the plant
       IF get_user_position( IMPORTING ev_posnum = lv_posnum ) = abap_true.
 
         CASE lv_posnum.
@@ -484,10 +427,10 @@ CLASS lcl_app IMPLEMENTATION.
             IF sy-subrc = 0.
               LOOP AT lt_apprv INTO ms_apprv.
                 ms_apprv-sd_approve   = abap_true.
-                ms_apprv-sd_aprv_date = sy-datum.          " T00002916
+                ms_apprv-sd_aprv_date = sy-datum.
                 ms_apprv-sd_aprv_time = sy-uzeit.
                 MODIFY zsoapproval FROM @ms_apprv.
-                COMMIT WORK AND WAIT.                      " T00003072
+                COMMIT WORK AND WAIT.
                 CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
                   EXPORTING
                     wait = abap_true.
@@ -502,10 +445,10 @@ CLASS lcl_app IMPLEMENTATION.
               INTO TABLE @lt_apprv.
             LOOP AT lt_apprv INTO ms_apprv.
               ms_apprv-fi_approve   = abap_true.
-              ms_apprv-fi_aprv_date = sy-datum.            " T00002916
+              ms_apprv-fi_aprv_date = sy-datum.
               ms_apprv-fi_aprv_time = sy-uzeit.
               MODIFY zsoapproval FROM @ms_apprv.
-              COMMIT WORK AND WAIT.                        " T00003072
+              COMMIT WORK AND WAIT.
               CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
                 EXPORTING
                   wait = abap_true.
@@ -528,18 +471,15 @@ CLASS lcl_app IMPLEMENTATION.
           AND posnr = @ls_row-posnr
         INTO (@mv_sd_approve, @mv_fi_approve).
 
-      " both approvals done -> schedule lines CN -> CP
       IF mv_sd_approve = abap_true AND mv_fi_approve = abap_true.
 
-        " REQ1: order of the release cycle -> the cycle decides
-        "       (this line CN -> CP now, or after the credit workflow)
         DATA(lo_release) = NEW zcl_sd_so_release( ).
         IF lo_release->on_item_decision( ls_row-so_num ) = abap_true.
           ms_log-note = lo_release->get_item_status_text( iv_vbeln = ls_row-so_num
                                                           iv_posnr = ls_row-posnr ).
           MESSAGE |{ ls_row-so_num ALPHA = OUT }/{ ls_row-posnr ALPHA = OUT }: { ms_log-note }| TYPE 'S'.
         ELSE.
-        " order not in the release cycle: old logic below
+
 
         add_cp_schedule_lines( EXPORTING is_row    = ls_row
                                CHANGING  ct_schdl  = lt_schdl
@@ -562,7 +502,7 @@ CLASS lcl_app IMPLEMENTATION.
           MESSAGE ls_return-message(100) TYPE 'I'.
           ms_log-note = ls_return-message(100).
         ENDLOOP.
-        ENDIF.                                                 " REQ1
+        ENDIF.
 
         write_log( iv_event = 'APPROVAL'
                    iv_vbeln = ls_row-so_num ).
@@ -576,7 +516,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD reject.
 
     IF get_user_position( ) = abap_false.
@@ -584,8 +523,6 @@ CLASS lcl_app IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " As in the old code the BAPI tables are not cleared between the
-    " selected rows (README, part 4).
     DATA lt_item_in  TYPE ty_t_item_in.
     DATA lt_item_inx TYPE ty_t_item_inx.
     DATA lt_return   TYPE ty_t_return.
@@ -598,7 +535,6 @@ CLASS lcl_app IMPLEMENTATION.
 
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " REQ1: every selected row starts clean
       CLEAR: lt_item_in, lt_item_inx, lt_return, ms_log.
 
       APPEND VALUE #( itm_number = ls_row-posnr
@@ -625,8 +561,6 @@ CLASS lcl_app IMPLEMENTATION.
         ms_log-note = ls_return-message(100).
       ENDLOOP.
 
-      " REQ1: line rejected - if it was the last open line of a blocked
-      "       order, the credit workflow starts for the approved lines
       NEW zcl_sd_so_release( )->on_item_decision( ls_row-so_num ).
 
       write_log( iv_event = 'REJECT'
@@ -638,7 +572,6 @@ CLASS lcl_app IMPLEMENTATION.
     screen_start( ).
 
   ENDMETHOD.
-
 
   METHOD display_orders.
 
@@ -654,13 +587,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-*======================================================================*
-* Helpers
-*======================================================================*
   METHOD get_user_position.
 
-    " ZAPPROVEUSER: user + plant -> SD or FI; no entry = not authorized
     SELECT SINGLE zposnum FROM zapproveuser
       WHERE user_name = @sy-uname
         AND bukrs     = @mv_plant
@@ -668,7 +596,6 @@ CLASS lcl_app IMPLEMENTATION.
     rv_found = xsdbool( sy-subrc = 0 ).
 
   ENDMETHOD.
-
 
   METHOD add_cp_schedule_lines.
 
@@ -690,12 +617,10 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD write_log.
 
     DATA lv_count TYPE int8.
 
-    " NOTE is not cleared - it keeps the last BAPI message (as before)
     ms_log-logdate   = sy-datum.
     ms_log-time      = sy-uzeit.
     ms_log-user_name = sy-uname.
@@ -708,7 +633,6 @@ CLASS lcl_app IMPLEMENTATION.
     INSERT ysp_mtoso_log FROM @ms_log.
 
   ENDMETHOD.
-
 
   METHOD add_color.
 

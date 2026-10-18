@@ -1,11 +1,3 @@
-*&---------------------------------------------------------------------*
-*& Include          YSP_MTOSO_APPROVE_M01   (YSDA)
-*&---------------------------------------------------------------------*
-*& PBO / PAI modules of screens 0099 and 0100. Module names are the same
-*& as before, so the flow logic of both screens stays unchanged.
-*&---------------------------------------------------------------------*
-
-*--- Screen 0099: selection (plant, from / to date) ---------------------
 MODULE status_0099 OUTPUT.
   SET PF-STATUS 'YSP_MTOSO_STATUS90'.
   SET TITLEBAR 'YSP_MTOSO_TITLE90'.
@@ -30,7 +22,6 @@ MODULE user_command_0099_exit INPUT.
   ENDCASE.
 ENDMODULE.
 
-*--- Screen 0100: ALV list -------------------------------------------------
 MODULE status_0100 OUTPUT.
   SET PF-STATUS 'YSP_MTOSO_STATUS1'.
   SET TITLEBAR 'YSP_MTOSO_TITLE'.

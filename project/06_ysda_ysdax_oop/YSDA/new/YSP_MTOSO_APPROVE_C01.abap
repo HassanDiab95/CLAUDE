@@ -1,14 +1,3 @@
-*&---------------------------------------------------------------------*
-*& Include          YSP_MTOSO_APPROVE_C01   (YSDA)
-*&---------------------------------------------------------------------*
-*& Class implementations. Same logic as the old FORM routines:
-*&   SCREEN_START -> LCL_APP->SCREEN_START / LOAD_ROWS / SET_*
-*&   APPROVE_FUN  -> LCL_APP->APPROVE
-*&   REJECT_FUN   -> LCL_APP->REJECT
-*&   EXECUTE      -> LCL_APP->EXECUTE
-*&   STATUS_0100 (ALV part) -> LCL_VIEW->SHOW
-*&---------------------------------------------------------------------*
-
 CLASS lcl_view IMPLEMENTATION.
 
   METHOD show.
@@ -47,20 +36,17 @@ CLASS lcl_view IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD refresh_soft.
 
     mo_grid->refresh_table_display( i_soft_refresh = abap_true ).
 
   ENDMETHOD.
 
-
   METHOD get_selected_rows.
 
     mo_grid->get_selected_rows( IMPORTING et_index_rows = rt_rows ).
 
   ENDMETHOD.
-
 
   METHOD build_fieldcat.
 
@@ -72,7 +58,7 @@ CLASS lcl_view IMPLEMENTATION.
       ( fieldname = 'MATNR'            coltext = 'Material'                  outputlen = 8 )
       ( fieldname = 'DESIGN_CODE'      coltext = 'Design Code'               outputlen = 8 )
       ( fieldname = 'DC_DESC'          coltext = 'Design Desc.'              outputlen = 8 )
-      ( fieldname = 'Posnr'            coltext = 'ITEM'                      outputlen = 8 )   " as in the old code
+      ( fieldname = 'Posnr'            coltext = 'ITEM'                      outputlen = 8 )
       ( fieldname = 'DOC_DATE'         coltext = 'Date'                      outputlen = 8 )
       ( fieldname = 'SALES_OFF'        coltext = 'Sales Office'              outputlen = 4 )
       ( fieldname = 'DELV_DATE'        coltext = 'Delivery Date'             outputlen = 8 )
@@ -126,7 +112,6 @@ CLASS lcl_view IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD build_toolbar_exclude.
 
     rt_exclude = VALUE #(
@@ -153,13 +138,8 @@ CLASS lcl_view IMPLEMENTATION.
 
 ENDCLASS.
 
-
-
 CLASS lcl_app IMPLEMENTATION.
 
-*======================================================================*
-* Screens
-*======================================================================*
   METHOD execute.
 
     mv_plant     = iv_plant.
@@ -176,7 +156,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD pbo_0100.
 
     IF mo_view IS NOT BOUND.
@@ -189,12 +168,10 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD pai_0100.
 
     CASE iv_ucomm.
       WHEN 'SEARCH'.
-        " the old FORM SEARCH is empty (all code commented out)
       WHEN 'APPROVE'.
         approve( ).
       WHEN 'REJECT'.
@@ -205,13 +182,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-*======================================================================*
-* Selection (old FORM SCREEN_START)
-*======================================================================*
   METHOD screen_start.
 
-    " read once; APPROVE / REJECT reset the flag to read again
     CHECK mv_loaded = abap_false.
 
     CLEAR mt_out.
@@ -223,11 +195,9 @@ CLASS lcl_app IMPLEMENTATION.
     mo_view->refresh_soft( ).
     mv_loaded = abap_true.
 
-    " T00005055: lines not approved by FI get rejection reason Z8
     reject_fi_not_approved( ).
 
   ENDMETHOD.
-
 
   METHOD load_rows.
 
@@ -252,7 +222,7 @@ CLASS lcl_app IMPLEMENTATION.
            vbak~vkbur  AS sales_off,
            vbak~auart  AS doc_type,
            vbak~knumv,
-           vbak~netwr  AS header_netwr,      " T00004846
+           vbak~netwr  AS header_netwr,
            vbap~brgew  AS gross_weight,
            vbap~kwmeng AS order_quan,
            vbap~ntgew  AS net_weight,
@@ -297,10 +267,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD set_profit.
 
-    " cost = VBAP-WAVWR + condition types ZBPC and ZOVC (T00002507)
     SELECT SUM( kwert ) FROM prcd_elements
       WHERE knumv = @cs_row-knumv
         AND kposn = @cs_row-posnr
@@ -328,7 +296,6 @@ CLASS lcl_app IMPLEMENTATION.
     ENDIF.
 
   ENDMETHOD.
-
 
   METHOD set_credit.
 
@@ -362,7 +329,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD set_approval.
 
     DATA lv_count_c TYPE c LENGTH 8.
@@ -374,8 +340,6 @@ CLASS lcl_app IMPLEMENTATION.
       INTO (@mv_sd_approve, @mv_fi_approve).
 
     IF sy-subrc <> 0.
-      " first time this line is shown: create the approval row
-      " (FI is pre-approved when profit and credit are OK)
       ms_apprv-vbeln = cs_row-so_num.
       ms_apprv-bukrs = mv_plant.
       IF cs_row-ar_approval = gc_text-approved.
@@ -408,7 +372,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD set_configuration.
 
     DATA lt_conf TYPE STANDARD TABLE OF conf_out.
@@ -425,7 +388,6 @@ CLASS lcl_app IMPLEMENTATION.
         instance_not_valid  = 4
         OTHERS              = 5.
 
-    " T00004846: characteristics shown in the list
     LOOP AT lt_conf INTO DATA(ls_conf).
       CASE ls_conf-atnam.
         WHEN 'ZDESC'.
@@ -461,13 +423,11 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD set_figures.
 
     DATA lv_due_h TYPE bsid-dmbtr.
     DATA lv_due_s TYPE bsid-dmbtr.
 
-    " T00004846: price per weight and gross margin %
     IF cs_row-net_weight <> 0.
       cs_row-price_per_weight = ( cs_row-netpr / cs_row-net_weight ).
     ENDIF.
@@ -477,7 +437,6 @@ CLASS lcl_app IMPLEMENTATION.
                              / ( cs_row-net_value / cs_row-order_quan ) ) * 100.
     ENDIF.
 
-    " open items of the customer (debit - credit, no down payments)
     SELECT SUM( dmbtr ) FROM bsid
       WHERE shkzg = 'H' AND kunnr = @cs_row-customer_no AND umskz <> 'A'
       INTO @lv_due_h.
@@ -496,12 +455,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD reject_fi_not_approved.
 
-    " T00005055 - every line in the list that FI has not approved gets Z8.
-    " As in the old code the BAPI tables are filled row by row and are
-    " not cleared between the rows (see README, part 4).
     DATA lt_item_in  TYPE ty_t_item_in.
     DATA lt_item_inx TYPE ty_t_item_inx.
     DATA lt_return   TYPE ty_t_return.
@@ -533,14 +488,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-*======================================================================*
-* User actions
-*======================================================================*
   METHOD approve.
 
-    " As in the old code the BAPI tables collect all selected rows of
-    " this click and are not cleared between the rows (README, part 4).
     DATA lt_item_in  TYPE ty_t_item_in.
     DATA lt_item_inx TYPE ty_t_item_inx.
     DATA lt_schdl    TYPE ty_t_schdl.
@@ -557,7 +506,6 @@ CLASS lcl_app IMPLEMENTATION.
 
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " T00002246: the approver role (SD / FI) depends on the plant
       IF get_user_position( IMPORTING ev_posnum = lv_posnum ) = abap_true.
 
         CASE lv_posnum.
@@ -570,10 +518,10 @@ CLASS lcl_app IMPLEMENTATION.
             IF sy-subrc = 0.
               LOOP AT lt_apprv INTO ms_apprv.
                 ms_apprv-sd_approve   = abap_true.
-                ms_apprv-sd_aprv_date = sy-datum.          " T00002916
+                ms_apprv-sd_aprv_date = sy-datum.
                 ms_apprv-sd_aprv_time = sy-uzeit.
                 MODIFY zsoapproval FROM @ms_apprv.
-                COMMIT WORK AND WAIT.                      " T00003072
+                COMMIT WORK AND WAIT.
                 CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
                   EXPORTING
                     wait = abap_true.
@@ -588,16 +536,14 @@ CLASS lcl_app IMPLEMENTATION.
               INTO TABLE @lt_apprv.
             LOOP AT lt_apprv INTO ms_apprv.
               ms_apprv-fi_approve   = abap_true.
-              ms_apprv-fi_aprv_date = sy-datum.            " T00002916
+              ms_apprv-fi_aprv_date = sy-datum.
               ms_apprv-fi_aprv_time = sy-uzeit.
               MODIFY zsoapproval FROM @ms_apprv.
-              COMMIT WORK AND WAIT.                        " T00003072
+              COMMIT WORK AND WAIT.
               CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
                 EXPORTING
                   wait = abap_true.
 
-              " T00005055: remove the rejection reason and release the
-              " schedule lines (CN -> CP)
               APPEND VALUE #( itm_number = ls_row-posnr
                               reason_rej = space ) TO lt_item_in.
               APPEND VALUE #( itm_number = ls_row-posnr
@@ -641,7 +587,6 @@ CLASS lcl_app IMPLEMENTATION.
           AND posnr = @ls_row-posnr
         INTO (@mv_sd_approve, @mv_fi_approve).
 
-      " both approvals done -> schedule lines CN -> CP
       IF mv_sd_approve = abap_true AND mv_fi_approve = abap_true.
 
         add_cp_schedule_lines( EXPORTING is_row    = ls_row
@@ -678,7 +623,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD reject.
 
     IF get_user_position( ) = abap_false.
@@ -686,8 +630,6 @@ CLASS lcl_app IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " As in the old code the BAPI tables are not cleared between the
-    " selected rows (README, part 4).
     DATA lt_item_in  TYPE ty_t_item_in.
     DATA lt_item_inx TYPE ty_t_item_inx.
     DATA lt_return   TYPE ty_t_return.
@@ -734,7 +676,6 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD display_orders.
 
     DATA ls_row TYPE ty_s_out.
@@ -749,13 +690,8 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-*======================================================================*
-* Helpers
-*======================================================================*
   METHOD get_user_position.
 
-    " ZAPPROVEUSER: user + plant -> SD or FI; no entry = not authorized
     SELECT SINGLE zposnum FROM zapproveuser
       WHERE user_name = @sy-uname
         AND bukrs     = @mv_plant
@@ -763,7 +699,6 @@ CLASS lcl_app IMPLEMENTATION.
     rv_found = xsdbool( sy-subrc = 0 ).
 
   ENDMETHOD.
-
 
   METHOD add_cp_schedule_lines.
 
@@ -785,12 +720,10 @@ CLASS lcl_app IMPLEMENTATION.
 
   ENDMETHOD.
 
-
   METHOD write_log.
 
     DATA lv_count TYPE int8.
 
-    " NOTE is not cleared - it keeps the last BAPI message (as before)
     ms_log-logdate   = sy-datum.
     ms_log-time      = sy-uzeit.
     ms_log-user_name = sy-uname.
@@ -803,7 +736,6 @@ CLASS lcl_app IMPLEMENTATION.
     INSERT ysp_mtoso_log FROM @ms_log.
 
   ENDMETHOD.
-
 
   METHOD add_color.
 

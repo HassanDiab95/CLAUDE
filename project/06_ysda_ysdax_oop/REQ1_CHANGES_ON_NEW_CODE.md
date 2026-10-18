@@ -5,7 +5,8 @@ This file lists the REQ1 changes for the new code. They are the same changes as 
 `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md` (which are written for the old includes).
 
 All REQ1 changes are in the include **`_C01`** (class implementations) only. `_TOP`, `_M01`, the main program,
-screens and GUI status need **no** REQ1 change. Every changed line is marked `REQ1`.
+screens and GUI status need **no** REQ1 change. The code has no comments (only the `#EC` markers for the code
+inspector).
 
 For checking: `YSDA/new_with_REQ1/YSP_MTOSO_APPROVE_C01.abap` and `YSDAX/new_with_REQ1/YSP_MTOSO_APPROVE_CX_C01.abap`
 show the `_C01` include with all changes already applied (compare them with the `new` version).
@@ -44,8 +45,6 @@ Lines already approved by SD and FI are not shown again (they stay CN while the 
 **Result (the find text + the new lines):**
 ```abap
     LOOP AT lt_db INTO DATA(ls_db).
-      " REQ1: line already approved by SD and FI - it stays CN while the
-      "       credit workflow runs, but must not be shown again
       SELECT SINGLE @abap_true FROM zsoapproval
         WHERE vbeln      = @ls_db-so_num
           AND posnr      = @ls_db-posnr
@@ -59,25 +58,23 @@ Lines already approved by SD and FI are not shown again (they stay CN while the 
 
 ### N2 – INSERT AFTER the READ TABLE line (method `APPROVE`, = C2)
 
-Every selected row starts with empty BAPI tables, flags and log note (fixes old behaviour 1, 3, 4).
+Every selected row starts with empty BAPI tables, flags and log note.
 
 **Find:**
 ```abap
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " T00002246: the approver role (SD / FI) depends on the plant
+      IF get_user_position( IMPORTING ev_posnum = lv_posnum ) = abap_true.
 ```
 
 **Result (the find text + the new lines):**
 ```abap
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " REQ1: every selected row starts clean (the tables kept the lines of
-      "       the previous row and sent them again)
       CLEAR: lt_item_in, lt_item_inx, lt_schdl, lt_schdlx, lt_return,
              ms_log, mv_sd_approve, mv_fi_approve.
 
-      " T00002246: the approver role (SD / FI) depends on the plant
+      IF get_user_position( IMPORTING ev_posnum = lv_posnum ) = abap_true.
 ```
 
 ### N3 – REPLACE (method `APPROVE, WHEN 'FI'`, = C3 + C4)
@@ -104,8 +101,6 @@ FI approval alone no longer sets CN -> CP. The Z8 rejection reason is still remo
 
 **Change to:**
 ```abap
-              " REQ1: FI approval alone does not release production (CN stays);
-              "       only the Z8 rejection is removed
               CALL FUNCTION 'BAPI_SALESORDER_CHANGE' "#EC CI_USAGE_OK[2438131]
                 EXPORTING
                   salesdocument    = ls_row-so_num
@@ -129,15 +124,12 @@ Both approvals done: for an order of the release cycle the class decides (CN -> 
 ```abap
       IF mv_sd_approve = abap_true AND mv_fi_approve = abap_true.
 
-        " REQ1: order of the release cycle -> the cycle decides
-        "       (this line CN -> CP now, or after the credit workflow)
         DATA(lo_release) = NEW zcl_sd_so_release( ).
         IF lo_release->on_item_decision( ls_row-so_num ) = abap_true.
           ms_log-note = lo_release->get_item_status_text( iv_vbeln = ls_row-so_num
                                                           iv_posnr = ls_row-posnr ).
           MESSAGE |{ ls_row-so_num ALPHA = OUT }/{ ls_row-posnr ALPHA = OUT }: { ms_log-note }| TYPE 'S'.
         ELSE.
-        " order not in the release cycle: old logic below
 ```
 
 ### N5 – INSERT AFTER (method `APPROVE`, = C5 (end))
@@ -158,7 +150,7 @@ Closes the IF of the previous change. The log row APPROVAL is written in both ca
           MESSAGE ls_return-message(100) TYPE 'I'.
           ms_log-note = ls_return-message(100).
         ENDLOOP.
-        ENDIF.                                                 " REQ1
+        ENDIF.
 ```
 
 ### N6 – INSERT AFTER the READ TABLE line (method `REJECT`, = C6)
@@ -177,7 +169,6 @@ Every selected row starts with empty BAPI tables and log note.
 ```abap
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " REQ1: every selected row starts clean
       CLEAR: lt_item_in, lt_item_inx, lt_return, ms_log.
 
       APPEND VALUE #( itm_number = ls_row-posnr
@@ -203,8 +194,6 @@ The release cycle is told about the rejection (last open line -> credit workflow
         ms_log-note = ls_return-message(100).
       ENDLOOP.
 
-      " REQ1: line rejected - if it was the last open line of a blocked
-      "       order, the credit workflow starts for the approved lines
       NEW zcl_sd_so_release( )->on_item_decision( ls_row-so_num ).
 ```
 
@@ -222,8 +211,6 @@ Lines already approved by SD and FI are not shown again (they stay CN while the 
 **Result (the find text + the new lines):**
 ```abap
     LOOP AT lt_db INTO DATA(ls_db).
-      " REQ1: line already approved by SD and FI - it stays CN while the
-      "       credit workflow runs, but must not be shown again
       SELECT SINGLE @abap_true FROM zsoapproval
         WHERE vbeln      = @ls_db-so_num
           AND posnr      = @ls_db-posnr
@@ -237,25 +224,23 @@ Lines already approved by SD and FI are not shown again (they stay CN while the 
 
 ### X2 – INSERT AFTER the READ TABLE line (method `APPROVE`, = D2 + first part of D3)
 
-Every selected row starts with empty BAPI tables, flags and log note (fixes old behaviour 1, 3, 4).
+Every selected row starts with empty BAPI tables, flags and log note.
 
 **Find:**
 ```abap
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " T00002246: the approver role (SD / FI) depends on the plant
+      IF get_user_position( IMPORTING ev_posnum = lv_posnum ) = abap_true.
 ```
 
 **Result (the find text + the new lines):**
 ```abap
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " REQ1: every selected row starts clean (the tables kept the lines of
-      "       the previous row and sent them again)
       CLEAR: lt_schdl, lt_schdlx, lt_return,
              ms_log, mv_sd_approve, mv_fi_approve.
 
-      " T00002246: the approver role (SD / FI) depends on the plant
+      IF get_user_position( IMPORTING ev_posnum = lv_posnum ) = abap_true.
 ```
 
 ### X3 – INSERT AFTER (method `APPROVE`, = D3)
@@ -271,15 +256,12 @@ Both approvals done: for an order of the release cycle the class decides (CN -> 
 ```abap
       IF mv_sd_approve = abap_true AND mv_fi_approve = abap_true.
 
-        " REQ1: order of the release cycle -> the cycle decides
-        "       (this line CN -> CP now, or after the credit workflow)
         DATA(lo_release) = NEW zcl_sd_so_release( ).
         IF lo_release->on_item_decision( ls_row-so_num ) = abap_true.
           ms_log-note = lo_release->get_item_status_text( iv_vbeln = ls_row-so_num
                                                           iv_posnr = ls_row-posnr ).
           MESSAGE |{ ls_row-so_num ALPHA = OUT }/{ ls_row-posnr ALPHA = OUT }: { ms_log-note }| TYPE 'S'.
         ELSE.
-        " order not in the release cycle: old logic below
 ```
 
 ### X4 – INSERT AFTER (method `APPROVE`, = D4)
@@ -300,7 +282,7 @@ Closes the IF of the previous change. The log row APPROVAL is written in both ca
           MESSAGE ls_return-message(100) TYPE 'I'.
           ms_log-note = ls_return-message(100).
         ENDLOOP.
-        ENDIF.                                                 " REQ1
+        ENDIF.
 ```
 
 ### X5 – INSERT AFTER the READ TABLE line (method `REJECT`, = D5)
@@ -319,7 +301,6 @@ Every selected row starts with empty BAPI tables and log note.
 ```abap
       READ TABLE mt_out INTO ls_row INDEX ls_index-index.
 
-      " REQ1: every selected row starts clean
       CLEAR: lt_item_in, lt_item_inx, lt_return, ms_log.
 
       APPEND VALUE #( itm_number = ls_row-posnr
@@ -345,8 +326,6 @@ The release cycle is told about the rejection (last open line -> credit workflow
         ms_log-note = ls_return-message(100).
       ENDLOOP.
 
-      " REQ1: line rejected - if it was the last open line of a blocked
-      "       order, the credit workflow starts for the approved lines
       NEW zcl_sd_so_release( )->on_item_decision( ls_row-so_num ).
 ```
 

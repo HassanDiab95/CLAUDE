@@ -1,12 +1,3 @@
-*&---------------------------------------------------------------------*
-*& Report ZSD_SO_REL_MONITOR   (transaction ZSD_SO_REL_MON)
-*&---------------------------------------------------------------------*
-*& Monitor of the release cycle: one line per order item with the
-*& YSDA/YSDAX decision (who / when / reason), the release plan, credit
-*& and production status. Double click shows the history of the order
-*& (ZSD_SO_REL_LOG: order rows POSNR 000000 + one row per line change).
-*& DRAFT - not compiled / not tested in SAP
-*&---------------------------------------------------------------------*
 REPORT ZSD_SO_REL_MONITOR.
 
 TABLES ZSD_SO_REL_H.

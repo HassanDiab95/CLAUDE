@@ -1,40 +1,24 @@
-*&---------------------------------------------------------------------*
-*& Include          YSP_MTOSO_APPROVE_TOP   (YSDA)
-*&---------------------------------------------------------------------*
-*& Global data and class definitions.
-*& Only the fields of screen 0099 stay global (the dynpro needs them);
-*& everything else lives in the classes.
-*&---------------------------------------------------------------------*
 PROGRAM ysp_mtoso_approve.
 
-*--- Screen 0099 fields (names / types must not change) ----------------
-DATA bukrs   TYPE vbak-bukrs_vf.        " Plant (VBAP-WERKS)
-DATA datev_f TYPE vbak-audat.           " From date
-DATA datev_t TYPE vbak-audat.           " To date
+DATA bukrs   TYPE vbak-bukrs_vf.
+DATA datev_f TYPE vbak-audat.
+DATA datev_t TYPE vbak-audat.
 
-*--- ALV output line: DDIC structure + cell colours ---------------------
 TYPES BEGIN OF ty_s_out.
 INCLUDE TYPE ysp_mtoso_approve. "#EC CI_USAGE_OK[2383423]
 TYPES color TYPE lvc_t_scol.
 TYPES END OF ty_s_out.
 TYPES ty_t_out TYPE STANDARD TABLE OF ty_s_out WITH EMPTY KEY.
 
-*--- BAPI tables ---------------------------------------------------------
 TYPES ty_t_item_in  TYPE STANDARD TABLE OF bapisditm  WITH EMPTY KEY.
 TYPES ty_t_item_inx TYPE STANDARD TABLE OF bapisditmx WITH EMPTY KEY.
 TYPES ty_t_schdl    TYPE STANDARD TABLE OF bapischdl  WITH EMPTY KEY.
 TYPES ty_t_schdlx   TYPE STANDARD TABLE OF bapischdlx WITH EMPTY KEY.
 TYPES ty_t_return   TYPE STANDARD TABLE OF bapiret2   WITH EMPTY KEY.
 
-
-*&---------------------------------------------------------------------*
-*& LCL_VIEW - ALV grid on screen 0100 (container CONTROLLER1)
-*&---------------------------------------------------------------------*
 CLASS lcl_view DEFINITION FINAL.
 
   PUBLIC SECTION.
-    "! First call: create the grid and show CT_OUT.
-    "! Next calls: refresh the grid (row / column stable).
     METHODS show
       CHANGING ct_out TYPE ty_t_out.
 
@@ -58,23 +42,16 @@ CLASS lcl_view DEFINITION FINAL.
 
 ENDCLASS.
 
-
-*&---------------------------------------------------------------------*
-*& LCL_APP - YSDA controller: selection, approval, rejection, log
-*&---------------------------------------------------------------------*
 CLASS lcl_app DEFINITION FINAL.
 
   PUBLIC SECTION.
-    "! Screen 0099 - EXECUTE
     METHODS execute
       IMPORTING iv_plant     TYPE vbak-bukrs_vf
                 iv_date_from TYPE vbak-audat
                 iv_date_to   TYPE vbak-audat.
 
-    "! Screen 0100 - PBO
     METHODS pbo_0100.
 
-    "! Screen 0100 - PAI
     METHODS pai_0100
       IMPORTING iv_ucomm TYPE syucomm.
 
@@ -96,25 +73,22 @@ CLASS lcl_app DEFINITION FINAL.
                END OF gc_color.
 
     CONSTANTS gc_credit_segment TYPE ukm_credit_sgmnt VALUE 'WFICS'.
-    CONSTANTS gc_rej_auto       TYPE abgru_va VALUE 'Z8'.   " automatic rejection (FI not approved)
-    CONSTANTS gc_rej_manual     TYPE abgru_va VALUE '63'.   " rejection by the approver
+    CONSTANTS gc_rej_auto       TYPE abgru_va VALUE 'Z8'.
+    CONSTANTS gc_rej_manual     TYPE abgru_va VALUE '63'.
     CONSTANTS gc_sched_released TYPE ettyp    VALUE 'CP'.
 
     DATA mo_view      TYPE REF TO lcl_view.
-    DATA mt_out       TYPE ty_t_out.          " ALV table (old SO_TAB)
-    DATA mv_loaded    TYPE abap_bool.         " old FLAG
-    DATA mv_plant     TYPE vbak-bukrs_vf.     " old BUKRS
-    DATA mv_date_from TYPE vbak-audat.        " old DATEV_F
-    DATA mv_date_to   TYPE vbak-audat.        " old DATEV_T
+    DATA mt_out       TYPE ty_t_out.
+    DATA mv_loaded    TYPE abap_bool.
+    DATA mv_plant     TYPE vbak-bukrs_vf.
+    DATA mv_date_from TYPE vbak-audat.
+    DATA mv_date_to   TYPE vbak-audat.
 
-    " Kept as attributes because the old program kept them global and
-    " their values carry over between the routines (see README, part 4)
-    DATA mv_sd_approve TYPE c LENGTH 1.       " old SD_APPROVE
-    DATA mv_fi_approve TYPE c LENGTH 1.       " old FI_APPROVE
-    DATA ms_apprv      TYPE zsoapproval.      " old APPRV_WA
-    DATA ms_log        TYPE ysp_mtoso_log.    " old WA_LOG
+    DATA mv_sd_approve TYPE c LENGTH 1.
+    DATA mv_fi_approve TYPE c LENGTH 1.
+    DATA ms_apprv      TYPE zsoapproval.
+    DATA ms_log        TYPE ysp_mtoso_log.
 
-    "--- selection (old FORM SCREEN_START) ------------------------------
     METHODS screen_start.
     METHODS load_rows.
     METHODS set_profit
@@ -131,12 +105,10 @@ CLASS lcl_app DEFINITION FINAL.
       CHANGING cs_row TYPE ty_s_out.
     METHODS reject_fi_not_approved.
 
-    "--- user actions ---------------------------------------------------
-    METHODS approve.                          " old FORM APPROVE_FUN
-    METHODS reject.                           " old FORM REJECT_FUN
-    METHODS display_orders.                   " old function DISPLAY
+    METHODS approve.
+    METHODS reject.
+    METHODS display_orders.
 
-    "--- helpers -----------------------------------------------------------
     METHODS get_user_position
       EXPORTING ev_posnum       TYPE char2
       RETURNING VALUE(rv_found) TYPE abap_bool.
