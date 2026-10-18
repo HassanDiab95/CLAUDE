@@ -129,7 +129,7 @@ VA01 save (production order, credit block)
    └─ BUS2032 CREATED → check FM → A1: YSDA not finished → NOT_RELEVANT
 YSDA / YSDAX: last production line approved or rejected
    ├─ no credit block → approved lines CN → CP at once, no workflow
-   └─ credit block    → BUS2032 CHANGED → check FM → A1: no lock, nothing running → WS99000010
+   └─ credit block    → RAISE_START_EVENT → IS_START_ALLOWED → SAP_WAPI_START_WORKFLOW( 'WS99000010' )
         ├─ GET_APPROVERS        logs STRT, lock row            (unchanged)
         ├─ SO_REL_START         log YSDA rows, credit "in approval", release plan
         ├─ BUILD_ALERT / NOTIFY_START / approval loop          (unchanged)
@@ -142,7 +142,7 @@ VA02 change while in approval (opened before the lock)
 
 ## 10. Test
 1. SWELS on. Save a credit-blocked production order → BUS2032 CREATED, receiver not started.
-2. Decide the last line in YSDA → BUS2032 CHANGED, WS99000010 started; `ZWF_LOG_SO`: `STRT`, then one `YSDA`
+2. Decide the last line in YSDA → WS99000010 started directly (SWI1; no other template started); `ZWF_LOG_SO`: `STRT`, then one `YSDA`
    row per line.
 3. SWUE BUS2032 CHANGED for the same order while it runs → `NOT_RELEVANT`, no second run, no second log.
 4. Final approval → `RELS`, then `PROD` "Released to production: …"; VA03: those lines CP, rejected lines CN;

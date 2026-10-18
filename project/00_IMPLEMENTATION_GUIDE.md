@@ -61,12 +61,13 @@ save – the `COMMIT WORK` of VA01 / VA02 saves the rows together with the order
    workflow starts **only when every production item of the order is approved or rejected** (and at least
    one is approved). If all items are rejected, no workflow starts.
 4a. **Automatic start from YSDA / YSDAX – no VA02 needed.** When the approver in YSDA/YSDAX approves or
-   rejects the **last open production line** of a credit-blocked order, the program itself raises
-   **BUS2032 `CHANGED`** (`SAP_WAPI_CREATE_EVENT`, with `SOLDTOPARTY` in the event container). The existing
-   linkage starts **WS99000010**, the check function module lets it through (costing done, credit waiting),
-   and `_WF_INITIATOR` is the YSDA/YSDAX user. Nobody has to open or change the sales order. The start
-   request is logged (`EVENT` / `EVENT_ERR`); if the start gets lost, the job raises the event again after
-   30 minutes.
+   rejects the **last open production line** of a credit-blocked order, `ZCL_SD_SO_RELEASE->RAISE_START_EVENT`
+   starts **only WS99000010** directly (`SAP_WAPI_START_WORKFLOW`, task `WS99000010`) – no `BUS2032 CHANGED`
+   event, so other templates linked to sales order changes are not started. It first calls your
+   `IS_START_ALLOWED` (the check FM is not involved without an event) and fills the container elements the
+   event binding normally fills: `SALES_ORDER_BOR`, `SALES_ORDER`, `BUSINESS_PARTNER` (= sold-to party,
+   needed by `GET_APPROVERS`); the initiator is the YSDA/YSDAX user. The start is logged (`EVENT` /
+   `EVENT_ERR`); if it fails, the job tries again after 30 minutes.
 5. **Release plan per line.** When the credit workflow starts, every production line is marked: approved in
    YSDA/YSDAX → **goes CN → CP at the final approval**; rejected in YSDA/YSDAX → **stays CN**. The plan is
    stored in the release tables (monitor `ZSD_SO_REL_MON`); the approver mail stays as it is.
