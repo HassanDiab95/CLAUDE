@@ -165,9 +165,8 @@ appears in commented code of YSDAX) is approved in YSDA/YSDAX in real life, add 
 | `VBAK-AUDAT` between the screen dates | not needed – the screen date range only limits the list |
 | YSDA `ABGRU = '' OR 'Z8'` / YSDAX `ABSTA <> 'C'` | status, not scope: a line with another reason is "rejected" (`REFRESH_ITEM_STATUS`) |
 
-**Parameters moved to TVARVC** (they were fields of this table before; they are one value for all
-orders, so they are now TVARVC parameters – see §10): tolerance %, "restart on any change", and the
-rejection reason used when credit is rejected.
+**Constants, not customizing:** tolerance %, "restart on any change" and the rejection reason for a credit
+rejection are constants in `ZCL_SD_SO_RELEASE` (`GC_TOL_PCT`, `GC_ANY_CHANGE`, `GC_REJ_CREDIT`) – see §10.
 
 ## 7. Table types `ZSD_SO_REL_I_TT` and `ZSD_SO_REL_LOG_TT`
 
@@ -190,11 +189,17 @@ Check that the numbers are free; if not, take the next free ones and change the 
 | 016 | `Item &1: credit approval not completed - schedule line category cannot be changed` |
 
 
-## 10. TVARVC variable
+## 10. TVARVC – only the go-live date
 
 | Name | Type | Value |
 |---|---|---|
-| `ZSD_SO_REL_START_DATE` | Parameter | go-live date `YYYYMMDD` – only orders created on/after it follow the cycle |
-| `ZSD_SO_REL_TOL_PCT` | Parameter | allowed growth of the order net value without restarting the credit workflow, in % (e.g. `0` or `5.00`; empty = 0) |
-| `ZSD_SO_REL_ANY_CHANGE` | Parameter | `X` = restart the credit workflow also when value / quantity goes down; empty = only increases |
-| `ZSD_SO_REL_REJ_ABGRU` | Parameter | rejection reason set on every open line when credit is rejected (order cancelled), e.g. `ZC` "Credit rejected" – create it in OVAG first |
+| `ZSD_SO_REL_START_DATE` | Parameter | go-live date `YYYYMMDD` – only orders created on/after it follow the cycle (empty = switched off) |
+
+No other TVARVC entry (also none for YSDA / YSDAX). The other settings are constants of `ZCL_SD_SO_RELEASE`:
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `GC_TOL_PCT` | `0.00` | allowed growth of the order net value without restarting the credit workflow, % |
+| `GC_ANY_CHANGE` | ` ` | `X` = restart also when value / quantity goes down |
+| `GC_REJ_CREDIT` | `ZC` | rejection reason when credit is rejected (order cancelled) – create it in OVAG |
+

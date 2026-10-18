@@ -45,7 +45,7 @@ job `ZSD_SO_REL_RECONCILE` still does it).
    - It converts **only the lines of the release plan** (approved in YSDA/YSDAX, fixed when the workflow
      started); lines rejected in YSDA/YSDAX stay CN.
 4. **Rejection branch** – after the rejection step (*REJECT_STEP*, after the decision note is read).
-   This step **cancels the order**: every open line gets the rejection reason from TVARVC `ZSD_SO_REL_REJ_ABGRU`
+   This step **cancels the order**: every open line gets the rejection reason `ZCL_SD_SO_RELEASE=>GC_REJ_CREDIT` (`ZC`)
    (lines already rejected in YSDA/YSDAX keep their reason 63).
    - Activity, task `SO_REL_REJECTED`, binding `&SALES_ORDER&` → `IV_VBELN`, decision note → `IV_NOTE`
      (the same note the workflow already writes to the log via `ZCL_WF_NOTE_READER`).

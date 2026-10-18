@@ -14,7 +14,7 @@ complete code.
 |---|---|
 | `00_IMPLEMENTATION_GUIDE.md` | this document |
 | `01_current_objects/` | your objects as you sent them (reference only, do not import) |
-| `02_new_objects/ddic/DDIC_OBJECTS.md` | every new domain, data element, table, table type, lock object, message, TVARVC |
+| `02_new_objects/ddic/DDIC_OBJECTS.md` | every new domain, data element, table, table type, lock object, message |
 | `02_new_objects/ZCL_SD_SO_RELEASE.abap` | central class – the only owner of the release tables and of CN → CP |
 | `02_new_objects/Z_SD_SO_REL_UPDATE.abap` | update function module (function group `ZSD_SO_REL`) |
 | `02_new_objects/ZCL_WF_SD_SO_REL_STEP.abap` | workflow step class for WS99000010 |
@@ -54,7 +54,7 @@ complete code.
    sees this list in the workflow mail / work item.
    **Final approval** → exactly the planned lines **CN → CP**, the others stay CN.
    **Credit rejected** → the **order is cancelled**: every open line gets the rejection reason from
-   TVARVC `ZSD_SO_REL_REJ_ABGRU` (e.g. `ZC` "Credit rejected"); lines rejected in YSDA/YSDAX keep reason 63.
+   constant `GC_REJ_CREDIT` = `ZC` "Credit rejected"; lines rejected in YSDA/YSDAX keep reason 63.
 6. **Approved items are not shown again in YSDA / YSDAX** even though they stay CN while credit runs
    (the list now filters on the SD + FI approval, not only on CN).
 7. **Snapshot.** When the workflow starts, the order net value, every item quantity / value / rejection,
@@ -64,9 +64,9 @@ complete code.
    | Change | Result |
    |---|---|
    | credit account, credit control area, currency, payment terms | workflow restarted (new credit decision) |
-   | net value above approved value + tolerance (TVARVC `ZSD_SO_REL_TOL_PCT`) | restarted |
+   | net value above approved value + tolerance (constant `GC_TOL_PCT`, 0 %) | restarted |
    | item quantity higher than approved, new item, rejection removed | restarted (new item goes to YSDA first) |
-   | lower value / quantity, items rejected (Z8, 63, 00 of ZSD_MASS_CLOSING) | **no restart** (unless TVARVC `ZSD_SO_REL_ANY_CHANGE` = X) |
+   | lower value / quantity, items rejected (Z8, 63, 00 of ZSD_MASS_CLOSING) | **no restart** (unless constant `GC_ANY_CHANGE` = X) |
    | texts, dates, partners, delivery block, schedule line category | **no restart** |
 
    Every decision is written to `ZSD_SO_REL_LOG` with the reason.
@@ -127,9 +127,10 @@ File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
 5. Lock object `EZSD_SO_REL`.
 6. Messages 015 and 016 in class `ZSD_WF`.
 7. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG.
-8. TVARVC (STVARV) parameters: `ZSD_SO_REL_REJ_ABGRU` = `ZC`, `ZSD_SO_REL_TOL_PCT` = `0`,
-   `ZSD_SO_REL_ANY_CHANGE` = empty, and `ZSD_SO_REL_START_DATE` – **leave the date empty until go-live**
-   (empty = cycle switched off).
+8. TVARVC (STVARV): **only one entry**, `ZSD_SO_REL_START_DATE` (go-live date) – **leave it empty until
+   go-live** (empty = cycle switched off). Tolerance (`GC_TOL_PCT` = 0 %), restart on any change
+   (`GC_ANY_CHANGE` = off) and the credit rejection reason (`GC_REJ_CREDIT` = `ZC`) are constants at the top
+   of `ZCL_SD_SO_RELEASE`. YSDA / YSDAX need no TVARVC entry.
 
 ### Step 3 – Update function module (SE37)
 File: `02_new_objects/Z_SD_SO_REL_UPDATE.abap`.

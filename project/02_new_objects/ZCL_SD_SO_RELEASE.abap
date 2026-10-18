@@ -64,10 +64,18 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     CONSTANTS GC_CN          TYPE ETTYP      VALUE 'CN'.
     CONSTANTS GC_CP          TYPE ETTYP      VALUE 'CP'.
     CONSTANTS GC_REJ_AUTO    TYPE ABGRU_VA   VALUE 'Z8'.   " automatic YSDA rejection
+    "! TVARVC parameter with the go-live date (only TVARVC entry)
     CONSTANTS GC_TVARVC_DATE TYPE RVARI_VNAM VALUE 'ZSD_SO_REL_START_DATE'.
-    CONSTANTS GC_TVARVC_TOL  TYPE RVARI_VNAM VALUE 'ZSD_SO_REL_TOL_PCT'.
-    CONSTANTS GC_TVARVC_ANY  TYPE RVARI_VNAM VALUE 'ZSD_SO_REL_ANY_CHANGE'.
-    CONSTANTS GC_TVARVC_REJ  TYPE RVARI_VNAM VALUE 'ZSD_SO_REL_REJ_ABGRU'.
+
+    "--- Settings of the release cycle (constants, no customizing) ------
+    "! Allowed growth of the order net value (in %) without restarting
+    "! the credit workflow
+    CONSTANTS GC_TOL_PCT     TYPE P LENGTH 5 DECIMALS 2 VALUE '0.00'.
+    "! X = restart the credit workflow also when value / quantity goes down
+    CONSTANTS GC_ANY_CHANGE  TYPE ABAP_BOOL VALUE ABAP_FALSE.
+    "! Rejection reason set on every open line when credit is rejected
+    "! (order cancelled) - create it in OVAG
+    CONSTANTS GC_REJ_CREDIT  TYPE ABGRU_VA  VALUE 'ZC'.
     CONSTANTS GC_ALL         TYPE CHAR1      VALUE '*'.    " ZSD_SO_REL_CFG: any value
 
     "! Order data as the user exit sees it at save time
@@ -172,7 +180,7 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
       RETURNING VALUE(RV_RELEASED) TYPE ABAP_BOOL.
 
     "! Rejection step: credit rejected -> the order is cancelled (every open
-    "! line gets the rejection reason of TVARVC ZSD_SO_REL_REJ_ABGRU).
+    "! line gets the rejection reason GC_REJ_CREDIT).
     "! RV_CANCELLED = false -> retry (order locked)
     METHODS ON_CREDIT_REJECTED
       IMPORTING IV_VBELN            TYPE VBELN_VA
@@ -203,13 +211,6 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     DATA MT_HDR_BUF TYPE SORTED TABLE OF ZSD_SO_REL_H WITH UNIQUE KEY VBELN.
     DATA MT_ITM_BUF TYPE SORTED TABLE OF ZSD_SO_REL_I WITH UNIQUE KEY VBELN POSNR.
     DATA MT_ITM_SET TYPE SORTED TABLE OF VBELN_VA WITH UNIQUE KEY TABLE_LINE.
-
-    "! Parameters from TVARVC (tolerance, restart rule, cancel reason)
-    TYPES: BEGIN OF TY_S_PARAM,
-             TOL_PCT    TYPE P LENGTH 5 DECIMALS 2,
-             ANY_CHANGE TYPE ABAP_BOOL,
-             REJ_ABGRU  TYPE ABGRU_VA,
-           END OF TY_S_PARAM.
 
     METHODS READ_HEADER
       IMPORTING IV_VBELN      TYPE VBELN_VA
@@ -270,9 +271,6 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
                 IV_AUART           TYPE AUART
                 IV_PSTYV           TYPE PSTYV
       RETURNING VALUE(RV_IN_SCOPE) TYPE ABAP_BOOL.
-
-    METHODS READ_PARAMS
-      RETURNING VALUE(RS_PARAM) TYPE TY_S_PARAM.
 
     METHODS IS_WORKITEM_ACTIVE
       IMPORTING IV_WI_ID         TYPE SWW_WIID
@@ -436,8 +434,7 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     " no snapshot = credit never looked at this order
     CHECK LS_HDR-SNAP_ON IS NOT INITIAL.
 
-    DATA(LS_CFG) = READ_PARAMS( ).
-    DATA(LV_ANY) = XSDBOOL( IV_ANY_CHANGE = ABAP_TRUE OR LS_CFG-ANY_CHANGE = ABAP_TRUE ).
+    DATA(LV_ANY) = XSDBOOL( IV_ANY_CHANGE = ABAP_TRUE OR GC_ANY_CHANGE = ABAP_TRUE ).
 
     "--- header data the credit decision is based on -------------------
     IF IS_ORDER-KNKLI <> LS_HDR-SNAP_KNKLI.
@@ -457,7 +454,7 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
     "--- order net value ------------------------------------------------
     DATA LV_LIMIT TYPE VBAK-NETWR.
-    LV_LIMIT = LS_HDR-SNAP_NETWR + LS_HDR-SNAP_NETWR * LS_CFG-TOL_PCT / 100.
+    LV_LIMIT = LS_HDR-SNAP_NETWR + LS_HDR-SNAP_NETWR * GC_TOL_PCT / 100.
 
     IF IS_ORDER-NETWR > LV_LIMIT
     OR ( LV_ANY = ABAP_TRUE AND IS_ORDER-NETWR <> LS_HDR-SNAP_NETWR ).
@@ -1200,14 +1197,14 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     DATA LT_ITEM_INX TYPE STANDARD TABLE OF BAPISDITMX.
     DATA LT_RETURN   TYPE STANDARD TABLE OF BAPIRET2.
 
-    " rejection reason for "credit rejected" (TVARVC ZSD_SO_REL_REJ_ABGRU)
-    DATA(LV_ABGRU) = READ_PARAMS( )-REJ_ABGRU.
+    " rejection reason for "credit rejected"
+    DATA(LV_ABGRU) = GC_REJ_CREDIT.
 
     IF LV_ABGRU IS INITIAL.
       SAVE( IS_HDR   = CS_HDR
             IT_ITEMS = CT_ITEMS
             IV_EVENT = 'CANCEL_ERR'
-            IV_NOTE  = |No rejection reason in TVARVC { GC_TVARVC_REJ }| ).
+            IV_NOTE  = |No rejection reason in GC_REJ_CREDIT| ).
       COMMIT WORK.
       RETURN.
     ENDIF.
@@ -1363,7 +1360,7 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 *======================================================================*
   METHOD IS_CONFIGURED.
 
-    " only orders created on / after the go-live date
+    " only orders created on / after the go-live date (TVARVC)
     SELECT SINGLE LOW FROM TVARVC
       WHERE NAME = @GC_TVARVC_DATE
         AND TYPE = 'P'
@@ -1393,32 +1390,6 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
         AND ( PSTYV = @IV_PSTYV OR PSTYV = @GC_ALL )
         AND ACTIVE = @ABAP_TRUE
       INTO @RV_IN_SCOPE.
-
-  ENDMETHOD.
-
-
-  METHOD READ_PARAMS.
-
-    SELECT NAME, LOW FROM TVARVC
-      WHERE NAME IN ( @GC_TVARVC_TOL, @GC_TVARVC_ANY, @GC_TVARVC_REJ )
-        AND TYPE = 'P'
-        AND NUMB = '0000'
-      INTO TABLE @DATA(LT_PAR).
-
-    LOOP AT LT_PAR INTO DATA(LS_PAR).
-      CASE LS_PAR-NAME.
-        WHEN GC_TVARVC_TOL.
-          TRY.
-              RS_PARAM-TOL_PCT = CONDENSE( LS_PAR-LOW ).
-            CATCH CX_SY_CONVERSION_ERROR.
-              CLEAR RS_PARAM-TOL_PCT.                 " wrong entry = 0 %
-          ENDTRY.
-        WHEN GC_TVARVC_ANY.
-          RS_PARAM-ANY_CHANGE = XSDBOOL( LS_PAR-LOW = ABAP_TRUE ).
-        WHEN GC_TVARVC_REJ.
-          RS_PARAM-REJ_ABGRU = LS_PAR-LOW.
-      ENDCASE.
-    ENDLOOP.
 
   ENDMETHOD.
 
