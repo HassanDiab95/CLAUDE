@@ -170,22 +170,32 @@ ENDENHANCEMENT.
         AND   POSNR = VBEP-POSNR.
 ```
 
-#### B7 – INSERT AFTER
-**Find:**
+#### B7 – REPLACE (manual CN → CP refused until YSDA/YSDAX and credit allow it – for every order of the cycle)
+**Find** (the last three lines before `ENDENHANCEMENT.`):
 ```abap
-      IF SY-DBCNT = 0 OR ( SD_APRV IS INITIAL OR FI_APRV IS INITIAL ).
-        MESSAGE 'Change Schedule Line Error: Document is not yet approved via YSDAX/YSDA' TYPE 'E'.
-      ENDIF.
+  ENDIF.
+ ENDIF.
+ENDIF.
 ```
-**Insert after it:**
+**Replace with:**
 ```abap
-      IF *VBEP-ETTYP = 'CN'
-         AND NEW ZCL_SD_SO_RELEASE( )->IS_ITEM_RELEASE_ALLOWED(
-               IV_VBELN = VBEP-VBELN
-               IV_POSNR = VBEP-POSNR ) = ABAP_FALSE.
-        MESSAGE E018(ZSD_WF) WITH VBEP-POSNR.
-      ENDIF.
+  ENDIF.
+ ENDIF.
+
+  IF SY-TCODE = 'VA02'
+     AND *VBEP-ETTYP = 'CN'
+     AND NEW ZCL_SD_SO_RELEASE( )->IS_ITEM_RELEASE_ALLOWED(
+           IV_VBELN = VBEP-VBELN
+           IV_POSNR = VBEP-POSNR ) = ABAP_FALSE.
+    MESSAGE E018(ZSD_WF) WITH VBEP-POSNR.
+  ENDIF.
+
+ENDIF.
 ```
+The check sits outside the old order-type condition, so it covers every order of the release cycle
+(plants / item categories of `ZSD_SO_REL_CFG`). For other orders `IS_ITEM_RELEASE_ALLOWED` returns true.
+
+The complete code of every MV45AFZZ enhancement (after B1–B8) is in `MV45AFZZ_ENHANCEMENTS_COMPLETE.abap`.
 
 ### FORM `USEREXIT_READ_DOCUMENT`, enhancement `ZEN_DISAB_VA02_CM_WF_RUNNINNG`
 

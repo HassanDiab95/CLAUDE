@@ -158,7 +158,8 @@ File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
 4. `02_new_objects/ZCL_WF_SD_SO_REL_STEP.abap` – create and activate.
 
 ### Step 4 – Sales order user exits (SE80 → include MV45AFZZ)
-Apply changes **B1–B8** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`:
+Apply changes **B1–B8** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`, or simply replace the whole code of
+each enhancement with `03_changed_objects/MV45AFZZ_ENHANCEMENTS_COMPLETE.abap` (all six, ready to paste):
 
 | # | User exit (FORM) | Enhancement | Change |
 |---|---|---|---|
