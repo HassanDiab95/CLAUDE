@@ -117,8 +117,11 @@ class marked a CN line that YSDA/YSDAX never show, that line would stay "pending
 workflow would never start. This table holds the plant / order type / item category part of that
 selection, so the class marks exactly the lines the two programs show.
 
-Delivery class **C**. Generate table maintenance (SE11 → Utilities → Table Maintenance Generator,
-function group `ZSD_SO_REL_CFG`, one step) and transaction `ZSD_SO_REL_CFG` → SM30.
+Delivery class **C**, *Data Browser/Table View Maint.* = **Display/Maintenance Allowed**.
+**No table maintenance generator, no function group.** Enter the 14 rows below once in the development
+system with SE16N (or SE16 → *Create Entries*) and transport them: SE09 → your request → add the entry
+`R3TR TABU ZSD_SO_REL_CFG` with key `*` (all entries). The rows change only when the YSDA / YSDAX selection
+changes.
 
 | Field | Key | Data element | Comment |
 |---|---|---|---|

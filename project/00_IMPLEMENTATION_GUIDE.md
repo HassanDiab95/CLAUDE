@@ -141,7 +141,7 @@ Create a workbench request (e.g. "REQ1 SO release cycle YSDA + credit WF"). Pack
 File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
 1. Domains `ZSD_REL_COST`, `ZSD_REL_CREDIT`, `ZSD_REL_PROD`, `ZSD_REL_OVERALL`, `ZSD_REL_EVENT` .
 2. Data elements with the same names.
-3. Tables `ZSD_SO_REL_H`, `ZSD_SO_REL_I`, `ZSD_SO_REL_LOG`, `ZSD_SO_REL_CFG` (+ table maintenance for CFG).
+3. Tables `ZSD_SO_REL_H`, `ZSD_SO_REL_I`, `ZSD_SO_REL_LOG`, `ZSD_SO_REL_CFG` (no table maintenance generator – no function group).
 4. Lock object `EZSD_SO_REL`.
 5. Messages 017 and 018 in class `ZSD_WF` (015 / 016 are already used).
 6. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG.
@@ -209,7 +209,7 @@ Event linkages in SWE2 stay as they are.
 2. `02_new_objects/ZSD_SO_REL_MONITOR.abap` → SE38, transaction `ZSD_SO_REL_MON` (SE93).
 
 ### Step 9 – Customizing
-SM30 `ZSD_SO_REL_CFG`: the 14 entries from `DDIC_OBJECTS.md` §6 – they are the selection of YSDA / YSDAX
+SE16N `ZSD_SO_REL_CFG` (in the development system, then transport `R3TR TABU ZSD_SO_REL_CFG`): the 14 entries from `DDIC_OBJECTS.md` §6 – they are the selection of YSDA / YSDAX
 (plants 1200, 1202, 1500, 1501, 1600, 1400). Add a row `<plant> | * | * | YSDAX` for any other plant that is
 approved in YSDAX in real life. If YSDA / YSDAX selection is changed later, change this table the same way.
 
