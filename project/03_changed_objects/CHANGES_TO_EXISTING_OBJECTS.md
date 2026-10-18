@@ -18,7 +18,6 @@ Draft – not compiled or tested in SAP.
 | C | YSDA `YSP_MTOSO_APPROVE` | C1 list filter, C2–C5 `APPROVE_FUN`, C6–C7 `REJECT_FUN` |
 | D | YSDAX `YSP_MTOSO_APPROVE_CX` | D1 list filter, D2–D4 `APPROVE_FUN`, D5–D6 `REJECT_FUN` |
 | E | Workflow `WS99000010` | see `WS99000010_workflow_changes.md` |
-| F | `ZCL_WF_SD_ALERT` → `BUILD_HTML` | F1 – table of the order lines in the approver mail / work item: YSDA decision and CN → CP or stays CN |
 
 ---
 
@@ -455,51 +454,6 @@ No code change in the existing workflow classes. Three new background steps – 
 
 ---
 
-## F. Class `ZCL_WF_SD_ALERT`, method `BUILD_HTML` (SE24)
-
-The approver sees, for every production line, the YSDA/YSDAX decision and what happens at the final
-approval (CN → CP or stays CN).
-
-### F1 – INSERT BEFORE
-**Find:**
-```abap
-    "--- your step ----------------------------------------------------
-    APPEND LINES OF LO_HTML->SECTION_TITLE( 'Your Approval Step' ) TO RT_HTML.
-```
-**Insert before it:**
-```abap
-    DATA(LT_PLAN) = NEW ZCL_SD_SO_RELEASE( )->GET_RELEASE_PLAN( LS-VBELN ).
-
-    IF LT_PLAN IS NOT INITIAL.
-
-      APPEND LINES OF LO_HTML->SECTION_TITLE( 'Order Lines' ) TO RT_HTML.
-
-      APPEND LINES OF LO_HTML->TABLE_OPEN( VALUE #( ( `Item` ) ( `Material` ) ( `Description` )
-                                                    ( `Quantity` ) ( `YSDA / YSDAX` )
-                                                    ( `At final approval` ) ) ) TO RT_HTML.
-
-      LOOP AT LT_PLAN INTO DATA(LS_PLAN).
-        APPEND LINES OF LO_HTML->DATA_ROW(
-          IT_CELL = VALUE #(
-            ( TEXT = |{ LS_PLAN-POSNR ALPHA = OUT }| )
-            ( TEXT = |{ LS_PLAN-MATNR ALPHA = OUT }| )
-            ( TEXT = CONV STRING( LS_PLAN-ARKTX ) )
-            ( TEXT = |{ LS_PLAN-KWMENG NUMBER = USER } { LS_PLAN-VRKME }| ALIGN = 'right' )
-            ( TEXT = LS_PLAN-DECISION )
-            ( TEXT  = LS_PLAN-TARGET
-              BOLD  = ABAP_TRUE
-              COLOR = COND #( WHEN LS_PLAN-TO_PRODUCTION = ABAP_TRUE
-                              THEN ZCL_MAIL_HTML=>GC_COLOUR-GREEN
-                              ELSE ZCL_MAIL_HTML=>GC_COLOUR-RED ) ) ) ) TO RT_HTML.
-      ENDLOOP.
-
-      APPEND LINES OF LO_HTML->TABLE_CLOSE( ) TO RT_HTML.
-
-    ENDIF.
-```
-
----
-
 ## Check after applying
 
 1. Activate in this order: new DDIC → `ZCL_SD_SO_RELEASE` + `ZCL_WF_SD_CREDIT` (together)
@@ -510,4 +464,3 @@ approval (CN → CP or stays CN).
    - B: B1–B8
    - C: C1–C7
    - D: D1–D6
-   - F: F1

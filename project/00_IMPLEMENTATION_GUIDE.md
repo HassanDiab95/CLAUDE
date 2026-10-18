@@ -38,7 +38,6 @@ for YSDA / YSDAX – every participant calls it, so the rules sit in one place:
 | YSDA / YSDAX (C5, C7 / D3, D6 or N4, N7 / X3, X6) | `ON_ITEM_DECISION`, `GET_ITEM_STATUS_TEXT` | after each approve / reject: CN → CP now (no credit block), or start the credit workflow when the last line is decided |
 | Check FM of the workflow start (`ZCL_WF_SD_CREDIT->IS_START_ALLOWED`, A1) | `CAN_START_CREDIT_WF` | WS99000010 may start only after YSDA / YSDAX are complete |
 | Workflow WS99000010 (via `ZCL_WF_SD_SO_REL_STEP`) | `ON_CREDIT_STARTED`, `ON_CREDIT_APPROVED`, `ON_CREDIT_REJECTED` | record the start + release plan, CN → CP after final approval, record every line when credit is rejected (the existing REJECT_STEP cancels the order after rejection |
-| Approver mail (`ZCL_WF_SD_ALERT`, F1) | `GET_RELEASE_PLAN` | list of lines "CN → CP" / "stays CN" in the mail |
 | Job `ZSD_SO_REL_RECONCILE` | `PROCESS` | safety net: retry a lost workflow start or a CN → CP that failed (order was locked) |
 
 The class writes its tables **directly** (no update function module). It never commits inside the sales order
@@ -69,8 +68,8 @@ save – the `COMMIT WORK` of VA01 / VA02 saves the rows together with the order
    request is logged (`EVENT` / `EVENT_ERR`); if the start gets lost, the job raises the event again after
    30 minutes.
 5. **Release plan per line.** When the credit workflow starts, every production line is marked: approved in
-   YSDA/YSDAX → **goes CN → CP at the final approval**; rejected in YSDA/YSDAX → **stays CN**. The approver
-   sees this list in the workflow mail / work item.
+   YSDA/YSDAX → **goes CN → CP at the final approval**; rejected in YSDA/YSDAX → **stays CN**. The plan is
+   stored in the release tables (monitor `ZSD_SO_REL_MON`); the approver mail stays as it is.
    **Final approval** → exactly the planned lines **CN → CP**, the others stay CN.
    **Credit rejected** → first the new step records every line as YSDA/YSDAX decided it (approved lines:
    "not released – cancelled", rejected lines keep reason 63), then the **existing** `REJECT_STEP`
@@ -196,12 +195,11 @@ Old code: changes **D1–D6** below. OOP version: changes **X1–X6** in
 (Same logic; YSDAX FI approval never set CP, so there is no FI change.)
 
 ### Step 7 – Workflow WS99000010 (PFTC + SWDD)
-File: `03_changed_objects/WS99000010_workflow_changes.md`.
-Create three background tasks on `ZCL_WF_SD_SO_REL_STEP` and insert them as: first step (+ duplicate
-condition), after the final approval (after the credit block release), after the rejection.
-Then apply change **F1** of `CHANGES_TO_EXISTING_OBJECTS.md` in `ZCL_WF_SD_ALERT->BUILD_HTML`: the approver mail
-and the work item show every order line with its YSDA/YSDAX decision and "CN → CP" or "stays CN".
-Event linkages in SWE2 stay as they are.
+File: `03_changed_objects/WS99000010_workflow_changes.md` – step by step, with the reason for each step.
+Create class `ZCL_WF_SD_SO_REL_STEP` and three background tasks, add the container element `REL_DUPLICATE`,
+and insert: `SO_REL_START` as first step (+ condition on `REL_DUPLICATE`), `SO_REL_APPROVED` after the credit
+block release at final approval, `SO_REL_REJECTED` before the existing `REJECT_STEP`.
+**No change to the approver mail (HTML)**, the approval levels, the logs or the event linkages.
 
 ### Step 8 – Reports and transactions
 1. `02_new_objects/ZSD_SO_REL_RECONCILE.abap` → SE38, variant `DEFAULT` (P_WAIT = 30),
@@ -225,7 +223,7 @@ approved in YSDAX in real life. If YSDA / YSDAX selection is changed later, chan
 | 6 | … then reject item 3 | workflow starts now; after approval items 1 + 2 CP, item 3 stays rejected |
 | 7 | Blocked order, all items rejected | no workflow, overall 9 |
 | 8 | Workflow rejects | new step logs `CREDIT_NOK` with one `ITEM` row per line (approved lines "cancelled", rejected lines unchanged), then the existing REJECT_STEP cancels the order as today; no line CP; overall 9 |
-| 8a | Blocked order, YSDA approves line 10, rejects line 20 → credit approved | line 10 CP, line 20 stays CN (reason 63); mail shows the plan; log per line |
+| 8a | Blocked order, YSDA approves line 10, rejects line 20 → credit approved | line 10 CP, line 20 stays CN (reason 63); log per line |
 | 9 | During workflow: change text / delivery date in VA02 | VA02 allowed, log `NO_RESTART`, workflow continues |
 | 10 | During workflow: increase quantity | workflow cancelled, new workflow, log `RESTART` with reason |
 | 11 | During workflow: add an item | workflow cancelled; new item in YSDA; after its decision workflow starts again |
