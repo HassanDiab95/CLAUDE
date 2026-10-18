@@ -54,7 +54,7 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
                  DELETED  TYPE ZSD_REL_OVERALL VALUE 'D',
                END OF GC_OVERALL.
 
-    "! Answer of CAN_START_CREDIT_WF
+    " Answer of CAN_START_CREDIT_WF
     CONSTANTS: BEGIN OF GC_START,
                  YES       TYPE CHAR1 VALUE 'Y',
                  NO        TYPE CHAR1 VALUE 'N',
@@ -75,7 +75,7 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     CONSTANTS GC_ANY_CHANGE  TYPE ABAP_BOOL VALUE ABAP_FALSE.
     CONSTANTS GC_ALL         TYPE CHAR1      VALUE '*'.    " ZSD_SO_REL_CFG: any value
 
-    "! Order data as the user exit sees it at save time
+    " Order data as the user exit sees it at save time
     TYPES: BEGIN OF TY_S_ORDER,
              VBELN TYPE VBAK-VBELN,
              BUKRS TYPE VBAK-BUKRS_VF,
@@ -102,8 +102,8 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     TYPES TT_ITEM  TYPE STANDARD TABLE OF TY_S_ITEM WITH EMPTY KEY.
     TYPES TT_POSNR TYPE STANDARD TABLE OF POSNR_VA WITH EMPTY KEY.
 
-    "! One order line with its YSDA/YSDAX decision and what happens to it
-    "! at the credit final approval (for the workflow mail / monitor)
+    " One order line with its YSDA/YSDAX decision and what happens to it
+    " at the credit final approval (for the workflow mail / monitor)
     TYPES: BEGIN OF TY_S_PLAN,
              POSNR         TYPE VBAP-POSNR,
              MATNR         TYPE VBAP-MATNR,
@@ -534,7 +534,8 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(LS_ITM) = VALUE ZSD_SO_REL_I( READ_ITEMS( IV_VBELN )[ POSNR = IV_POSNR ] OPTIONAL ).
+    DATA(LT_ITM) = READ_ITEMS( IV_VBELN ).
+    DATA(LS_ITM) = VALUE ZSD_SO_REL_I( LT_ITM[ POSNR = IV_POSNR ] OPTIONAL ).
 
     " not a production item of the cycle: old rules apply
     IF LS_ITM-PROD_RELEVANT = ABAP_FALSE.
@@ -565,7 +566,8 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
   METHOD GET_ITEM_STATUS_TEXT.
 
     DATA(LS_HDR) = READ_HEADER( IV_VBELN ).
-    DATA(LS_ITM) = VALUE ZSD_SO_REL_I( READ_ITEMS( IV_VBELN )[ POSNR = IV_POSNR ] OPTIONAL ).
+    DATA(LT_ITM) = READ_ITEMS( IV_VBELN ).
+    DATA(LS_ITM) = VALUE ZSD_SO_REL_I( LT_ITM[ POSNR = IV_POSNR ] OPTIONAL ).
 
     RV_TEXT = COND #(
       WHEN LS_HDR IS INITIAL OR LS_ITM-PROD_RELEVANT = ABAP_FALSE
@@ -687,8 +689,9 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     PROCESS( IV_VBELN ).
 
     " false if an approved item is still on CN (order locked) -> retry
-    RV_RELEASED = XSDBOOL( NOT LINE_EXISTS( READ_ITEMS( IV_VBELN )[ COST_STATUS = GC_COST-APPROVED
-                                                                    PROD_STATUS = GC_PROD-ERROR ] ) ).
+    DATA(LT_ITM) = READ_ITEMS( IV_VBELN ).
+    RV_RELEASED = XSDBOOL( NOT LINE_EXISTS( LT_ITM[ COST_STATUS = GC_COST-APPROVED
+                                                    PROD_STATUS = GC_PROD-ERROR ] ) ).
 
   ENDMETHOD.
 
