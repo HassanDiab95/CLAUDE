@@ -54,5 +54,15 @@ Activate the new version. Running workflows stay on the old version; new starts 
 
 ## D. Event linkages (SWE2) – no change
 
+**How the workflow starts without VA02:** YSDA / YSDAX → `ZCL_SD_SO_RELEASE->ON_ITEM_DECISION` → when the last
+production line of a credit-blocked order is decided → `RAISE_START_EVENT` → `SAP_WAPI_CREATE_EVENT`
+BUS2032 / `CHANGED` with event container element `SOLDTOPARTY` = VBAK-KUNNR → linkage below → check FM →
+WS99000010. The start bindings of the workflow are filled exactly as for a sales order save:
+`_EVT_OBJECT` → `SALES_ORDER_BOR`, `_EVT_OBJECT.SALESDOCUMENT` → `SALES_ORDER`, `SOLDTOPARTY` →
+`BUSINESS_PARTNER`, `_EVT_CREATOR` → `_WF_INITIATOR` (the YSDA/YSDAX user).
+
+Test in SWEL (event trace on, `SWELS`): approve the last line in YSDA → one BUS2032 CHANGED entry with
+receiver WS99000010 and status "Receiver started".
+
 `BUS2032 CREATED` and `BUS2032 CHANGED` → `WS99000010`, check function module `Z_FM_SD_WF_CHECK_CREDIT`.
-The new logic is inside `ZCL_WF_SD_CREDIT->IS_START_ALLOWED` (see `ZCL_WF_SD_CREDIT_IS_START_ALLOWED.abap`).
+The new logic is inside `ZCL_WF_SD_CREDIT->IS_START_ALLOWED` (change A1 in `CHANGES_TO_EXISTING_OBJECTS.md`).

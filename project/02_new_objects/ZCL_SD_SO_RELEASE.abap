@@ -1079,16 +1079,48 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
   METHOD RAISE_START_EVENT.
 
-    DATA LV_RC TYPE SY-SUBRC.
+    " Same event as a sales order save (BUS2032 CHANGED), so the existing
+    " linkage of WS99000010 starts the workflow - nobody has to open the
+    " order in VA02. Raised by YSDA/YSDAX when the last line is decided
+    " (or by the job when a start got lost).
+    DATA LV_RC     TYPE SY-SUBRC.
+    DATA LV_EVT_ID TYPE SWR_STRUCT-EVENT_ID.
+    DATA LT_CONT   TYPE STANDARD TABLE OF SWR_CONT.
+    DATA LT_MSG    TYPE STANDARD TABLE OF SWR_MESSAG.
+
+    " the start binding of WS99000010 maps &SOLDTOPARTY& -> &BUSINESS_PARTNER&
+    SELECT SINGLE KUNNR FROM VBAK
+      WHERE VBELN = @IV_VBELN
+      INTO @DATA(LV_KUNNR).
+
+    LT_CONT = VALUE #( ( ELEMENT = 'SOLDTOPARTY' VALUE = LV_KUNNR ) ).
 
     CALL FUNCTION 'SAP_WAPI_CREATE_EVENT'
       EXPORTING
-        OBJECT_TYPE = CONV SWR_STRUCT-OBJECT_TYP( 'BUS2032' )
-        OBJECT_KEY  = CONV SWR_STRUCT-OBJECT_KEY( IV_VBELN )
-        EVENT       = CONV SWR_STRUCT-EVENT( 'CHANGED' )
-        COMMIT_WORK = ABAP_TRUE
+        OBJECT_TYPE     = CONV SWR_STRUCT-OBJECT_TYP( 'BUS2032' )
+        OBJECT_KEY      = CONV SWR_STRUCT-OBJECT_KEY( IV_VBELN )
+        EVENT           = CONV SWR_STRUCT-EVENT( 'CHANGED' )
+        COMMIT_WORK     = ABAP_TRUE
+        USER            = SY-UNAME          " -> _EVT_CREATOR -> _WF_INITIATOR
       IMPORTING
-        RETURN_CODE = LV_RC.
+        RETURN_CODE     = LV_RC
+        EVENT_ID        = LV_EVT_ID
+      TABLES
+        INPUT_CONTAINER = LT_CONT
+        MESSAGE_LINES   = LT_MSG.
+
+    " log the start request (or its failure - the job raises it again)
+    DATA(LS_HDR) = READ_HEADER( IV_VBELN ).
+    CHECK LS_HDR IS NOT INITIAL.
+
+    DATA(LS_MSG) = VALUE SWR_MESSAG( LT_MSG[ 1 ] OPTIONAL ).
+    SAVE( IS_HDR   = LS_HDR
+          IT_ITEMS = READ_ITEMS( IV_VBELN )
+          IV_EVENT = COND #( WHEN LV_RC = 0 THEN 'EVENT' ELSE 'EVENT_ERR' )
+          IV_NOTE  = COND #( WHEN LV_RC = 0
+                             THEN |BUS2032 CHANGED raised by { SY-UNAME } ({ SY-TCODE }) to start WS99000010|
+                             ELSE |BUS2032 CHANGED not raised (rc { LV_RC }): { LS_MSG-LINE }| ) ).
+    COMMIT WORK.
 
   ENDMETHOD.
 

@@ -38,6 +38,13 @@ complete code.
 4. **Credit block** (credit limit exceeded and/or overdue, CMGST = B): approved items **stay CN**. The credit
    workflow starts **only when every production item of the order is approved or rejected** (and at least
    one is approved). If all items are rejected, no workflow starts.
+4a. **Automatic start from YSDA / YSDAX – no VA02 needed.** When the approver in YSDA/YSDAX approves or
+   rejects the **last open production line** of a credit-blocked order, the program itself raises
+   **BUS2032 `CHANGED`** (`SAP_WAPI_CREATE_EVENT`, with `SOLDTOPARTY` in the event container). The existing
+   linkage starts **WS99000010**, the check function module lets it through (costing done, credit waiting),
+   and `_WF_INITIATOR` is the YSDA/YSDAX user. Nobody has to open or change the sales order. The start
+   request is logged (`EVENT` / `EVENT_ERR`); if the start gets lost, the job raises the event again after
+   30 minutes.
 5. **Release plan per line.** When the credit workflow starts, every production line is marked: approved in
    YSDA/YSDAX → **goes CN → CP at the final approval**; rejected in YSDA/YSDAX → **stays CN**. The approver
    sees this list in the workflow mail / work item.
