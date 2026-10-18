@@ -128,10 +128,8 @@ File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
 5. Lock object `EZSD_SO_REL`.
 6. Messages 015 and 016 in class `ZSD_WF`.
 7. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG.
-8. TVARVC (STVARV): **only one entry**, `ZSD_SO_REL_START_DATE` (go-live date) – **leave it empty until
-   go-live** (empty = cycle switched off). Tolerance (`GC_TOL_PCT` = 0 %), restart on any change
-   (`GC_ANY_CHANGE` = off) and the credit rejection reason (`GC_REJ_CREDIT` = `ZC`) are constants at the top
-   of `ZCL_SD_SO_RELEASE`. YSDA / YSDAX need no TVARVC entry.
+8. TVARVC (STVARV): create **only** `ZSD_SO_REL_START_DATE` (go-live date) – **leave it empty until
+   go-live** (empty = cycle switched off). Nothing else goes into TVARVC.
 
 ### Step 3 – Update function module (SE37)
 File: `02_new_objects/Z_SD_SO_REL_UPDATE.abap`.
@@ -140,6 +138,10 @@ Attributes → **Update module, Start immediately**; import parameters **pass by
 
 ### Step 4 – Classes (SE24)
 1. `02_new_objects/ZCL_SD_SO_RELEASE.abap` – create the class in source-code based mode and paste.
+   The settings are written in the class code itself (constants at the top of the class, nothing to create
+   anywhere): tolerance `GC_TOL_PCT` = 0 %, restart on any change `GC_ANY_CHANGE` = off, credit rejection
+   reason `GC_REJ_CREDIT` = `ZC` (the reason `ZC` itself must exist in OVAG). To change one, change the
+   constant in the class.
 2. `ZCL_WF_SD_CREDIT->IS_START_ALLOWED`: apply change **A1** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`.
 3. Activate both classes **together** (they call each other).
 4. `02_new_objects/ZCL_WF_SD_SO_REL_STEP.abap` – create and activate.

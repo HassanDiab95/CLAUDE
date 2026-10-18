@@ -165,9 +165,6 @@ appears in commented code of YSDAX) is approved in YSDA/YSDAX in real life, add 
 | `VBAK-AUDAT` between the screen dates | not needed – the screen date range only limits the list |
 | YSDA `ABGRU = '' OR 'Z8'` / YSDAX `ABSTA <> 'C'` | status, not scope: a line with another reason is "rejected" (`REFRESH_ITEM_STATUS`) |
 
-**Constants, not customizing:** tolerance %, "restart on any change" and the rejection reason for a credit
-rejection are constants in `ZCL_SD_SO_RELEASE` (`GC_TOL_PCT`, `GC_ANY_CHANGE`, `GC_REJ_CREDIT`) – see §10.
-
 ## 7. Table types `ZSD_SO_REL_I_TT` and `ZSD_SO_REL_LOG_TT`
 
 Line type `ZSD_SO_REL_I`, standard table, standard key.
@@ -189,17 +186,10 @@ Check that the numbers are free; if not, take the next free ones and change the 
 | 016 | `Item &1: credit approval not completed - schedule line category cannot be changed` |
 
 
-## 10. TVARVC – only the go-live date
+## 10. TVARVC – one entry only
 
 | Name | Type | Value |
 |---|---|---|
 | `ZSD_SO_REL_START_DATE` | Parameter | go-live date `YYYYMMDD` – only orders created on/after it follow the cycle (empty = switched off) |
 
-No other TVARVC entry (also none for YSDA / YSDAX). The other settings are constants of `ZCL_SD_SO_RELEASE`:
-
-| Constant | Value | Meaning |
-|---|---|---|
-| `GC_TOL_PCT` | `0.00` | allowed growth of the order net value without restarting the credit workflow, % |
-| `GC_ANY_CHANGE` | ` ` | `X` = restart also when value / quantity goes down |
-| `GC_REJ_CREDIT` | `ZC` | rejection reason when credit is rejected (order cancelled) – create it in OVAG |
-
+Nothing else is created in TVARVC.
