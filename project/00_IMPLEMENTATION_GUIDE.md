@@ -28,9 +28,13 @@ complete code.
 
 ## 1. Business rules implemented
 
-1. **Scope.** An order follows the cycle when its company code + order type is active in `ZSD_SO_REL_CFG`,
-   it was created on/after the go-live date (TVARVC `ZSD_SO_REL_START_DATE`) and at least one item has a
-   **CN** schedule line (production blocked by configuration). Every other order works exactly as today.
+1. **Scope = exactly the lines YSDA / YSDAX show.** A line is a production line when it has a **CN**
+   schedule line and its plant + order type + item category match the selection hard coded in YSDA / YSDAX
+   (copied 1:1 into `ZSD_SO_REL_CFG`, e.g. plant 1200 item category ZTAW/ZFRE, plant 1400 order types
+   ZEM/ZMT/ZOR/ZFC). The order must be a sales order or free of charge order (VBTYP C / I, as in the
+   programs) and be created on/after the go-live date (TVARVC `ZSD_SO_REL_START_DATE`). An order with no such
+   line works exactly as today. The programs themselves are not changed for this – the table is only needed
+   because VA01/VA02 (MV45AFZZ) must know which lines will wait for YSDA/YSDAX.
 2. **YSDA / YSDAX first, per line item.** Every item with CN is approved (SD + FI) or rejected (reason 63)
    in YSDA / YSDAX, item by item, as today.
 3. **No credit block** (CMGST ≠ B): each item goes **CN → CP as soon as it is approved**, independent of the
@@ -50,7 +54,7 @@ complete code.
    sees this list in the workflow mail / work item.
    **Final approval** → exactly the planned lines **CN → CP**, the others stay CN.
    **Credit rejected** → the **order is cancelled**: every open line gets the rejection reason from
-   `ZSD_SO_REL_CFG-REJ_ABGRU` (e.g. `ZC` "Credit rejected"); lines rejected in YSDA/YSDAX keep reason 63.
+   TVARVC `ZSD_SO_REL_REJ_ABGRU` (e.g. `ZC` "Credit rejected"); lines rejected in YSDA/YSDAX keep reason 63.
 6. **Approved items are not shown again in YSDA / YSDAX** even though they stay CN while credit runs
    (the list now filters on the SD + FI approval, not only on CN).
 7. **Snapshot.** When the workflow starts, the order net value, every item quantity / value / rejection,
@@ -60,9 +64,9 @@ complete code.
    | Change | Result |
    |---|---|
    | credit account, credit control area, currency, payment terms | workflow restarted (new credit decision) |
-   | net value above approved value + tolerance (`TOL_PCT`) | restarted |
+   | net value above approved value + tolerance (TVARVC `ZSD_SO_REL_TOL_PCT`) | restarted |
    | item quantity higher than approved, new item, rejection removed | restarted (new item goes to YSDA first) |
-   | lower value / quantity, items rejected (Z8, 63, 00 of ZSD_MASS_CLOSING) | **no restart** (unless `ANY_CHANGE = X`) |
+   | lower value / quantity, items rejected (Z8, 63, 00 of ZSD_MASS_CLOSING) | **no restart** (unless TVARVC `ZSD_SO_REL_ANY_CHANGE` = X) |
    | texts, dates, partners, delivery block, schedule line category | **no restart** |
 
    Every decision is written to `ZSD_SO_REL_LOG` with the reason.
@@ -116,14 +120,16 @@ Create a workbench request (e.g. "REQ1 SO release cycle YSDA + credit WF"). Pack
 
 ### Step 2 – DDIC objects (SE11 / SE91 / STVARV)
 File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
-1. Domains `ZSD_REL_COST`, `ZSD_REL_CREDIT`, `ZSD_REL_PROD`, `ZSD_REL_OVERALL`, `ZSD_REL_EVENT` (+ `ZSD_REL_TOL_PCT`).
+1. Domains `ZSD_REL_COST`, `ZSD_REL_CREDIT`, `ZSD_REL_PROD`, `ZSD_REL_OVERALL`, `ZSD_REL_EVENT` .
 2. Data elements with the same names.
 3. Tables `ZSD_SO_REL_H`, `ZSD_SO_REL_I`, `ZSD_SO_REL_LOG`, `ZSD_SO_REL_CFG` (+ table maintenance for CFG).
 4. Table types `ZSD_SO_REL_I_TT` and `ZSD_SO_REL_LOG_TT`.
 5. Lock object `EZSD_SO_REL`.
 6. Messages 015 and 016 in class `ZSD_WF`.
-7. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG, entered in `ZSD_SO_REL_CFG-REJ_ABGRU`.
-8. TVARVC variable `ZSD_SO_REL_START_DATE` – **leave it empty until go-live** (empty = cycle switched off).
+7. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG.
+8. TVARVC (STVARV) parameters: `ZSD_SO_REL_REJ_ABGRU` = `ZC`, `ZSD_SO_REL_TOL_PCT` = `0`,
+   `ZSD_SO_REL_ANY_CHANGE` = empty, and `ZSD_SO_REL_START_DATE` – **leave the date empty until go-live**
+   (empty = cycle switched off).
 
 ### Step 3 – Update function module (SE37)
 File: `02_new_objects/Z_SD_SO_REL_UPDATE.abap`.
@@ -177,7 +183,9 @@ Event linkages in SWE2 stay as they are.
 2. `02_new_objects/ZSD_SO_REL_MONITOR.abap` → SE38, transaction `ZSD_SO_REL_MON` (SE93).
 
 ### Step 10 – Customizing
-SM30 `ZSD_SO_REL_CFG`: entries from `DDIC_OBJECTS.md` §6 (confirm the order types with the business).
+SM30 `ZSD_SO_REL_CFG`: the 14 entries from `DDIC_OBJECTS.md` §6 – they are the selection of YSDA / YSDAX
+(plants 1200, 1202, 1500, 1501, 1600, 1400). Add a row `<plant> | * | * | YSDAX` for any other plant that is
+approved in YSDAX in real life. If YSDA / YSDAX selection is changed later, change this table the same way.
 
 ### Step 11 – Test in QA (all must pass before transport to production)
 
@@ -201,7 +209,9 @@ SM30 `ZSD_SO_REL_CFG`: entries from `DDIC_OBJECTS.md` §6 (confirm the order typ
 | 15 | VKM1 release while workflow runs | error 015 |
 | 16 | VA02: change CN → CP by hand before credit approval | error 016 |
 | 17 | Delete order during workflow | workflow cancelled, overall D |
-| 18 | Order type not in ZSD_SO_REL_CFG / created before go-live | exactly as today |
+| 18 | Plant / item category / order type not in ZSD_SO_REL_CFG (= not shown in YSDA/YSDAX) or created before go-live | exactly as today |
+| 18a | Plant 1400, order type ZOR, CN line | managed (same as YSDAX shows it) |
+| 18b | Plant 1200, item category other than ZTAW / ZFRE with CN | not managed – YSDA does not show it, so it does not block the credit start |
 | 19 | VA01 / VA02 save of any order | `ZO2C_CREDITLMIT_CHECK`, `ZSAVE_DIFF_COST_PROFIT`, sales office check etc. run (bug fix of step 5) |
 | 20 | YSDA plants 1202 / 1501: VA02 schedule line change after approval | no false "not yet approved" error |
 | 21 | Approve 2 rows of different orders in one YSDA click | each order handled separately (BAPI table fix) |

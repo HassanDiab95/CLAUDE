@@ -108,7 +108,14 @@ Currency/quantity tab: SNAP_KWMENG → ZSD_SO_REL_I-SNAP_VRKME; SNAP_NETWR → Z
 | UNAME | | SYUNAME |
 | TCODE | | SYTCODE |
 
-## 6. Table `ZSD_SO_REL_CFG` – which orders follow the cycle (customizing)
+## 6. Table `ZSD_SO_REL_CFG` – which lines YSDA / YSDAX show (copy of their hard coded selection)
+
+YSDA and YSDAX select the lines to approve with conditions written in the programs (FORM `SCREEN_START`).
+The programs stay as they are. The release class needs **the same rule outside the two programs**: in
+VA01/VA02 (MV45AFZZ) it must decide which lines are production lines that wait for YSDA/YSDAX. If the
+class marked a CN line that YSDA/YSDAX never show, that line would stay "pending" forever and the credit
+workflow would never start. This table holds the plant / order type / item category part of that
+selection, so the class marks exactly the lines the two programs show.
 
 Delivery class **C**. Generate table maintenance (SE11 → Utilities → Table Maintenance Generator,
 function group `ZSD_SO_REL_CFG`, one step) and transaction `ZSD_SO_REL_CFG` → SM30.
@@ -116,23 +123,51 @@ function group `ZSD_SO_REL_CFG`, one step) and transaction `ZSD_SO_REL_CFG` → 
 | Field | Key | Data element | Comment |
 |---|---|---|---|
 | MANDT | X | MANDT | |
-| BUKRS | X | BUKRS | VBAK-BUKRS_VF |
-| AUART | X | AUART | order type |
-| ACTIVE | | XFELD | cycle active |
-| TOL_PCT | | DEC 5 / 2 (create `ZSD_REL_TOL_PCT`) | allowed growth of net value without restart, % |
-| ANY_CHANGE | | XFELD | `X` = restart also when value / quantity goes down |
-| REJ_ABGRU | | ABGRU_VA | rejection reason set on every open line when credit is rejected (order cancelled) |
+| WERKS | X | WERKS_D | plant = the "Plant" field on the YSDA/YSDAX selection screen (`VBAP-WERKS = BUKRS`) |
+| AUART | X | AUART | order type, `*` = any |
+| PSTYV | X | PSTYV | item category, `*` = any |
+| TCODE | | SYTCODE | YSDA or YSDAX (information, for the monitor / support) |
+| ACTIVE | | XFELD | `X` = lines of this rule go through the release cycle |
 
-Initial entries (confirm with the business; create the rejection reason, e.g. `ZC` "Credit rejected", in
-SPRO → Sales and Distribution → Sales → Sales Documents → Sales Document Item → Define Reasons for Rejection, OVAG):
+**Entries – taken 1:1 from the programs:**
 
-| BUKRS | AUART | ACTIVE | TOL_PCT | ANY_CHANGE | REJ_ABGRU |
+| WERKS | AUART | PSTYV | TCODE | ACTIVE | Source in the program |
 |---|---|---|---|---|---|
-| 1200 | YPMT | X | 0 | | ZC |
-| 1400 | ZEM | X | 0 | | ZC |
-| 1400 | ZMT | X | 0 | | ZC |
-| 1500 | YCMT | X | 0 | | ZC |
-| 1600 | YXMT | X | 0 | | ZC |
+| 1200 | * | ZTAW | YSDA | X | YSDA: `IF bukrs = 1200 OR bukrs = 1202. pstyv = 'ZTAW'.` |
+| 1200 | * | ZFRE | YSDA | X | YSDA: `vbap~pstyv = pstyv OR vbap~pstyv = 'ZFRE'` |
+| 1202 | * | ZTAW | YSDA | X | YSDA: same as 1200 |
+| 1202 | * | ZFRE | YSDA | X | YSDA: same as 1200 |
+| 1500 | * | ZTAC | YSDA | X | YSDA: `ELSEIF bukrs = 1500 OR bukrs = 1501. pstyv = 'ZTAC'.` |
+| 1500 | * | ZFRE | YSDA | X | YSDA: `OR vbap~pstyv = 'ZFRE'` |
+| 1501 | * | ZTAC | YSDA | X | YSDA: same as 1500 |
+| 1501 | * | ZFRE | YSDA | X | YSDA: same as 1500 |
+| 1600 | * | YZTC | YSDAX | X | YSDAX: `IF BUKRS = 1600. ITAB-LOW = 'YZTC'` |
+| 1600 | * | YFRE | YSDAX | X | YSDAX: `ITAB-LOW = 'YFRE'` |
+| 1400 | ZEM | * | YSDAX | X | YSDAX: `IF BUKRS = 1400. S_TYP-LOW = 'ZEM'` (no item category filter for 1400) |
+| 1400 | ZMT | * | YSDAX | X | YSDAX: `S_TYP-LOW = 'ZMT'` |
+| 1400 | ZOR | * | YSDAX | X | YSDAX: `S_TYP-LOW = 'ZOR'` (T00005692) |
+| 1400 | ZFC | * | YSDAX | X | YSDAX: `S_TYP-LOW = 'ZFC'` (T00005692) |
+
+YSDA has no order type filter (the `YPCO`/`YCCO` check is commented out) → `AUART = *`.
+YSDAX for 1600 has no order type filter → `AUART = *`; for 1400 it has no item category filter → `PSTYV = *`.
+
+**Other plants:** YSDAX with any other plant shows every CN line of every order type (both ranges
+stay empty). YSDA with any other plant shows only `ZFRE` lines. If another plant (e.g. 1300, which
+appears in commented code of YSDAX) is approved in YSDA/YSDAX in real life, add one row for it:
+`<plant> | * | * | YSDAX | X`. A plant without a row is not managed – its orders work exactly as today.
+
+**Conditions that are not in the table (fixed in the class, the same in both programs):**
+
+| Condition in YSDA / YSDAX | Where in the release cycle |
+|---|---|
+| `VBEP-ETTYP = 'CN'` | `IT_CN_POSNR` from MV45AFZZ – only lines with a CN schedule line |
+| `VBAK-VBTYP = 'C' OR 'I'` | `IS_CONFIGURED` |
+| `VBAK-AUDAT` between the screen dates | not needed – the screen date range only limits the list |
+| YSDA `ABGRU = '' OR 'Z8'` / YSDAX `ABSTA <> 'C'` | status, not scope: a line with another reason is "rejected" (`REFRESH_ITEM_STATUS`) |
+
+**Parameters moved to TVARVC** (they were fields of this table before; they are one value for all
+orders, so they are now TVARVC parameters – see §10): tolerance %, "restart on any change", and the
+rejection reason used when credit is rejected.
 
 ## 7. Table types `ZSD_SO_REL_I_TT` and `ZSD_SO_REL_LOG_TT`
 
@@ -160,3 +195,6 @@ Check that the numbers are free; if not, take the next free ones and change the 
 | Name | Type | Value |
 |---|---|---|
 | `ZSD_SO_REL_START_DATE` | Parameter | go-live date `YYYYMMDD` – only orders created on/after it follow the cycle |
+| `ZSD_SO_REL_TOL_PCT` | Parameter | allowed growth of the order net value without restarting the credit workflow, in % (e.g. `0` or `5.00`; empty = 0) |
+| `ZSD_SO_REL_ANY_CHANGE` | Parameter | `X` = restart the credit workflow also when value / quantity goes down; empty = only increases |
+| `ZSD_SO_REL_REJ_ABGRU` | Parameter | rejection reason set on every open line when credit is rejected (order cancelled), e.g. `ZC` "Credit rejected" – create it in OVAG first |

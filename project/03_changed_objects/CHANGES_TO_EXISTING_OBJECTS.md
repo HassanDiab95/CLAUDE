@@ -99,6 +99,7 @@ ENHANCEMENT 1  ZEN_SO_RELEASE_SAVE.    "active version
                              BUKRS = VBAK-BUKRS_VF
                              VKORG = VBAK-VKORG
                              AUART = VBAK-AUART
+                             VBTYP = VBAK-VBTYP
                              ERDAT = VBAK-ERDAT
                              KNKLI = VBAK-KNKLI
                              KKBER = VBAK-KKBER

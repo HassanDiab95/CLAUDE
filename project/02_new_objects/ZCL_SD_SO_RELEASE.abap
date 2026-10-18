@@ -65,6 +65,10 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     CONSTANTS GC_CP          TYPE ETTYP      VALUE 'CP'.
     CONSTANTS GC_REJ_AUTO    TYPE ABGRU_VA   VALUE 'Z8'.   " automatic YSDA rejection
     CONSTANTS GC_TVARVC_DATE TYPE RVARI_VNAM VALUE 'ZSD_SO_REL_START_DATE'.
+    CONSTANTS GC_TVARVC_TOL  TYPE RVARI_VNAM VALUE 'ZSD_SO_REL_TOL_PCT'.
+    CONSTANTS GC_TVARVC_ANY  TYPE RVARI_VNAM VALUE 'ZSD_SO_REL_ANY_CHANGE'.
+    CONSTANTS GC_TVARVC_REJ  TYPE RVARI_VNAM VALUE 'ZSD_SO_REL_REJ_ABGRU'.
+    CONSTANTS GC_ALL         TYPE CHAR1      VALUE '*'.    " ZSD_SO_REL_CFG: any value
 
     "! Order data as the user exit sees it at save time
     TYPES: BEGIN OF TY_S_ORDER,
@@ -72,6 +76,7 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
              BUKRS TYPE VBAK-BUKRS_VF,
              VKORG TYPE VBAK-VKORG,
              AUART TYPE VBAK-AUART,
+             VBTYP TYPE VBAK-VBTYP,
              ERDAT TYPE VBAK-ERDAT,
              KNKLI TYPE VBAK-KNKLI,
              KKBER TYPE VBAK-KKBER,
@@ -82,6 +87,8 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
 
     TYPES: BEGIN OF TY_S_ITEM,
              POSNR  TYPE VBAP-POSNR,
+             WERKS  TYPE VBAP-WERKS,
+             PSTYV  TYPE VBAP-PSTYV,
              KWMENG TYPE VBAP-KWMENG,
              NETWR  TYPE VBAP-NETWR,
              ABGRU  TYPE VBAP-ABGRU,
@@ -165,7 +172,7 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
       RETURNING VALUE(RV_RELEASED) TYPE ABAP_BOOL.
 
     "! Rejection step: credit rejected -> the order is cancelled (every open
-    "! line gets the rejection reason of ZSD_SO_REL_CFG-REJ_ABGRU).
+    "! line gets the rejection reason of TVARVC ZSD_SO_REL_REJ_ABGRU).
     "! RV_CANCELLED = false -> retry (order locked)
     METHODS ON_CREDIT_REJECTED
       IMPORTING IV_VBELN            TYPE VBELN_VA
@@ -196,6 +203,13 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     DATA MT_HDR_BUF TYPE SORTED TABLE OF ZSD_SO_REL_H WITH UNIQUE KEY VBELN.
     DATA MT_ITM_BUF TYPE SORTED TABLE OF ZSD_SO_REL_I WITH UNIQUE KEY VBELN POSNR.
     DATA MT_ITM_SET TYPE SORTED TABLE OF VBELN_VA WITH UNIQUE KEY TABLE_LINE.
+
+    "! Parameters from TVARVC (tolerance, restart rule, cancel reason)
+    TYPES: BEGIN OF TY_S_PARAM,
+             TOL_PCT    TYPE P LENGTH 5 DECIMALS 2,
+             ANY_CHANGE TYPE ABAP_BOOL,
+             REJ_ABGRU  TYPE ABGRU_VA,
+           END OF TY_S_PARAM.
 
     METHODS READ_HEADER
       IMPORTING IV_VBELN      TYPE VBELN_VA
@@ -244,14 +258,21 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
                 IS_NEW         TYPE ZSD_SO_REL_I
       RETURNING VALUE(RV_NOTE) TYPE STRING.
 
+    "! Go-live date reached and order category as in YSDA/YSDAX (C / I)
     METHODS IS_CONFIGURED
       IMPORTING IS_ORDER         TYPE TY_S_ORDER
       RETURNING VALUE(RV_ACTIVE) TYPE ABAP_BOOL.
 
-    METHODS READ_CONFIG
-      IMPORTING IV_BUKRS      TYPE BUKRS
-                IV_AUART      TYPE AUART
-      RETURNING VALUE(RS_CFG) TYPE ZSD_SO_REL_CFG.
+    "! Would YSDA / YSDAX show this line? (plant + order type + item
+    "! category as hard coded in the two programs, kept in ZSD_SO_REL_CFG)
+    METHODS IS_ITEM_IN_SCOPE
+      IMPORTING IV_WERKS           TYPE WERKS_D
+                IV_AUART           TYPE AUART
+                IV_PSTYV           TYPE PSTYV
+      RETURNING VALUE(RV_IN_SCOPE) TYPE ABAP_BOOL.
+
+    METHODS READ_PARAMS
+      RETURNING VALUE(RS_PARAM) TYPE TY_S_PARAM.
 
     METHODS IS_WORKITEM_ACTIVE
       IMPORTING IV_WI_ID         TYPE SWW_WIID
@@ -294,8 +315,12 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
       DATA LT_NEW TYPE TT_REL_I.
 
+      " production line = CN schedule line + shown in YSDA / YSDAX
       LOOP AT IT_ITEMS INTO DATA(LS_NEW) WHERE UPDKZ <> 'D'.
-        DATA(LV_CN) = XSDBOOL( LINE_EXISTS( IT_CN_POSNR[ TABLE_LINE = LS_NEW-POSNR ] ) ).
+        DATA(LV_CN) = XSDBOOL( LINE_EXISTS( IT_CN_POSNR[ TABLE_LINE = LS_NEW-POSNR ] )
+                           AND IS_ITEM_IN_SCOPE( IV_WERKS = LS_NEW-WERKS
+                                                 IV_AUART = IS_ORDER-AUART
+                                                 IV_PSTYV = LS_NEW-PSTYV ) = ABAP_TRUE ).
         INSERT VALUE #( VBELN         = IS_ORDER-VBELN
                         POSNR         = LS_NEW-POSNR
                         PROD_RELEVANT = LV_CN
@@ -304,10 +329,15 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
                         CREATED_ON    = SY-DATUM ) INTO TABLE LT_NEW.
       ENDLOOP.
 
+      " no line YSDA / YSDAX would show -> not a managed order
+      CHECK LINE_EXISTS( LT_NEW[ PROD_RELEVANT = ABAP_TRUE ] ).
+
       SAVE( IS_HDR   = LS_HDR
             IT_ITEMS = LT_NEW
             IV_EVENT = 'CREATE'
-            IV_NOTE  = |Saved in { SY-TCODE }: { LINES( IT_CN_POSNR ) } production item(s) | &&
+            IV_NOTE  = |Saved in { SY-TCODE }: | &&
+                       |{ REDUCE I( INIT N = 0 FOR LS_C IN LT_NEW WHERE ( PROD_RELEVANT = ABAP_TRUE ) NEXT N = N + 1 ) } | &&
+                       |production item(s) | &&
                        |waiting for YSDA/YSDAX| ).
       RETURN.
 
@@ -331,7 +361,10 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
       CHECK NOT LINE_EXISTS( LT_ITM[ POSNR = LS_ITEM-POSNR ] ).
 
-      LV_CN = XSDBOOL( LINE_EXISTS( IT_CN_POSNR[ TABLE_LINE = LS_ITEM-POSNR ] ) ).
+      LV_CN = XSDBOOL( LINE_EXISTS( IT_CN_POSNR[ TABLE_LINE = LS_ITEM-POSNR ] )
+                   AND IS_ITEM_IN_SCOPE( IV_WERKS = LS_ITEM-WERKS
+                                         IV_AUART = IS_ORDER-AUART
+                                         IV_PSTYV = LS_ITEM-PSTYV ) = ABAP_TRUE ).
 
       INSERT VALUE #( VBELN         = IS_ORDER-VBELN
                       POSNR         = LS_ITEM-POSNR
@@ -403,8 +436,7 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     " no snapshot = credit never looked at this order
     CHECK LS_HDR-SNAP_ON IS NOT INITIAL.
 
-    DATA(LS_CFG) = READ_CONFIG( IV_BUKRS = LS_HDR-BUKRS
-                                IV_AUART = LS_HDR-AUART ).
+    DATA(LS_CFG) = READ_PARAMS( ).
     DATA(LV_ANY) = XSDBOOL( IV_ANY_CHANGE = ABAP_TRUE OR LS_CFG-ANY_CHANGE = ABAP_TRUE ).
 
     "--- header data the credit decision is based on -------------------
@@ -1168,15 +1200,14 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     DATA LT_ITEM_INX TYPE STANDARD TABLE OF BAPISDITMX.
     DATA LT_RETURN   TYPE STANDARD TABLE OF BAPIRET2.
 
-    " rejection reason for "credit rejected" from the customizing
-    DATA(LV_ABGRU) = READ_CONFIG( IV_BUKRS = CS_HDR-BUKRS
-                                  IV_AUART = CS_HDR-AUART )-REJ_ABGRU.
+    " rejection reason for "credit rejected" (TVARVC ZSD_SO_REL_REJ_ABGRU)
+    DATA(LV_ABGRU) = READ_PARAMS( )-REJ_ABGRU.
 
     IF LV_ABGRU IS INITIAL.
       SAVE( IS_HDR   = CS_HDR
             IT_ITEMS = CT_ITEMS
             IV_EVENT = 'CANCEL_ERR'
-            IV_NOTE  = |No rejection reason in ZSD_SO_REL_CFG for { CS_HDR-BUKRS }/{ CS_HDR-AUART }| ).
+            IV_NOTE  = |No rejection reason in TVARVC { GC_TVARVC_REJ }| ).
       COMMIT WORK.
       RETURN.
     ENDIF.
@@ -1347,18 +1378,47 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
                                  ELSE IS_ORDER-ERDAT ).
     CHECK LV_ERDAT >= CONV DATS( LV_LOW(8) ).
 
-    RV_ACTIVE = READ_CONFIG( IV_BUKRS = IS_ORDER-BUKRS
-                             IV_AUART = IS_ORDER-AUART )-ACTIVE.
+    " YSDA and YSDAX select only sales orders (C) and free of charge orders (I)
+    RV_ACTIVE = XSDBOOL( IS_ORDER-VBTYP = 'C' OR IS_ORDER-VBTYP = 'I' ).
 
   ENDMETHOD.
 
 
-  METHOD READ_CONFIG.
+  METHOD IS_ITEM_IN_SCOPE.
 
-    SELECT SINGLE * FROM ZSD_SO_REL_CFG
-      WHERE BUKRS = @IV_BUKRS
-        AND AUART = @IV_AUART
-      INTO @RS_CFG.
+    " the selection rules of YSDA / YSDAX, '*' = any value
+    SELECT SINGLE @ABAP_TRUE FROM ZSD_SO_REL_CFG
+      WHERE WERKS  = @IV_WERKS
+        AND ( AUART = @IV_AUART OR AUART = @GC_ALL )
+        AND ( PSTYV = @IV_PSTYV OR PSTYV = @GC_ALL )
+        AND ACTIVE = @ABAP_TRUE
+      INTO @RV_IN_SCOPE.
+
+  ENDMETHOD.
+
+
+  METHOD READ_PARAMS.
+
+    SELECT NAME, LOW FROM TVARVC
+      WHERE NAME IN ( @GC_TVARVC_TOL, @GC_TVARVC_ANY, @GC_TVARVC_REJ )
+        AND TYPE = 'P'
+        AND NUMB = '0000'
+      INTO TABLE @DATA(LT_PAR).
+
+    LOOP AT LT_PAR INTO DATA(LS_PAR).
+      CASE LS_PAR-NAME.
+        WHEN GC_TVARVC_TOL.
+          TRY.
+              RS_PARAM-TOL_PCT = CONDENSE( LS_PAR-LOW ).
+            CATCH CX_SY_CONVERSION_ERROR.
+              CLEAR RS_PARAM-TOL_PCT.                 " wrong entry = 0 %
+          ENDTRY.
+        WHEN GC_TVARVC_ANY.
+          RS_PARAM-ANY_CHANGE = XSDBOOL( LS_PAR-LOW = ABAP_TRUE ).
+        WHEN GC_TVARVC_REJ.
+          RS_PARAM-REJ_ABGRU = LS_PAR-LOW.
+      ENDCASE.
+    ENDLOOP.
 
   ENDMETHOD.
 
