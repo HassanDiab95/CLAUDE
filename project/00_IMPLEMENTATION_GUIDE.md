@@ -20,10 +20,7 @@ complete code.
 | `02_new_objects/ZCL_WF_SD_SO_REL_STEP.abap` | workflow step class for WS99000010 |
 | `02_new_objects/ZSD_SO_REL_RECONCILE.abap` | background job (safety net) |
 | `02_new_objects/ZSD_SO_REL_MONITOR.abap` | monitor report |
-| `03_changed_objects/MV45AFZZ_changes.abap` | 6 changes in the sales order user exits |
-| `03_changed_objects/ZCL_WF_SD_CREDIT_IS_START_ALLOWED.abap` | 1 method of the existing credit class |
-| `03_changed_objects/YSDA_YSP_MTOSO_APPROVE_changes.abap` | YSDA: list filter, APPROVE_FUN, REJECT_FUN |
-| `03_changed_objects/YSDAX_YSP_MTOSO_APPROVE_CX_changes.abap` | YSDAX: list filter, APPROVE_FUN, REJECT_FUN |
+| `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md` | **only the changed lines** of the existing objects (find → insert / replace / delete): `ZCL_WF_SD_CREDIT`, MV45AFZZ, YSDA, YSDAX |
 | `03_changed_objects/WS99000010_workflow_changes.md` | tasks and steps to add in SWDD |
 | `04_optional/ZCL_SD_COST_DELIV_BLOCK.abap` | earlier, separate proposal for delivery block 80 – not part of this change |
 
@@ -120,46 +117,36 @@ Attributes → **Update module, Start immediately**; import parameters **pass by
 
 ### Step 4 – Classes (SE24)
 1. `02_new_objects/ZCL_SD_SO_RELEASE.abap` – create the class in source-code based mode and paste.
-2. `03_changed_objects/ZCL_WF_SD_CREDIT_IS_START_ALLOWED.abap` – in the existing class `ZCL_WF_SD_CREDIT`
-   replace the method `IS_START_ALLOWED` (new block marked `REQ1`).
+2. `ZCL_WF_SD_CREDIT->IS_START_ALLOWED`: apply change **A1** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`.
 3. Activate both classes **together** (they call each other).
 4. `02_new_objects/ZCL_WF_SD_SO_REL_STEP.abap` – create and activate.
 
 ### Step 5 – Sales order user exits (SE80 → include MV45AFZZ)
-File: `03_changed_objects/MV45AFZZ_changes.abap` – six changes, each block is complete:
+Apply changes **B1–B8** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`:
 
-| # | User exit (FORM) | Enhancement | Action |
+| # | User exit (FORM) | Enhancement | Change |
 |---|---|---|---|
-| 1 | `USEREXIT_SAVE_DOCUMENT` | `ZEN_CMEXOD_KILL_WORKFLOW` | replace code (IF instead of CHECK, skip release-cycle orders) |
-| 2 | `USEREXIT_SAVE_DOCUMENT` | **new** `ZEN_SO_RELEASE_SAVE` | create at the same enhancement point |
-| 3 | `USEREXIT_DELETE_DOCUMENT` | `ZEN_CMEXOD_KILL_WORKFLOW_WDEL` | replace code |
-| 4 | `USEREXIT_SAVE_DOCUMENT_PREPARE` | **new** `ZEN_SO_RELEASE_NO_VKM` | create |
-| 5 | `USEREXIT_MOVE_FIELD_TO_VBEP` | `ZSD_CHECK_APPROVAL` | replace code |
-| 6 | `USEREXIT_READ_DOCUMENT` | `ZEN_DISAB_VA02_CM_WF_RUNNINNG` | replace code |
+| B1–B2 | `USEREXIT_SAVE_DOCUMENT` | `ZEN_CMEXOD_KILL_WORKFLOW` | CHECK → IF, skip release-cycle orders |
+| B3 | `USEREXIT_SAVE_DOCUMENT` | **new** `ZEN_SO_RELEASE_SAVE` | create |
+| B4 | `USEREXIT_DELETE_DOCUMENT` | `ZEN_CMEXOD_KILL_WORKFLOW_WDEL` | CHECK → IF, release-cycle orders closed |
+| B5 | `USEREXIT_SAVE_DOCUMENT_PREPARE` | **new** `ZEN_SO_RELEASE_NO_VKM` | create |
+| B6–B7 | `USEREXIT_MOVE_FIELD_TO_VBEP` | `ZSD_CHECK_APPROVAL` | approval read fix + credit check |
+| B8 | `USEREXIT_READ_DOCUMENT` | `ZEN_DISAB_VA02_CM_WF_RUNNINNG` | CHECK → IF, redirect only other orders |
 
-> **Existing bug fixed by change 1:** `ZEN_CMEXOD_KILL_WORKFLOW` begins with `CHECK`. A failing CHECK in an
-> enhancement leaves the whole user exit, so today **every enhancement after it in USEREXIT_SAVE_DOCUMENT**
-> (`ZO2C_CREDITLMIT_CHECK`, `ZSAVE_DIFF_COST_PROFIT`, `ZSD_DISCOUNT_BLOCK`, ...) is skipped unless the order is
-> changed in VA02 *and* locked by the workflow. After change 1 they run again on every save – **test them**.
+> **Existing bug fixed by B1–B2:** a failing `CHECK` in an enhancement leaves the whole user exit, so today
+> every enhancement after `ZEN_CMEXOD_KILL_WORKFLOW` in USEREXIT_SAVE_DOCUMENT (`ZO2C_CREDITLMIT_CHECK`,
+> `ZSAVE_DIFF_COST_PROFIT`, `ZSD_DISCOUNT_BLOCK`, ...) is skipped on almost every save. After the fix they run
+> again on every save – **test them**.
 >
-> **Existing bug fixed by change 5:** the approval was read with `BUKRS = VBAK-BUKRS_VF`, but YSDA/YSDAX
-> store the **plant** in `ZSOAPPROVAL-BUKRS`, so orders of plants 1202 / 1501 were always "not approved".
+> **Existing bug fixed by B6:** YSDA/YSDAX store the **plant** in `ZSOAPPROVAL-BUKRS`, so the old
+> `BUKRS = VBAK-BUKRS_VF` never found the approval for plants 1202 / 1501.
 
-### Step 6 – YSDA (SE80 → module pool `YSP_MTOSO_APPROVE`)
-File: `03_changed_objects/YSDA_YSP_MTOSO_APPROVE_changes.abap`.
-1. Include `YSP_MTOSO_APPROVE_SCREEN_STF01`, FORM `SCREEN_START`: insert the block after the big SELECT
-   (`... vbak~audat <= datev_t.`) – hides items already approved by SD + FI.
-2. Include `YSP_MTOSO_APPROVE_APPROVE_FF01`: replace the whole FORM `APPROVE_FUN`.
-   - FI approval now only removes the Z8 rejection; it no longer sets CP by itself.
-   - When SD + FI are both done: `ZCL_SD_SO_RELEASE->ON_ITEM_DECISION`; orders outside the cycle keep the
-     old CN → CP code.
-   - BAPI tables are cleared for every selected row (before, the 2nd row re-sent the 1st row's lines).
-3. Include `YSP_MTOSO_APPROVE_REJECT_FUF01`: replace the whole FORM `REJECT_FUN` (calls
-   `ON_ITEM_DECISION` after each rejection, so the workflow starts when the last open item is rejected).
+### Step 6 – YSDA (module pool `YSP_MTOSO_APPROVE`)
+Apply changes **C1–C7**: list filter in `SCREEN_START`, per-row BAPI table reset, FI approval no longer sets
+CP alone, release-cycle decision when SD + FI are done, release-cycle call after each rejection.
 
-### Step 7 – YSDAX (SE80 → module pool `YSP_MTOSO_APPROVE_CX`)
-File: `03_changed_objects/YSDAX_YSP_MTOSO_APPROVE_CX_changes.abap` – same three changes in
-`YSP_MTOSO_APP_SCREEN_STF01_CX`, `YSP_MTOSO_APPROVE_FF01_CX`, `YSP_MTOSO_APP_REJECT_FUF01_CX`.
+### Step 7 – YSDAX (module pool `YSP_MTOSO_APPROVE_CX`)
+Apply changes **D1–D6** (same logic; YSDAX FI approval never set CP, so there is no FI change).
 
 ### Step 8 – Workflow WS99000010 (PFTC + SWDD)
 File: `03_changed_objects/WS99000010_workflow_changes.md`.
