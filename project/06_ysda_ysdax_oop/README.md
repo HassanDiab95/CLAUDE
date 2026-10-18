@@ -19,11 +19,13 @@ Status: DRAFT – not compiled / not tested in SAP.
 | `YSDA/new` | `YSP_MTOSO_APPROVE_TOP.abap` | global data (only the screen fields), types, class definitions |
 | `YSDA/new` | `YSP_MTOSO_APPROVE_C01.abap` | class implementations – all the logic |
 | `YSDA/new` | `YSP_MTOSO_APPROVE_M01.abap` | PBO / PAI modules – one line each, they call the class |
+| `YSDA/final` | 4 files | **ready to paste: OOP code + REQ1 changes N1–N7** (main, `_TOP`, `_C01`, `_M01`) |
 | `YSDAX/old` | `YSP_MTOSO_APPROVE_CX_OLD_all_includes.abap` | old YSDAX code (all 9 includes, as uploaded) |
 | `YSDAX/new` | `YSP_MTOSO_APPROVE_CX.abap` | main program – only the 3 INCLUDE lines |
 | `YSDAX/new` | `YSP_MTOSO_APPROVE_CX_TOP.abap` | global data, types, class definitions |
 | `YSDAX/new` | `YSP_MTOSO_APPROVE_CX_C01.abap` | class implementations |
 | `YSDAX/new` | `YSP_MTOSO_APPROVE_CX_M01.abap` | PBO / PAI modules |
+| `YSDAX/final` | 4 files | **ready to paste: OOP code + REQ1 changes X1–X6** (main, `_TOP`, `_C01`, `_M01`) |
 
 ## 2. How to apply (per program, SE80)
 
