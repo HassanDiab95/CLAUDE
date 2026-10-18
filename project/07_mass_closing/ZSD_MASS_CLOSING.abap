@@ -1,218 +1,129 @@
-*&---------------------------------------------------------------------*
-*& Report ZSD_MASS_CLOSING
-*&---------------------------------------------------------------------*
-*&
-*&---------------------------------------------------------------------*
 REPORT zsd_mass_closing.
-************************************************************************
-* DATA DECLARATIONS                                                    *
-************************************************************************
-*Tables:
-TABLES:
-  vbap.
 
-*Internal tables:
-DATA:
-  gt_vbap     TYPE STANDARD TABLE OF vbap,
-  gt_item_in  TYPE STANDARD TABLE OF bapisditm,
-  gt_item_inx TYPE STANDARD TABLE OF bapisditmx,
-  gt_return   TYPE STANDARD TABLE OF bapiret2.
+TABLES vbak.
 
-*Field Symbols:
-FIELD-SYMBOLS:
-  <fs_vbap>         TYPE vbap.
+SELECT-OPTIONS s_vbeln FOR vbak-vbeln.
 
-*Structures:
-DATA:
-  gst_item_hedx TYPE bapisdh1x,
-  gst_item_in   TYPE bapisditm,
-  gst_item_inx  TYPE bapisditmx.
+CLASS lcl_mass_closing DEFINITION FINAL.
 
-*Variables:
-DATA:
-  gv_msg            TYPE string.
+  PUBLIC SECTION.
 
-*Constants:
-CONSTANTS:
-  gc_error   TYPE string VALUE ': An error occured, no change done to the sales order.',
-  gc_success TYPE string VALUE ': Sales order changed successfully.'.
+    METHODS run.
 
-************************************************************************
-* SELECTION SCREEN                                                     *
-************************************************************************
-SELECT-OPTIONS:
-*  Sales Order Number.
-   s_vbeln FOR vbap-vbeln ."OBLIGATORY.
+  PRIVATE SECTION.
 
-************************************************************************
-* CODE LOGIC                                                           *
-************************************************************************
-DATA: it_vbak          TYPE TABLE OF vbak,
-      wa_vbak          TYPE vbak,
-      it_vbap          TYPE TABLE OF vbap,
-      wa_vbap          TYPE vbap,
-      it_prcd_elements TYPE TABLE OF prcd_elements,
-      zkwert           TYPE prcd_elements-kwert.
-DATA:
-  ld_calc_date TYPE p0001-begda,
-  ld_date      TYPE p0001-begda,
-  ld_days      TYPE t5a4a-dlydy,
-  ld_months    TYPE t5a4a-dlymo,
-  ld_signum    TYPE t5a4a-split,
-  ld_years     TYPE t5a4a-dlyyr.
+    TYPES: BEGIN OF ty_item,
+             vbeln TYPE vbeln_va,
+             posnr TYPE posnr_va,
+             matnr TYPE matnr,
+           END OF ty_item,
+           tt_item TYPE STANDARD TABLE OF ty_item WITH EMPTY KEY.
 
-"in case of 90 days.
+    CONSTANTS gc_days    TYPE i        VALUE 90.
+    CONSTANTS gc_abgru   TYPE abgru_va VALUE '00'.
+    CONSTANTS gc_error   TYPE string   VALUE ': An error occured, no change done to the sales order.'.
+    CONSTANTS gc_success TYPE string   VALUE ': Sales order changed successfully.'.
 
-ld_date = sy-datum.
-ld_days = '90'.
-ld_months = '00'.
-ld_years = '00'.
-ld_signum = '-'.
+    METHODS select_items
+      RETURNING VALUE(rt_items) TYPE tt_item.
 
-CALL FUNCTION 'RP_CALC_DATE_IN_INTERVAL'
-  EXPORTING
-    date      = ld_date
-    days      = ld_days
-    months    = ld_months
-    signum    = ld_signum
-    years     = ld_years
-  IMPORTING
-    calc_date = ld_calc_date.
+    METHODS close_order
+      IMPORTING iv_vbeln TYPE vbeln_va
+                it_items TYPE tt_item.
 
-IF sy-subrc EQ 0.
-  "All OK
-ENDIF.
+    METHODS has_error
+      IMPORTING it_return       TYPE bapiret2_t
+      RETURNING VALUE(rv_error) TYPE abap_bool.
 
-"new code
-TYPES: BEGIN OF st_outputdata,
-         vbeln TYPE vbak-vbeln,
-         posnr TYPE vbap-posnr,
-         matnr TYPE vbap-matnr,
-         lfsta TYPE vbap-lfsta,
-         abgru TYPE vbap-abgru,
-       END OF st_outputdata.
+ENDCLASS.
 
-DATA: it TYPE  TABLE OF st_outputdata,
-      wa TYPE st_outputdata.
+CLASS lcl_mass_closing IMPLEMENTATION.
 
-*--- Begin of change | SAP incident | only items without rejection reason
-SELECT vbak~vbeln
-  vbap~posnr vbap~matnr vbap~lfsta
-  FROM vbak INNER JOIN vbap ON ( vbak~vbeln = vbap~vbeln )
-   INTO CORRESPONDING FIELDS OF TABLE it WHERE  vbak~vkorg IN ('1200','1500','1600') AND  vbak~erdat <= ld_calc_date  AND vbak~vbeln IN s_vbeln AND
-  vbak~vbtyp <> 'B' AND vbak~gbstk <> 'C' AND vbap~lfsta <> 'C' AND vbap~abgru = space.
-*--- End of change ----------------------------------------------------
+  METHOD run.
 
-IF sy-subrc EQ 0.
-  SORT it BY vbeln posnr. "ATC Changes by REHM on 17.11.2025
-  LOOP AT it INTO wa.
+    DATA(lt_items) = select_items( ).
 
-*   (Order Item Level)
-*   Setting of the material number(MATNR) at order item level.
-    gst_item_in-material = wa-matnr.
+    IF lt_items IS INITIAL.
+      WRITE / 'No sales order to close'.
+      RETURN.
+    ENDIF.
 
-*   Setting of the item number(POSNR) at order item level.
-    gst_item_in-itm_number  = wa-posnr.
-    gst_item_inx-itm_number = wa-posnr.
+    LOOP AT lt_items INTO DATA(ls_item) GROUP BY ls_item-vbeln INTO DATA(lv_vbeln).
+      close_order( iv_vbeln = lv_vbeln
+                   it_items = VALUE #( FOR ls_member IN GROUP lv_vbeln ( ls_member ) ) ).
+    ENDLOOP.
 
-*   Setting of the reason for rejection(ABGRU) at order item level.
-    gst_item_in-reason_rej  = '00'."P_ABGRU.
-    gst_item_inx-reason_rej = 'X'.
+  ENDMETHOD.
 
-*   Setting the update flag at order item level to update mode.
-    gst_item_inx-updateflag = 'U'.
+  METHOD select_items.
 
-*   BAPI items level tables:
-    APPEND:
-      gst_item_in  TO gt_item_in,
-      gst_item_inx TO gt_item_inx.
+    DATA(lv_date) = CONV erdat( sy-datum - gc_days ).
 
-    CLEAR:
-      gst_item_in,
-      gst_item_inx.
+    SELECT p~vbeln, p~posnr, p~matnr
+      FROM vbak AS k
+      INNER JOIN vbap AS p ON p~vbeln = k~vbeln
+      WHERE k~vkorg IN ( '1200', '1500', '1600' )
+        AND k~erdat <= @lv_date
+        AND k~vbeln IN @s_vbeln
+        AND k~vbtyp <> 'B'
+        AND k~gbstk <> 'C'
+        AND p~lfsta <> 'C'
+        AND p~abgru = @space
+      ORDER BY p~vbeln, p~posnr
+      INTO TABLE @rt_items.
 
-*--- Begin of change | SAP incident | one BAPI call and one commit per order
-*   All items of the order are collected first; the order is saved once.
-    AT END OF vbeln.
+  ENDMETHOD.
 
-*     (Order Header Level)
-*     Setting the update flag at order header level to update mode.
-      gst_item_hedx-updateflag = 'U'.
+  METHOD close_order.
 
-*     Calling BAPI to update reason for rejection in the selected sales order.
-      CALL FUNCTION 'BAPI_SALESORDER_CHANGE'  "#EC CI_USAGE_OK[2438131]
-        EXPORTING
-          salesdocument    = wa-vbeln
-          order_header_inx = gst_item_hedx
-        TABLES
-          return           = gt_return
-          order_item_in    = gt_item_in
-          order_item_inx   = gt_item_inx.
+    DATA lt_in     TYPE STANDARD TABLE OF bapisditm  WITH EMPTY KEY.
+    DATA lt_inx    TYPE STANDARD TABLE OF bapisditmx WITH EMPTY KEY.
+    DATA lt_return TYPE bapiret2_t.
 
-*     Preparing the result message.
-      gv_msg = wa-vbeln.
+    DATA(ls_hdrx) = VALUE bapisdh1x( updateflag = 'U' ).
 
-*     Check if at least one error was raised by the BAPI.
-      LOOP AT gt_return TRANSPORTING NO FIELDS
-      WHERE type EQ 'E'
-         OR type EQ 'A'.
+    lt_in  = VALUE #( FOR ls_item IN it_items ( itm_number = ls_item-posnr
+                                                material   = ls_item-matnr
+                                                reason_rej = gc_abgru ) ).
 
-*       Exit and rollback changes.
-        EXIT.
+    lt_inx = VALUE #( FOR ls_item IN it_items ( itm_number = ls_item-posnr
+                                                updateflag = 'U'
+                                                reason_rej = abap_true ) ).
 
+    CALL FUNCTION 'BAPI_SALESORDER_CHANGE' "#EC CI_USAGE_OK[2438131]
+      EXPORTING
+        salesdocument    = iv_vbeln
+        order_header_inx = ls_hdrx
+      TABLES
+        return           = lt_return
+        order_item_in    = lt_in
+        order_item_inx   = lt_inx.
+
+    IF has_error( lt_return ) = abap_true.
+      CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+      WRITE / |{ iv_vbeln ALPHA = OUT }{ gc_error }|.
+      LOOP AT lt_return INTO DATA(ls_return) WHERE type = 'E' OR type = 'A'.
+        WRITE / |    { ls_return-message }|.
       ENDLOOP.
+    ELSE.
+      CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+        EXPORTING
+          wait = abap_true.
+      WRITE / |{ iv_vbeln ALPHA = OUT }{ gc_success }|.
+    ENDIF.
 
-*     If error found, rollback database changes.
-      IF sy-subrc EQ 0.
+    ULINE.
 
-*       Rollback changes.
-        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+  ENDMETHOD.
 
-*       Preparing error message.
-        CONCATENATE gv_msg        "Sales Order Number
-                    gc_error      "Error Message
-               INTO gv_msg
-       SEPARATED BY space.
+  METHOD has_error.
 
-*       Output message.
-        WRITE / gv_msg.
+    rv_error = xsdbool( line_exists( it_return[ type = 'E' ] )
+                     OR line_exists( it_return[ type = 'A' ] ) ).
 
-*     Else, no error found, commit database changes.
-      ELSE.
+  ENDMETHOD.
 
-*       Commit changes.
-        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
-          EXPORTING
-            wait = abap_true.
+ENDCLASS.
 
-*       Preparing success message.
-        CONCATENATE gv_msg        "Sales Order Number
-                    gc_success    "Success Message
-               INTO gv_msg
-       SEPARATED BY space.
-
-*       Output message.
-        WRITE / gv_msg.
-
-      ENDIF.
-
-*     Write a line after each sales order.
-      WRITE: sy-uline.
-
-*     Clearing of variables and structures:
-      CLEAR:
-        gv_msg,
-        gst_item_hedx.
-
-*     Refreshing internal tables:
-      REFRESH:
-        gt_item_in,
-        gt_item_inx,
-        gt_return.
-
-    ENDAT.
-*--- End of change ----------------------------------------------------
-
-  ENDLOOP.
-
-ENDIF.
+START-OF-SELECTION.
+  NEW lcl_mass_closing( )->run( ).
