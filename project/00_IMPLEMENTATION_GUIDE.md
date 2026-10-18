@@ -22,6 +22,7 @@ complete code.
 | `02_new_objects/ZSD_SO_REL_MONITOR.abap` | monitor report |
 | `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md` | **only the changed lines** of the existing objects (find → insert / replace / delete): `ZCL_WF_SD_CREDIT`, MV45AFZZ, YSDA, YSDAX |
 | `03_changed_objects/WS99000010_workflow_changes.md` | tasks and steps to add in SWDD |
+| `06_ysda_ysdax_oop/` | YSDA / YSDAX converted to OOP (3 includes each, same logic) + `REQ1_CHANGES_ON_NEW_CODE.md` (the REQ1 changes for the new code) |
 | `04_optional/ZCL_SD_COST_DELIV_BLOCK.abap` | earlier, separate proposal for delivery block 80 – not part of this change |
 
 ---
@@ -164,11 +165,21 @@ Apply changes **B1–B8** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`
 > `BUKRS = VBAK-BUKRS_VF` never found the approval for plants 1202 / 1501.
 
 ### Step 6 – YSDA (module pool `YSP_MTOSO_APPROVE`)
-Apply changes **C1–C7**: list filter in `SCREEN_START`, per-row BAPI table reset, FI approval no longer sets
-CP alone, release-cycle decision when SD + FI are done, release-cycle call after each rejection.
+Choose **one** of the two ways, depending on which YSDA code you have:
+
+| YSDA code in the system | Apply |
+|---|---|
+| old code (9 includes) | changes **C1–C7** below |
+| OOP version from `06_ysda_ysdax_oop` (3 includes) | changes **N1–N7** in `06_ysda_ysdax_oop/REQ1_CHANGES_ON_NEW_CODE.md` – only in include `YSP_MTOSO_APPROVE_C01` |
+
+Both ways do the same: list filter (lines approved by SD + FI are hidden), per-row reset of the BAPI tables,
+FI approval no longer sets CP alone, release-cycle decision when SD + FI are done, release-cycle call after
+each rejection.
 
 ### Step 7 – YSDAX (module pool `YSP_MTOSO_APPROVE_CX`)
-Apply changes **D1–D6** (same logic; YSDAX FI approval never set CP, so there is no FI change).
+Old code: changes **D1–D6** below. OOP version: changes **X1–X6** in
+`06_ysda_ysdax_oop/REQ1_CHANGES_ON_NEW_CODE.md` – only in include `YSP_MTOSO_APPROVE_CX_C01`.
+(Same logic; YSDAX FI approval never set CP, so there is no FI change.)
 
 ### Step 8 – Workflow WS99000010 (PFTC + SWDD)
 File: `03_changed_objects/WS99000010_workflow_changes.md`.
@@ -221,7 +232,8 @@ Use transaction `ZSD_SO_REL_MON` (double click = history) and SWI1 / SWIA to fol
 
 ### Step 12 – Go-live
 1. Transport in this order: DDIC → function group → classes → workflow tasks → workflow → user exits →
-   YSDA / YSDAX → reports → customizing.
+   YSDA / YSDAX → reports → customizing. If you use the OOP version of YSDA / YSDAX, transport and test the
+   pure conversion first (it changes nothing in the logic), then the REQ1 changes N1–N7 / X1–X6.
 2. Schedule the reconcile job.
 3. Set TVARVC `ZSD_SO_REL_START_DATE` to the go-live date. Orders created before it keep the old logic
    until they are closed.

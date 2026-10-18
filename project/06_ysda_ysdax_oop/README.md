@@ -138,14 +138,7 @@ Run each test with the old version (before the transport) and with the new versi
 
 ## 9. REQ1 changes on the new code
 
-`CHANGES_TO_EXISTING_OBJECTS.md` parts C and D describe the REQ1 changes against the **old** includes. If the
-new version goes live first, apply them in the new methods like this:
-
-| REQ1 | New place | Change |
-|---|---|---|
-| C1 / D1 – hide lines already approved by SD + FI | `LOAD_ROWS`, first statement in `LOOP AT lt_db` | `SELECT SINGLE @abap_true FROM zsoapproval WHERE vbeln = @ls_db-so_num AND posnr = @ls_db-posnr AND sd_approve = 'X' AND fi_approve = 'X' INTO @DATA(lv_done).` then `IF sy-subrc = 0. CONTINUE. ENDIF.` |
-| C2 / D2 – clean tables per selected row | `APPROVE`, after `READ TABLE mt_out ...` | `CLEAR: lt_item_in, lt_item_inx, lt_schdl, lt_schdlx, lt_return, ms_log, mv_sd_approve, mv_fi_approve.` (YSDAX: without the item tables) |
-| C3 / C4 – FI approval alone does not set CP | `APPROVE`, `WHEN 'FI'` | delete the `add_cp_schedule_lines( ... )` call and the `schedule_lines` / `schedule_linesx` parameters of that BAPI call |
-| C5 / D3 / D4 – both approvals: release cycle decides | `APPROVE`, inside `IF mv_sd_approve = abap_true AND mv_fi_approve = abap_true.` | wrap the existing block: `DATA(lo_release) = NEW zcl_sd_so_release( ). IF lo_release->on_item_decision( ls_row-so_num ) = abap_true. ms_log-note = lo_release->get_item_status_text( iv_vbeln = ls_row-so_num iv_posnr = ls_row-posnr ). MESSAGE ... TYPE 'S'. ELSE.` + old block + `ENDIF.` |
-| C6 / D5 – clean tables per selected row | `REJECT`, after `READ TABLE mt_out ...` | `CLEAR: lt_item_in, lt_item_inx, lt_return, ms_log.` |
-| C7 / D6 – tell the release cycle | `REJECT`, after the `LOOP AT lt_return` | `NEW zcl_sd_so_release( )->on_item_decision( ls_row-so_num ).` |
+The new code contains **no REQ1 change** – it is the old logic only. The REQ1 changes for the new code are in
+**`REQ1_CHANGES_ON_NEW_CODE.md`** (N1–N7 for YSDA, X1–X6 for YSDAX, only in the `_C01` include). The folders
+`YSDA/new_with_REQ1` and `YSDAX/new_with_REQ1` show the `_C01` include with these changes already applied, for
+comparison.
