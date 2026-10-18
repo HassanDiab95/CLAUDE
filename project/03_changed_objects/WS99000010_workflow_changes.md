@@ -13,10 +13,10 @@ Agent assignment → General task).
 |---|---|---|---|
 | TS9xxxxxx1 | `SO_REL_START` – Release cycle: credit started | `CREDIT_STARTED` | IV_VBELN, IV_WI_ID (import), EV_DUPLICATE (export) |
 | TS9xxxxxx2 | `SO_REL_APPROVED` – Release cycle: credit approved | `CREDIT_APPROVED` | IV_VBELN (import) |
-| TS9xxxxxx3 | `SO_REL_REJECTED` – Release cycle: credit rejected → cancel order | `CREDIT_REJECTED` | IV_VBELN, IV_NOTE (import) |
+| TS9xxxxxx3 | `SO_REL_REJECTED` – Release cycle: credit rejected (status per line) | `CREDIT_REJECTED` | IV_VBELN, IV_NOTE, IV_ABGRU (import) |
 
-For `SO_REL_APPROVED` **and** `SO_REL_REJECTED`: tab *Temporary error* → retry 10 times every 15 minutes
-(the order may be open in VA02 when production is released / the order is cancelled; after the retries the
+For `SO_REL_APPROVED`: tab *Temporary error* → retry 10 times every 15 minutes
+(the order may be open in VA02 when production is released; after the retries the
 job `ZSD_SO_REL_RECONCILE` still does it).
 
 ## B. Workflow container (SWDD → Container)
@@ -44,11 +44,14 @@ job `ZSD_SO_REL_RECONCILE` still does it).
      really approved.
    - It converts **only the lines of the release plan** (approved in YSDA/YSDAX, fixed when the workflow
      started); lines rejected in YSDA/YSDAX stay CN.
-4. **Rejection branch** – after the rejection step (*REJECT_STEP*, after the decision note is read).
-   This step **cancels the order**: every open line gets the rejection reason `ZCL_SD_SO_RELEASE=>GC_REJ_CREDIT` (`ZC`)
-   (lines already rejected in YSDA/YSDAX keep their reason 63).
+4. **Rejection branch** – directly **before** the existing *REJECT_STEP* (task TS99000044 "Cancel Sales
+   Order Credit"), in both places where it is used (nodes 233 and 243). The existing *REJECT_STEP* is **not
+   changed** – it still cancels the order as today.
    - Activity, task `SO_REL_REJECTED`, binding `&SALES_ORDER&` → `IV_VBELN`, decision note → `IV_NOTE`
-     (the same note the workflow already writes to the log via `ZCL_WF_NOTE_READER`).
+     (the same note the workflow already writes to the log via `ZCL_WF_NOTE_READER`), `&REASON&` → `IV_ABGRU`.
+   - What it does: records every line as YSDA / YSDAX decided it – lines rejected in YSDA/YSDAX stay as they
+     are (reason 63, CN); lines approved in YSDA/YSDAX are marked "not released – cancelled" (they stay CN).
+     It does **not** change the sales order. Then *REJECT_STEP* cancels the order.
 
 Activate the new version. Running workflows stay on the old version; new starts use the new one.
 

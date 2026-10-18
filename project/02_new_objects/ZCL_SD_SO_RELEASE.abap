@@ -73,9 +73,6 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
     CONSTANTS GC_TOL_PCT     TYPE P LENGTH 5 DECIMALS 2 VALUE '0.00'.
     "! X = restart the credit workflow also when value / quantity goes down
     CONSTANTS GC_ANY_CHANGE  TYPE ABAP_BOOL VALUE ABAP_FALSE.
-    "! Rejection reason set on every open line when credit is rejected
-    "! (order cancelled) - create it in OVAG
-    CONSTANTS GC_REJ_CREDIT  TYPE ABGRU_VA  VALUE 'ZC'.
     CONSTANTS GC_ALL         TYPE CHAR1      VALUE '*'.    " ZSD_SO_REL_CFG: any value
 
     "! Order data as the user exit sees it at save time
@@ -179,13 +176,14 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
       IMPORTING IV_VBELN           TYPE VBELN_VA
       RETURNING VALUE(RV_RELEASED) TYPE ABAP_BOOL.
 
-    "! Rejection step: credit rejected -> the order is cancelled (every open
-    "! line gets the rejection reason GC_REJ_CREDIT).
-    "! RV_CANCELLED = false -> retry (order locked)
+    "! Credit rejected - runs BEFORE the existing REJECT_STEP of WS99000010.
+    "! Records every line as YSDA / YSDAX decided it; the existing step
+    "! (TS99000044 "Cancel Sales Order Credit") then cancels the order.
+    "! No change to the order here.
     METHODS ON_CREDIT_REJECTED
-      IMPORTING IV_VBELN            TYPE VBELN_VA
-                IV_NOTE             TYPE CSEQUENCE OPTIONAL
-      RETURNING VALUE(RV_CANCELLED) TYPE ABAP_BOOL.
+      IMPORTING IV_VBELN TYPE VBELN_VA
+                IV_NOTE  TYPE CSEQUENCE OPTIONAL
+                IV_ABGRU TYPE ABGRU_VA OPTIONAL.
 
     "--- engine / job ------------------------------------------------------
     "! Re-evaluates the whole order and releases every item that may go
@@ -248,11 +246,6 @@ CLASS ZCL_SD_SO_RELEASE DEFINITION
       CHANGING CT_ITEMS      TYPE TT_REL_I
       RETURNING VALUE(RV_NOTE) TYPE STRING.
 
-    METHODS CANCEL_ORDER
-      IMPORTING IV_VBELN       TYPE VBELN_VA
-      CHANGING  CS_HDR         TYPE ZSD_SO_REL_H
-                CT_ITEMS       TYPE TT_REL_I
-      RETURNING VALUE(RV_DONE) TYPE ABAP_BOOL.
 
     METHODS ITEM_LOG
       IMPORTING IS_OLD         TYPE ZSD_SO_REL_I
@@ -703,33 +696,36 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
   METHOD ON_CREDIT_REJECTED.
 
     DATA(LS_HDR) = READ_HEADER( IV_VBELN ).
+    CHECK LS_HDR IS NOT INITIAL                     " not managed - nothing to do
+      AND LS_HDR-CREDIT_STATUS <> GC_CREDIT-REJECTED.
 
-    IF LS_HDR IS INITIAL.
-      RV_CANCELLED = ABAP_TRUE.     " not managed - nothing to do
-      RETURN.
-    ENDIF.
-
-    IF LS_HDR-CREDIT_STATUS <> GC_CREDIT-REJECTED.
-
-      LS_HDR-CREDIT_STATUS  = GC_CREDIT-REJECTED.
-      LS_HDR-CREDIT_DONE_ON = SY-DATUM.
-
-      SAVE( IS_HDR   = LS_HDR
-            IT_ITEMS = READ_ITEMS( IV_VBELN )
-            IV_EVENT = 'CREDIT_NOK'
-            IV_NOTE  = COND #( WHEN IV_NOTE IS NOT INITIAL
-                               THEN |Credit rejected: { IV_NOTE }|
-                               ELSE |Credit rejected - order will be cancelled| ) ).
-
-      COMMIT WORK AND WAIT.
-
-    ENDIF.
-
-    " every open line gets the credit rejection reason (commits)
     DATA(LT_ITM) = READ_ITEMS( IV_VBELN ).
-    RV_CANCELLED = CANCEL_ORDER( EXPORTING IV_VBELN = IV_VBELN
-                                 CHANGING  CS_HDR   = LS_HDR
-                                           CT_ITEMS = LT_ITM ).
+
+    LS_HDR-CREDIT_STATUS  = GC_CREDIT-REJECTED.
+    LS_HDR-CREDIT_DONE_ON = SY-DATUM.
+
+    " every line as YSDA / YSDAX decided it:
+    "  - rejected in YSDA / YSDAX: stays as it is (reason 63, CN)
+    "  - approved in YSDA / YSDAX: not released (stays CN), cancelled
+    "    together with the order by the next workflow step
+    DATA LV_LINES TYPE I.
+    LOOP AT LT_ITM ASSIGNING FIELD-SYMBOL(<LS_ITM>)
+         WHERE PROD_RELEVANT = ABAP_TRUE
+           AND COST_STATUS  <> GC_COST-REJECTED.
+      CLEAR <LS_ITM>-REL_PLAN.
+      <LS_ITM>-PROD_STATUS  = GC_PROD-CANCELLED.
+      <LS_ITM>-CANCEL_ABGRU = IV_ABGRU.
+      <LS_ITM>-CANCEL_ON    = SY-DATUM.
+      LV_LINES = LV_LINES + 1.
+    ENDLOOP.
+
+    SAVE( IS_HDR   = LS_HDR
+          IT_ITEMS = LT_ITM
+          IV_EVENT = 'CREDIT_NOK'
+          IV_NOTE  = |Credit rejected{ COND string( WHEN IV_NOTE IS NOT INITIAL THEN `: ` && IV_NOTE ) }. | &&
+                     |{ LV_LINES } approved line(s) not released, order is cancelled by the workflow| ).
+
+    " the workflow runtime commits after the step
 
   ENDMETHOD.
 
@@ -818,16 +814,6 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
     IF LV_START = ABAP_TRUE.
       RAISE_START_EVENT( IV_VBELN ).
       RV_NOTE = `Credit workflow start requested`.
-    ENDIF.
-
-    "--- credit rejected: the order must be cancelled (retry of the job) --
-    IF LS_HDR-CREDIT_STATUS = GC_CREDIT-REJECTED.
-      RV_NOTE = COND #( WHEN CANCEL_ORDER( EXPORTING IV_VBELN = IV_VBELN
-                                           CHANGING  CS_HDR   = LS_HDR
-                                                     CT_ITEMS = LT_ITM ) = ABAP_TRUE
-                        THEN `Credit rejected - order cancelled`
-                        ELSE `Credit rejected - cancellation failed, see log` ).
-      RETURN.
     ENDIF.
 
     "--- 3. production: every approved item, if credit allows ---------
@@ -1187,91 +1173,6 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
 
     RV_NOTE = |Release plan - CN->CP:{ COND string( WHEN LV_GO IS INITIAL THEN ` none` ELSE LV_GO ) }; | &&
               |stay CN:{ COND string( WHEN LV_KEEP IS INITIAL THEN ` none` ELSE LV_KEEP ) }|.
-
-  ENDMETHOD.
-
-
-  METHOD CANCEL_ORDER.
-
-    DATA LT_ITEM_IN  TYPE STANDARD TABLE OF BAPISDITM.
-    DATA LT_ITEM_INX TYPE STANDARD TABLE OF BAPISDITMX.
-    DATA LT_RETURN   TYPE STANDARD TABLE OF BAPIRET2.
-
-    " rejection reason for "credit rejected"
-    DATA(LV_ABGRU) = GC_REJ_CREDIT.
-
-    IF LV_ABGRU IS INITIAL.
-      SAVE( IS_HDR   = CS_HDR
-            IT_ITEMS = CT_ITEMS
-            IV_EVENT = 'CANCEL_ERR'
-            IV_NOTE  = |No rejection reason in GC_REJ_CREDIT| ).
-      COMMIT WORK.
-      RETURN.
-    ENDIF.
-
-    " every line that is still open (not rejected, or only the automatic Z8)
-    SELECT POSNR
-      FROM VBAP
-      WHERE VBELN = @IV_VBELN
-        AND ( ABGRU = @SPACE OR ABGRU = @GC_REJ_AUTO )
-      INTO TABLE @DATA(LT_OPEN).
-
-    IF LT_OPEN IS INITIAL.
-      RV_DONE = ABAP_TRUE.          " already cancelled
-      RETURN.
-    ENDIF.
-
-    LOOP AT LT_OPEN INTO DATA(LV_POSNR).
-      APPEND VALUE #( ITM_NUMBER = LV_POSNR
-                      REASON_REJ = LV_ABGRU ) TO LT_ITEM_IN.
-      APPEND VALUE #( ITM_NUMBER = LV_POSNR
-                      UPDATEFLAG = 'U'
-                      REASON_REJ = 'X' ) TO LT_ITEM_INX.
-    ENDLOOP.
-
-    CALL FUNCTION 'BAPI_SALESORDER_CHANGE'  "#EC CI_USAGE_OK[2438131]
-      EXPORTING
-        SALESDOCUMENT    = IV_VBELN
-        ORDER_HEADER_INX = VALUE BAPISDH1X( UPDATEFLAG = 'U' )
-      TABLES
-        RETURN           = LT_RETURN
-        ORDER_ITEM_IN    = LT_ITEM_IN
-        ORDER_ITEM_INX   = LT_ITEM_INX.
-
-    IF LINE_EXISTS( LT_RETURN[ TYPE = 'E' ] )
-    OR LINE_EXISTS( LT_RETURN[ TYPE = 'A' ] ).
-      CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-      DATA(LS_ERR) = VALUE BAPIRET2( LT_RETURN[ TYPE = 'E' ] OPTIONAL ).
-      SAVE( IS_HDR   = CS_HDR
-            IT_ITEMS = CT_ITEMS
-            IV_EVENT = 'CANCEL_ERR'
-            IV_NOTE  = |Order cancellation failed, retry: { LS_ERR-MESSAGE }| ).
-      COMMIT WORK.
-      RETURN.
-    ENDIF.
-
-    " every line keeps its YSDA decision, production status = cancelled
-    LOOP AT CT_ITEMS ASSIGNING FIELD-SYMBOL(<LS_ITM>).
-      CHECK LINE_EXISTS( LT_OPEN[ TABLE_LINE = <LS_ITM>-POSNR ] ).
-      CLEAR <LS_ITM>-REL_PLAN.
-      IF <LS_ITM>-PROD_RELEVANT = ABAP_TRUE.
-        <LS_ITM>-PROD_STATUS = GC_PROD-CANCELLED.
-      ENDIF.
-      <LS_ITM>-CANCEL_ABGRU = LV_ABGRU.
-      <LS_ITM>-CANCEL_ON    = SY-DATUM.
-    ENDLOOP.
-
-    SAVE( IS_HDR   = CS_HDR
-          IT_ITEMS = CT_ITEMS
-          IV_EVENT = 'CANCELLED'
-          IV_NOTE  = |Credit rejected: { LINES( LT_OPEN ) } line(s) rejected with reason { LV_ABGRU }| ).
-
-    " one commit for the order change and the release tables
-    CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
-      EXPORTING
-        WAIT = ABAP_TRUE.
-
-    RV_DONE = ABAP_TRUE.
 
   ENDMETHOD.
 

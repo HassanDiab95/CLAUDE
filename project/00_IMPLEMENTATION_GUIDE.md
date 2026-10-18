@@ -37,7 +37,7 @@ for YSDA / YSDAX – every participant calls it, so the rules sit in one place:
 | VA01 / VA02 save (MV45AFZZ, B1–B8) | `ON_ORDER_SAVED`, `ON_ORDER_DELETED`, `IS_MANAGED`, `IS_IN_CREDIT_APPROVAL`, `IS_ITEM_RELEASE_ALLOWED` | create the release rows, detect credit relevant changes, block VKM1 / manual CN → CP |
 | YSDA / YSDAX (C5, C7 / D3, D6 or N4, N7 / X3, X6) | `ON_ITEM_DECISION`, `GET_ITEM_STATUS_TEXT` | after each approve / reject: CN → CP now (no credit block), or start the credit workflow when the last line is decided |
 | Check FM of the workflow start (`ZCL_WF_SD_CREDIT->IS_START_ALLOWED`, A1) | `CAN_START_CREDIT_WF` | WS99000010 may start only after YSDA / YSDAX are complete |
-| Workflow WS99000010 (via `ZCL_WF_SD_SO_REL_STEP`) | `ON_CREDIT_STARTED`, `ON_CREDIT_APPROVED`, `ON_CREDIT_REJECTED` | record the start + release plan, CN → CP after final approval, cancel the order after rejection |
+| Workflow WS99000010 (via `ZCL_WF_SD_SO_REL_STEP`) | `ON_CREDIT_STARTED`, `ON_CREDIT_APPROVED`, `ON_CREDIT_REJECTED` | record the start + release plan, CN → CP after final approval, record every line when credit is rejected (the existing REJECT_STEP cancels the order after rejection |
 | Approver mail (`ZCL_WF_SD_ALERT`, F1) | `GET_RELEASE_PLAN` | list of lines "CN → CP" / "stays CN" in the mail |
 | Job `ZSD_SO_REL_RECONCILE` | `PROCESS` | safety net: retry a lost workflow start or a CN → CP that failed (order was locked) |
 
@@ -72,8 +72,9 @@ save – the `COMMIT WORK` of VA01 / VA02 saves the rows together with the order
    YSDA/YSDAX → **goes CN → CP at the final approval**; rejected in YSDA/YSDAX → **stays CN**. The approver
    sees this list in the workflow mail / work item.
    **Final approval** → exactly the planned lines **CN → CP**, the others stay CN.
-   **Credit rejected** → the **order is cancelled**: every open line gets the rejection reason from
-   constant `GC_REJ_CREDIT` = `ZC` "Credit rejected"; lines rejected in YSDA/YSDAX keep reason 63.
+   **Credit rejected** → first the new step records every line as YSDA/YSDAX decided it (approved lines:
+   "not released – cancelled", rejected lines keep reason 63), then the **existing** `REJECT_STEP`
+   (TS99000044 "Cancel Sales Order Credit") cancels the order exactly as today. No line goes to CP.
 6. **Approved items are not shown again in YSDA / YSDAX** even though they stay CN while credit runs
    (the list now filters on the SD + FI approval, not only on CN).
 7. **Snapshot.** When the workflow starts, the order net value, every item quantity / value / rejection,
@@ -144,15 +145,13 @@ File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
 3. Tables `ZSD_SO_REL_H`, `ZSD_SO_REL_I`, `ZSD_SO_REL_LOG`, `ZSD_SO_REL_CFG` (no table maintenance generator – no function group).
 4. Lock object `EZSD_SO_REL`.
 5. Messages 017 and 018 in class `ZSD_WF` (015 / 016 are already used).
-6. Rejection reason for "credit rejected" (e.g. `ZC`) in OVAG.
-7. TVARVC (STVARV): create **only** `ZSD_SO_REL_START_DATE` (go-live date) – **leave it empty until
+6. TVARVC (STVARV): create **only** `ZSD_SO_REL_START_DATE` (go-live date) – **leave it empty until
    go-live** (empty = cycle switched off). Nothing else goes into TVARVC.
 
 ### Step 3 – Classes (SE24)
 1. `02_new_objects/ZCL_SD_SO_RELEASE.abap` – create the class in source-code based mode and paste.
    The settings are written in the class code itself (constants at the top of the class, nothing to create
-   anywhere): tolerance `GC_TOL_PCT` = 0 %, restart on any change `GC_ANY_CHANGE` = off, credit rejection
-   reason `GC_REJ_CREDIT` = `ZC` (the reason `ZC` itself must exist in OVAG). To change one, change the
+   anywhere): tolerance `GC_TOL_PCT` = 0 %, restart on any change `GC_ANY_CHANGE` = off. To change one, change the
    constant in the class.
 2. `ZCL_WF_SD_CREDIT->IS_START_ALLOWED`: apply change **A1** of `03_changed_objects/CHANGES_TO_EXISTING_OBJECTS.md`.
 3. Activate both classes **together** (they call each other).
@@ -224,13 +223,13 @@ approved in YSDAX in real life. If YSDA / YSDAX selection is changed later, chan
 | 5 | Blocked order, 3 items: approve 1, approve 2 | no workflow yet, items CN |
 | 6 | … then reject item 3 | workflow starts now; after approval items 1 + 2 CP, item 3 stays rejected |
 | 7 | Blocked order, all items rejected | no workflow, overall 9 |
-| 8 | Workflow rejects | all open lines get reason `ZC` (order cancelled), overall 9, log `CREDIT_NOK` + `CANCELLED`, one `ITEM` row per line |
+| 8 | Workflow rejects | new step logs `CREDIT_NOK` with one `ITEM` row per line (approved lines "cancelled", rejected lines unchanged), then the existing REJECT_STEP cancels the order as today; no line CP; overall 9 |
 | 8a | Blocked order, YSDA approves line 10, rejects line 20 → credit approved | line 10 CP, line 20 stays CN (reason 63); mail shows the plan; log per line |
 | 9 | During workflow: change text / delivery date in VA02 | VA02 allowed, log `NO_RESTART`, workflow continues |
 | 10 | During workflow: increase quantity | workflow cancelled, new workflow, log `RESTART` with reason |
 | 11 | During workflow: add an item | workflow cancelled; new item in YSDA; after its decision workflow starts again |
 | 12 | During workflow: reject an item (YSDA Z8 or ZSD_MASS_CLOSING) | `NO_RESTART` |
-| 13 | Order open in VA02 when credit is rejected | rejection step retries; else job cancels; log `CANCEL_ERR` then `CANCELLED` |
+| 13 | Order open in VA02 when credit is rejected | the new step only writes the release tables (no lock problem); the existing REJECT_STEP behaves as today |
 | 14 | Final approval while the order is open in VA02 | step retries; else job releases; log `PROD_ERR` then `PROD_REL` |
 | 15 | VKM1 release while workflow runs | error 017 |
 | 16 | VA02: change CN → CP by hand before credit approval | error 018 |
@@ -262,7 +261,7 @@ Use transaction `ZSD_SO_REL_MON` (double click = history) and SWI1 / SWIA to fol
 | 2 | Restart after a credit relevant change | new workflow from level 1 |
 | 3 | VA02 while the workflow runs | allowed for release-cycle orders (restart rule protects credit); other orders still go to VA03 |
 | 4 | Quantity / price change after YSDA approval | YSDA not asked again (only new items go back to YSDA) |
-| 5 | Credit rejected | order cancelled: rejection reason `ZC` on every open line (reason code to confirm) |
+| 5 | Credit rejected | every line recorded as YSDA/YSDAX decided it; the existing REJECT_STEP cancels the order (no change to it) |
 | 6 | Credit block after items were released | released items stay CP; standard credit block stops the delivery; unreleased items wait for the new approval |
 | 7 | Workflow cancelled by an admin | job reports it, does not restart it |
 | 8 | Credit start rule | after **all** production items are approved or rejected |
@@ -277,6 +276,3 @@ Use transaction `ZSD_SO_REL_MON` (double click = history) and SWI1 / SWIA to fol
    get two credit approvals.
 3. **YSDA FI auto-decision** – YSDA still sets FI "Not Approved" (+ Z8) when the customer exceeds the credit
    limit. With the credit workflow in place, decide whether YSDA should judge only cost / profit.
-4. **Credit rejection = order cancelled** – confirm the rejection reason code (proposal `ZC` "Credit rejected",
-   to create in OVAG) and that **all open lines** are rejected, including lines that were already released
-   to production in an earlier credit cycle.

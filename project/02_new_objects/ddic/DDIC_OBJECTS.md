@@ -76,7 +76,7 @@ Same technical settings as the header.
 | DECIDED_AT | | TIMS | time of the decision |
 | REJ_ABGRU | | ABGRU_VA | rejection reason given in YSDA/YSDAX (e.g. 63) |
 | REL_PLAN | | XFELD | `X` = line goes CN → CP at the credit final approval (fixed at workflow start) |
-| CANCEL_ABGRU | | ABGRU_VA | rejection reason set when credit was rejected (order cancelled) |
+| CANCEL_ABGRU | | ABGRU_VA | rejection reason of the workflow (`&REASON&`) when credit was rejected |
 | CANCEL_ON | | DATS | cancellation date |
 | SNAP_TAKEN | | XFELD | snapshot exists for this item |
 | SNAP_KWMENG | | KWMENG | quantity approved by credit – unit SNAP_VRKME |
