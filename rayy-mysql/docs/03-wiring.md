@@ -1,5 +1,7 @@
 # 03 · Wiring and Assembly
 
+![مخطط توصيل المكونات المادية (عربي)](images/wiring-diagram-ar.png)
+
 ![Wiring diagram](images/wiring-diagram.png)
 
 (Vector version: [`images/wiring-diagram.svg`](images/wiring-diagram.svg))
