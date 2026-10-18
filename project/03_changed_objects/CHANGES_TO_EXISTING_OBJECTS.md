@@ -32,7 +32,8 @@ Draft – not compiled or tested in SAP.
 ```
 **Insert after it:**
 ```abap
-    IF FIND_RUNNING( IV_VBELN ) IS NOT INITIAL.
+    IF IS_ORDER_LOCKED( IV_VBELN ) = ABAP_TRUE
+    OR FIND_RUNNING( IV_VBELN ) IS NOT INITIAL.
       RETURN.
     ENDIF.
 
@@ -41,13 +42,17 @@ Draft – not compiled or tested in SAP.
       RETURN.
     ENDIF.
 ```
-- `FIND_RUNNING` (existing private method of this class): a WS99000010 is already running for the order →
-  no second start. This is checked **before** the workflow starts, so no work item and no log is created.
-  It applies to every order (also normal orders).
-- `CAN_START_CREDIT_WF`: for a release-cycle order the workflow starts only after all production lines are
-  decided in YSDA / YSDAX; normal orders are not affected.
+- `IS_ORDER_LOCKED` / `FIND_RUNNING` (your existing methods): the order is already in approval (lock row
+  `ZSD_WF_SO`, inserted by `GET_APPROVERS`) or a WS99000010 work item is running → no second start. Both are
+  checked because, as in the incident of 04.10.2026, a run that has just started has its lock row before its
+  work items are visible. Checked **before** the start, so no work item, no log and no mail is created.
+  Valid for every order. After a kill (VA02 change, `ZRESTART_WF`) or after `RELEASE_SO` / `CANCEL_SO` both are
+  gone again.
+- `CAN_START_CREDIT_WF`: a release-cycle order may start only after all production lines are decided in
+  YSDA / YSDAX; normal orders are not affected.
 
-The check FM `Z_FM_SD_WF_CHECK_CREDIT` itself does not change.
+**Prerequisite:** the check FM `Z_FM_SD_WF_CHECK_CREDIT` must be entered in SWE2 for BUS2032 CREATED /
+CHANGED → WS99000010 (open item in your package guide, §9). Without it `IS_START_ALLOWED` is never called.
 
 ---
 
@@ -60,40 +65,38 @@ The check FM `Z_FM_SD_WF_CHECK_CREDIT` itself does not change.
 
 ### FORM `USEREXIT_SAVE_DOCUMENT`, enhancement `ZEN_CMEXOD_KILL_WORKFLOW`
 
-#### B1 – REPLACE
-**Find:**
+#### B1 + B2 – REPLACE the whole code (based on your version 2.0 of 19.10.2026)
+Your version 2.0 (STATICS re-entrancy guard, no BREAK) stays; CHECK becomes IF, and when the kill really
+cancelled a running workflow the release cycle is told:
 ```abap
-  CHECK ( T180-TRTYP = 'V' AND T180-TCODE = 'VA02' )   "SY-TCODE = 'VA02'
-     AND VBAK-VBELN IS NOT INITIAL.
-```
-**Replace with:**
-```abap
-  IF ( T180-TRTYP = 'V' AND T180-TCODE = 'VA02' )
-     AND VBAK-VBELN IS NOT INITIAL.
-```
+ENHANCEMENT 1  ZEN_CMEXOD_KILL_WORKFLOW.
+  STATICS LT_DONE TYPE SORTED TABLE OF VBELN_VA WITH UNIQUE DEFAULT KEY.
 
-#### B2 – REPLACE + INSERT
-**Find:**
-```abap
-CHECK LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
-```
-**Replace with:**
-```abap
-IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
-```
-**Then find** (the end of the active code, before the commented `CALL FUNCTION 'Z_WF_SD_KILL_WORKFLOW_UPD'`):
-```abap
-                              |Approval Cancel, credit check will re-run.| )    ).
-```
-**Insert after it:**
-```abap
-  NEW ZCL_SD_SO_RELEASE( )->ON_WORKFLOW_KILLED( VBAK-VBELN ).
+  IF ( T180-TRTYP = 'V' AND T180-TCODE = 'VA02' )
+     AND VBAK-VBELN IS NOT INITIAL
+     AND NOT LINE_EXISTS( LT_DONE[ TABLE_LINE = VBAK-VBELN ] ).
+
+    DATA(LO_CREDIT) = NEW ZCL_WF_SD_CREDIT( ).
+
+    IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
+
+      INSERT VBAK-VBELN INTO TABLE LT_DONE.
+
+      IF LO_CREDIT->KILL_RUNNING_WORKFLOW(
+           IV_VBELN  = VBAK-VBELN
+           IV_REASON = |Sales order changed in { SY-TCODE } by { SY-UNAME }. | &&
+                       |Approval cancelled, credit check will re-run.| ) = ABAP_TRUE.
+        NEW ZCL_SD_SO_RELEASE( )->ON_WORKFLOW_KILLED( VBAK-VBELN ).
+      ENDIF.
+
+    ENDIF.
+
   ENDIF.
-  ENDIF.
+ENDENHANCEMENT.
 ```
-Your existing rule stays for **every** order: a change in VA02 while the workflow runs cancels it.
-`ON_WORKFLOW_KILLED` only tells the release cycle (credit status back to "open", so the next start is allowed);
-for normal orders it does nothing.
+`ON_WORKFLOW_KILLED` is called only when `KILL_RUNNING_WORKFLOW` returns true (your Fix 01: no running work
+item → no kill). It sets the credit status of the release cycle back to "open"; for normal orders it does
+nothing.
 
 ### B3 – NEW enhancement implementation in `USEREXIT_SAVE_DOCUMENT`
 At the enhancement point at the start of `USEREXIT_SAVE_DOCUMENT` (where `ZEN_CMEXOD_KILL_WORKFLOW` is):
@@ -162,7 +165,7 @@ ENHANCEMENT 1  ZEN_SO_RELEASE_NO_VKM.
   IF ( SY-TCODE = 'VKM1' OR SY-TCODE = 'VKM3' OR SY-TCODE = 'VKM4' )
      AND VBAK-VBELN IS NOT INITIAL
      AND NEW ZCL_SD_SO_RELEASE( )->IS_IN_CREDIT_APPROVAL( VBAK-VBELN ) = ABAP_TRUE.
-    MESSAGE E017(ZSD_WF) WITH VBAK-VBELN.
+    MESSAGE E018(ZSD_WF) WITH VBAK-VBELN.
   ENDIF.
 ENDENHANCEMENT.
 ```
@@ -197,7 +200,7 @@ ENDIF.
      AND NEW ZCL_SD_SO_RELEASE( )->IS_ITEM_RELEASE_ALLOWED(
            IV_VBELN = VBEP-VBELN
            IV_POSNR = VBEP-POSNR ) = ABAP_FALSE.
-    MESSAGE E018(ZSD_WF) WITH VBEP-POSNR.
+    MESSAGE E019(ZSD_WF) WITH VBEP-POSNR.
   ENDIF.
 
 ENDIF.

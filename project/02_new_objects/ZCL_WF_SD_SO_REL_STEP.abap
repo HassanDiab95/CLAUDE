@@ -7,18 +7,46 @@ CLASS ZCL_WF_SD_SO_REL_STEP DEFINITION
 
     INTERFACES IF_WORKFLOW.
 
+    CONSTANTS: BEGIN OF GC_ACTION,
+                 YSDA TYPE ZWF_ACTION VALUE 'YSDA',
+                 PROD TYPE ZWF_ACTION VALUE 'PROD',
+               END OF GC_ACTION.
+
     CLASS-METHODS CREDIT_STARTED
-      IMPORTING IV_VBELN TYPE VBELN_VA
-                IV_WI_ID TYPE SWW_WIID.
+      IMPORTING IV_VBELN     TYPE VBELN_VA
+                IV_WI_ID     TYPE SWW_WIID
+                IV_LOG_ID    TYPE ZWF_LOG_ID OPTIONAL
+                IV_LOG_ID_OD TYPE ZWF_LOG_ID OPTIONAL
+                IV_LOG_AREA  TYPE CHAR2 OPTIONAL.
 
     CLASS-METHODS CREDIT_APPROVED
-      IMPORTING IV_VBELN TYPE VBELN_VA
+      IMPORTING IV_VBELN     TYPE VBELN_VA
+                IV_LOG_ID    TYPE ZWF_LOG_ID OPTIONAL
+                IV_LOG_ID_OD TYPE ZWF_LOG_ID OPTIONAL
+                IV_LOG_AREA  TYPE CHAR2 OPTIONAL
       RAISING   CX_BO_TEMPORARY.
 
     CLASS-METHODS CREDIT_REJECTED
-      IMPORTING IV_VBELN TYPE VBELN_VA
-                IV_NOTE  TYPE ZWF_NOTE OPTIONAL
-                IV_ABGRU TYPE ABGRU_VA OPTIONAL.
+      IMPORTING IV_VBELN     TYPE VBELN_VA
+                IV_NOTE      TYPE ZWF_NOTE OPTIONAL
+                IV_ABGRU     TYPE ABGRU_VA OPTIONAL
+                IV_LOG_ID    TYPE ZWF_LOG_ID OPTIONAL
+                IV_LOG_ID_OD TYPE ZWF_LOG_ID OPTIONAL
+                IV_LOG_AREA  TYPE CHAR2 OPTIONAL.
+
+  PRIVATE SECTION.
+
+    CLASS-METHODS WRITE_LOG
+      IMPORTING IV_LOG_ID    TYPE ZWF_LOG_ID
+                IV_LOG_ID_OD TYPE ZWF_LOG_ID
+                IV_LOG_AREA  TYPE CHAR2
+                IV_ACTION    TYPE ZWF_ACTION
+                IV_NOTE      TYPE CSEQUENCE.
+
+    CLASS-METHODS POSNR_LIST
+      IMPORTING IT_PLAN        TYPE ZCL_SD_SO_RELEASE=>TT_PLAN
+                IV_PRODUCTION  TYPE ABAP_BOOL
+      RETURNING VALUE(RV_LIST) TYPE STRING.
 
 ENDCLASS.
 
@@ -26,24 +54,97 @@ CLASS ZCL_WF_SD_SO_REL_STEP IMPLEMENTATION.
 
   METHOD CREDIT_STARTED.
 
-    NEW ZCL_SD_SO_RELEASE( )->ON_CREDIT_STARTED( IV_VBELN = IV_VBELN
-                                                 IV_WI_ID = IV_WI_ID ).
+    DATA(LO_RELEASE) = NEW ZCL_SD_SO_RELEASE( ).
+
+    LO_RELEASE->ON_CREDIT_STARTED( IV_VBELN = IV_VBELN
+                                   IV_WI_ID = IV_WI_ID ).
+
+    DATA(LT_PLAN) = LO_RELEASE->GET_RELEASE_PLAN( IV_VBELN ).
+
+    LOOP AT LT_PLAN INTO DATA(LS_PLAN).
+      WRITE_LOG( IV_LOG_ID    = IV_LOG_ID
+                 IV_LOG_ID_OD = IV_LOG_ID_OD
+                 IV_LOG_AREA  = IV_LOG_AREA
+                 IV_ACTION    = GC_ACTION-YSDA
+                 IV_NOTE      = |Item { LS_PLAN-POSNR ALPHA = OUT } { LS_PLAN-MATNR ALPHA = OUT }: | &&
+                                |{ LS_PLAN-DECISION } -> { LS_PLAN-TARGET }| ).
+    ENDLOOP.
 
   ENDMETHOD.
 
   METHOD CREDIT_APPROVED.
 
-    IF NEW ZCL_SD_SO_RELEASE( )->ON_CREDIT_APPROVED( IV_VBELN ) = ABAP_FALSE.
+    DATA(LO_RELEASE) = NEW ZCL_SD_SO_RELEASE( ).
+
+    IF LO_RELEASE->ON_CREDIT_APPROVED( IV_VBELN ) = ABAP_FALSE.
       RAISE EXCEPTION TYPE CX_BO_TEMPORARY.
     ENDIF.
+
+    DATA(LT_PLAN) = LO_RELEASE->GET_RELEASE_PLAN( IV_VBELN ).
+    CHECK LT_PLAN IS NOT INITIAL.
+
+    DATA(LV_CP) = POSNR_LIST( IT_PLAN = LT_PLAN IV_PRODUCTION = ABAP_TRUE ).
+    DATA(LV_CN) = POSNR_LIST( IT_PLAN = LT_PLAN IV_PRODUCTION = ABAP_FALSE ).
+
+    WRITE_LOG( IV_LOG_ID    = IV_LOG_ID
+               IV_LOG_ID_OD = IV_LOG_ID_OD
+               IV_LOG_AREA  = IV_LOG_AREA
+               IV_ACTION    = GC_ACTION-PROD
+               IV_NOTE      = |Released to production (CN -> CP): | &&
+                              |{ COND string( WHEN LV_CP IS INITIAL THEN `none` ELSE LV_CP ) }. | &&
+                              |Stays CN: { COND string( WHEN LV_CN IS INITIAL THEN `none` ELSE LV_CN ) }| ).
 
   ENDMETHOD.
 
   METHOD CREDIT_REJECTED.
 
-    NEW ZCL_SD_SO_RELEASE( )->ON_CREDIT_REJECTED( IV_VBELN = IV_VBELN
-                                                  IV_NOTE  = IV_NOTE
-                                                  IV_ABGRU = IV_ABGRU ).
+    DATA(LO_RELEASE) = NEW ZCL_SD_SO_RELEASE( ).
+
+    LO_RELEASE->ON_CREDIT_REJECTED( IV_VBELN = IV_VBELN
+                                    IV_NOTE  = IV_NOTE
+                                    IV_ABGRU = IV_ABGRU ).
+
+    DATA(LT_PLAN) = LO_RELEASE->GET_RELEASE_PLAN( IV_VBELN ).
+    CHECK LT_PLAN IS NOT INITIAL.
+
+    WRITE_LOG( IV_LOG_ID    = IV_LOG_ID
+               IV_LOG_ID_OD = IV_LOG_ID_OD
+               IV_LOG_AREA  = IV_LOG_AREA
+               IV_ACTION    = GC_ACTION-PROD
+               IV_NOTE      = |Credit rejected - no item released to production. | &&
+                              |Items stay CN: { POSNR_LIST( IT_PLAN = LT_PLAN IV_PRODUCTION = ABAP_FALSE ) }| ).
+
+  ENDMETHOD.
+
+  METHOD WRITE_LOG.
+
+    DATA(LV_NOTE) = CONV ZWF_NOTE( IV_NOTE ).
+
+    IF IV_LOG_ID IS NOT INITIAL AND IV_LOG_AREA <> 'OD'.
+      NEW ZCL_WF_LOG_EX( )->ADD_ITEM( IV_LOG_ID = IV_LOG_ID
+                                      IV_ACTION = IV_ACTION
+                                      IV_AGENT  = SY-UNAME
+                                      IV_NOTE   = LV_NOTE ).
+    ENDIF.
+
+    DATA(LV_OD_LOG) = COND ZWF_LOG_ID( WHEN IV_LOG_AREA = 'OD' THEN IV_LOG_ID
+                                       ELSE IV_LOG_ID_OD ).
+
+    IF LV_OD_LOG IS NOT INITIAL.
+      NEW ZCL_WF_LOG_OD( )->ADD_ITEM( IV_LOG_ID = LV_OD_LOG
+                                      IV_ACTION = IV_ACTION
+                                      IV_AGENT  = SY-UNAME
+                                      IV_NOTE   = LV_NOTE ).
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD POSNR_LIST.
+
+    LOOP AT IT_PLAN INTO DATA(LS_PLAN) WHERE TO_PRODUCTION = IV_PRODUCTION.
+      RV_LIST = COND #( WHEN RV_LIST IS INITIAL THEN |{ LS_PLAN-POSNR ALPHA = OUT }|
+                        ELSE |{ RV_LIST }, { LS_PLAN-POSNR ALPHA = OUT }| ).
+    ENDLOOP.
 
   ENDMETHOD.
 
@@ -64,4 +165,5 @@ CLASS ZCL_WF_SD_SO_REL_STEP IMPLEMENTATION.
 
   METHOD BI_OBJECT~RELEASE.
   ENDMETHOD.
+
 ENDCLASS.

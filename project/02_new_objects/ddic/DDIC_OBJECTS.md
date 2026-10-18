@@ -170,12 +170,12 @@ appears in commented code of YSDAX) is approved in YSDA/YSDAX in real life, add 
 
 ## 7. Messages – class `ZSD_WF` (SE91)
 
-015 and 016 are already used, so the release cycle uses 017 and 018.
+000–017 are already used (017 = kill message of the credit workflow), so the release cycle uses 018 and 019.
 
 | No. | Text | Used in |
 |---|---|---|
-| 017 | `Order &1 in credit approval - release via workflow` | MV45AFZZ, release of the credit block (VKM1) refused while the workflow runs (B5) |
-| 018 | `Item &1: no CN->CP before credit approval` | MV45AFZZ, manual change CN -> CP refused (B7) |
+| 018 | `Order &1 in credit approval - release via workflow` | MV45AFZZ, release of the credit block (VKM1) refused while the workflow runs (B5) |
+| 019 | `Item &1: no CN->CP before credit approval` | MV45AFZZ, manual change CN -> CP refused (B7) |
 
 
 ## 8. TVARVC – one entry only

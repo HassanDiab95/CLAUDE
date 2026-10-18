@@ -7,19 +7,28 @@
 
 *----------------------------------------------------------------------
 * 1) FORM USEREXIT_SAVE_DOCUMENT - existing ZEN_CMEXOD_KILL_WORKFLOW
-*    (B1 + B2)
+*    (your version 2.0 with the re-entrancy guard + B1 + B2)
 *----------------------------------------------------------------------
 ENHANCEMENT 1  ZEN_CMEXOD_KILL_WORKFLOW.
+  STATICS LT_DONE TYPE SORTED TABLE OF VBELN_VA WITH UNIQUE DEFAULT KEY.
+
   IF ( T180-TRTYP = 'V' AND T180-TCODE = 'VA02' )
-     AND VBAK-VBELN IS NOT INITIAL.
+     AND VBAK-VBELN IS NOT INITIAL
+     AND NOT LINE_EXISTS( LT_DONE[ TABLE_LINE = VBAK-VBELN ] ).
 
     DATA(LO_CREDIT) = NEW ZCL_WF_SD_CREDIT( ).
+
     IF LO_CREDIT->IS_ORDER_LOCKED( VBAK-VBELN ) = ABAP_TRUE.
-      LO_CREDIT->KILL_RUNNING_WORKFLOW(
-        IV_VBELN  = VBAK-VBELN
-        IV_REASON = CONV STRING( |Sales order changed in { SY-TCODE } by { SY-UNAME }.| &&
-                                 |Approval Cancel, credit check will re-run.| ) ).
-      NEW ZCL_SD_SO_RELEASE( )->ON_WORKFLOW_KILLED( VBAK-VBELN ).
+
+      INSERT VBAK-VBELN INTO TABLE LT_DONE.
+
+      IF LO_CREDIT->KILL_RUNNING_WORKFLOW(
+           IV_VBELN  = VBAK-VBELN
+           IV_REASON = |Sales order changed in { SY-TCODE } by { SY-UNAME }. | &&
+                       |Approval cancelled, credit check will re-run.| ) = ABAP_TRUE.
+        NEW ZCL_SD_SO_RELEASE( )->ON_WORKFLOW_KILLED( VBAK-VBELN ).
+      ENDIF.
+
     ENDIF.
 
   ENDIF.
@@ -83,7 +92,7 @@ ENHANCEMENT 1  ZEN_SO_RELEASE_NO_VKM.
   IF ( SY-TCODE = 'VKM1' OR SY-TCODE = 'VKM3' OR SY-TCODE = 'VKM4' )
      AND VBAK-VBELN IS NOT INITIAL
      AND NEW ZCL_SD_SO_RELEASE( )->IS_IN_CREDIT_APPROVAL( VBAK-VBELN ) = ABAP_TRUE.
-    MESSAGE E017(ZSD_WF) WITH VBAK-VBELN.
+    MESSAGE E018(ZSD_WF) WITH VBAK-VBELN.
   ENDIF.
 ENDENHANCEMENT.
 
@@ -128,7 +137,7 @@ IF ( SY-TCODE = 'VA01' OR SY-TCODE = 'VA02' ) AND SVBEP-TABIX > 0
      AND NEW ZCL_SD_SO_RELEASE( )->IS_ITEM_RELEASE_ALLOWED(
            IV_VBELN = VBEP-VBELN
            IV_POSNR = VBEP-POSNR ) = ABAP_FALSE.
-    MESSAGE E018(ZSD_WF) WITH VBEP-POSNR.
+    MESSAGE E019(ZSD_WF) WITH VBEP-POSNR.
   ENDIF.
 
 ENDIF.

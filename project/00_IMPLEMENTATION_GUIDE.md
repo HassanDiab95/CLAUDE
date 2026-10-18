@@ -37,7 +37,7 @@ for YSDA / YSDAX – every participant calls it, so the rules sit in one place:
 | VA01 / VA02 save (MV45AFZZ, B1–B8) | `ON_ORDER_SAVED`, `ON_WORKFLOW_KILLED`, `ON_ORDER_DELETED`, `IS_IN_CREDIT_APPROVAL`, `IS_ITEM_RELEASE_ALLOWED` | create the release rows, follow the existing kill / delete, block VKM1 / manual CN → CP |
 | YSDA / YSDAX (C5, C7 / D3, D6 or N4, N7 / X3, X6) | `ON_ITEM_DECISION`, `GET_ITEM_STATUS_TEXT` | after each approve / reject: CN → CP now (no credit block), or start the credit workflow when the last line is decided |
 | Check FM of the workflow start (`ZCL_WF_SD_CREDIT->IS_START_ALLOWED`, A1) | `CAN_START_CREDIT_WF` | WS99000010 may start only after YSDA / YSDAX are complete |
-| Workflow WS99000010 (via `ZCL_WF_SD_SO_REL_STEP`) | `ON_CREDIT_STARTED`, `ON_CREDIT_APPROVED`, `ON_CREDIT_REJECTED` | record the start + release plan, CN → CP after final approval, record every line when credit is rejected (the existing REJECT_STEP cancels the order after rejection |
+| Workflow WS99000010 (via `ZCL_WF_SD_SO_REL_STEP`, also writes `YSDA` / `PROD` rows into the EX / OD log) | `ON_CREDIT_STARTED`, `ON_CREDIT_APPROVED`, `ON_CREDIT_REJECTED`, `GET_RELEASE_PLAN` | record the start + release plan, CN → CP after final approval, record every line when credit is rejected (the existing REJECT_STEP cancels the order after rejection |
 | Job `ZSD_SO_REL_RECONCILE` | `PROCESS` | safety net: retry a lost workflow start or a CN → CP that failed (order was locked) |
 
 The class writes its tables **directly** (no update function module). It never commits inside the sales order
@@ -91,9 +91,9 @@ save – the `COMMIT WORK` of VA01 / VA02 saves the rows together with the order
    | lower value / quantity, items rejected, texts, dates, partners | no new decision |
 
    Every decision is written to `ZSD_SO_REL_LOG` with the reason.
-9. **One workflow per order.** The start check (`IS_START_ALLOWED`, change A1) refuses the start when a
-   WS99000010 is already running for the order (existing method `FIND_RUNNING`) – before the workflow starts,
-   so no second work item and no second log.
+9. **One workflow per order.** The start check (`IS_START_ALLOWED`, change A1) refuses the start while the
+   order has the lock row `ZSD_WF_SO` or a running WS99000010 (existing methods `IS_ORDER_LOCKED` /
+   `FIND_RUNNING`) – before the workflow starts, so no second work item, log or mail.
 10. **Manual shortcuts are closed.** VKM1 / VKM3 / VKM4 release is refused while the credit workflow runs;
     CN → CP by hand in VA02 is refused until the item is approved in YSDA/YSDAX **and** credit is approved
     or not needed.
@@ -145,7 +145,7 @@ File: `02_new_objects/ddic/DDIC_OBJECTS.md`. In this order:
 1. Domains `ZSD_REL_COST`, `ZSD_REL_CREDIT`, `ZSD_REL_PROD`, `ZSD_REL_OVERALL`, `ZSD_REL_EVENT` .
 2. Data elements with the same names.
 3. Tables `ZSD_SO_REL_H`, `ZSD_SO_REL_I`, `ZSD_SO_REL_LOG`, `ZSD_SO_REL_CFG` (no table maintenance generator – no function group).
-4. Messages 017 and 018 in class `ZSD_WF` (015 / 016 are already used).
+4. Messages 018 and 019 in class `ZSD_WF` (000–017 are already used; 017 = kill message of the credit workflow).
 5. TVARVC (STVARV): create **only** `ZSD_SO_REL_START_DATE` (go-live date) – **leave it empty until
    go-live** (empty = cycle switched off). Nothing else goes into TVARVC.
 
@@ -196,12 +196,14 @@ Old code: changes **D1–D6** below. OOP version: changes **X1–X6** in
 `06_ysda_ysdax_oop/REQ1_CHANGES_ON_NEW_CODE.md` – only in include `YSP_MTOSO_APPROVE_CX_C01`.
 (Same logic; YSDAX FI approval never set CP, so there is no FI change.)
 
-### Step 7 – Workflow WS99000010 (PFTC + SWDD)
-File: `03_changed_objects/WS99000010_workflow_changes.md` – all workflow-related changes, step by step, with
-the reason for each. Start check A1 (no second workflow, YSDA first), class `ZCL_WF_SD_SO_REL_STEP`, three
-background tasks, steps `SO_REL_START` (first step), `SO_REL_APPROVED` (after the credit block release at
-final approval) and `SO_REL_REJECTED` (before the existing `REJECT_STEP`). No new container element.
-**No change** to the approver mail (HTML), the approval levels, the logs, the order lock or the event linkages.
+### Step 7 – Workflow WS99000010 and log (PFTC + SWDD)
+File: `03_changed_objects/WS99000010_workflow_changes.md` (also as Word file) – based on your package of
+19.10.2026, step by step with the reason for each:
+start check A1 (lock row / running run / YSDA first), kill enhancement (your v2.0 + `ON_WORKFLOW_KILLED`),
+class `ZCL_WF_SD_SO_REL_STEP`, three background tasks, `SO_REL_START` after `GET_APPROVERS`,
+`SO_REL_APPROVED` after `APPROVE_STEP` (`RELEASE_SO`), `SO_REL_REJECTED` before `REJECT_STEP` (`CANCEL_SO`),
+log actions `YSDA` / `PROD` in your EX / OD logs (domain values + Fix 03 exemption).
+**No change** to the approver mail (HTML), the approval loop, the order lock or the event linkage.
 
 ### Step 8 – Reports and transactions
 1. `02_new_objects/ZSD_SO_REL_RECONCILE.abap` → SE38, variant `DEFAULT` (P_WAIT = 30),
@@ -232,8 +234,8 @@ approved in YSDAX in real life. If YSDA / YSDAX selection is changed later, chan
 | 12 | After credit approval: increase quantity in VA02 | log `RESTART`; if SAP blocks the order again, a new workflow starts |
 | 13 | Order open in VA02 when credit is rejected | the new step only writes the release tables (no lock problem); the existing REJECT_STEP behaves as today |
 | 14 | Final approval while the order is open in VA02 | step retries; else job releases; log `PROD_ERR` then `PROD_REL` |
-| 15 | VKM1 release while workflow runs | error 017 |
-| 16 | VA02: change CN → CP by hand before credit approval | error 018 |
+| 15 | VKM1 release while workflow runs | error 018 |
+| 16 | VA02: change CN → CP by hand before credit approval | error 019 |
 | 17 | Delete order during workflow | workflow cancelled, overall D |
 | 18 | Plant / item category / order type not in ZSD_SO_REL_CFG (= not shown in YSDA/YSDAX) or created before go-live | exactly as today |
 | 18a | Plant 1400, order type ZOR, CN line | managed (same as YSDAX shows it) |
