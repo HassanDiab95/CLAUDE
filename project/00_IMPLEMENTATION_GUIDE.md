@@ -276,3 +276,8 @@ Use transaction `ZSD_SO_REL_MON` (double click = history) and SWI1 / SWIA to fol
    get two credit approvals.
 3. **YSDA FI auto-decision** – YSDA still sets FI "Not Approved" (+ Z8) when the customer exceeds the credit
    limit. With the credit workflow in place, decide whether YSDA should judge only cost / profit.
+4. **Mixed orders (on hold – waiting for the business answer)** – an order with production lines (CN) and
+   normal lines, with a credit block, where **all** production lines are rejected in YSDA / YSDAX: today the
+   credit workflow does not start, so the normal lines keep the credit block. If such orders exist, the fix is
+   small (`SET_SUMMARY` / `PROCESS`: start the workflow when normal lines are open). No code change until
+   decided.
