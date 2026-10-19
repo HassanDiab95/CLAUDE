@@ -551,6 +551,7 @@ CLASS lcl_app IMPLEMENTATION.
               ms_apprv-fi_approve   = abap_true.
               ms_apprv-fi_aprv_date = sy-datum.
               ms_apprv-fi_aprv_time = sy-uzeit.
+              ms_apprv-sd_approve   = abap_true.
               MODIFY zsoapproval FROM @ms_apprv.
               COMMIT WORK AND WAIT.
               CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
