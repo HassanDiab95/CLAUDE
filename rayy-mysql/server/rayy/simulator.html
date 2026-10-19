@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ري · محاكي الجهاز</title>
+<!--
+  Device simulator: sends readings to api/device.php exactly like the ESP32 does
+  (same header X-Device-Key, same JSON body), and decides the mood with the same
+  rules as firmware/Rayy/mood.cpp. Use it to demo the system without the hardware.
+  Remove this file on a real installation if you do not need it.
+-->
+<style>
+  :root { --bg:#f3f7f2; --card:#fff; --text:#1d2b22; --muted:#5f6f64; --line:#dfe8de; --green:#2f7d4f; --soft:#e3f2e7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Tahoma, Arial, sans-serif; background:var(--bg); color:var(--text); }
+  header { background:linear-gradient(135deg,#0F3D26,#2F9E5F); color:#fff; padding:18px 24px; }
+  header h1 { margin:0; font-size:24px; } header p { margin:4px 0 0; opacity:.9; }
+  main { max-width:1000px; margin:0 auto; padding:18px; display:grid; gap:16px; grid-template-columns: 1fr 1fr; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow:0 2px 10px rgba(30,60,40,.07); }
+  .wide { grid-column: 1 / -1; }
+  h2 { margin:0 0 12px; font-size:18px; color:var(--green); }
+  label { display:block; margin:10px 0 4px; font-weight:600; }
+  input[type=text], input[type=password] { width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:10px; font-size:15px; direction:ltr; }
+  .row { display:flex; align-items:center; gap:10px; } .row input[type=range] { flex:1; } .val { min-width:80px; font-weight:700; text-align:center; }
+  button { border:0; border-radius:12px; padding:10px 16px; font-size:15px; font-weight:700; cursor:pointer; background:var(--green); color:#fff; }
+  button.alt { background:var(--soft); color:var(--green); }
+  .presets { display:flex; flex-wrap:wrap; gap:8px; }
+  .mood { font-size:64px; text-align:center; } .moodname { text-align:center; font-size:20px; font-weight:800; }
+  .status { margin-top:10px; padding:10px 12px; border-radius:10px; background:var(--soft); font-size:14px; line-height:1.7; }
+  .err { background:#fde2e2; color:#8a1f1f; }
+  pre { direction:ltr; text-align:left; background:#0f1a14; color:#cfe9d8; border-radius:12px; padding:12px; font-size:12px; max-height:220px; overflow:auto; }
+  @media (max-width:760px) { main { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌱 ري · محاكي جهاز الاستشعار</h1>
+  <p>يرسل قراءات إلى الخادم مثل جهاز ESP32 تماماً، لتجربة النظام بدون القطع المادية. افتحي الموقع في نافذة أخرى وشاهدي الزراعة تتغير.</p>
+</header>
+<main>
+  <section class="card">
+    <h2>1) الجهاز</h2>
+    <label>معرّف الجهاز (DEVICE_ID)</label><input id="devId" type="text" value="rayy-01">
+    <label>مفتاح الجهاز (DEVICE_KEY)</label><input id="devKey" type="password" value="rayy-device-key-2026">
+    <div class="status" id="cropInfo">لم يتصل بعد. اضغطي «إرسال قراءة».</div>
+  </section>
+
+  <section class="card">
+    <h2>2) الشعور المحسوب</h2>
+    <div class="mood" id="moodEmoji">🌱</div>
+    <div class="moodname" id="moodName">—</div>
+    <div class="status" id="moodWhy">يُحسب بنفس قواعد كود الجهاز وحسب حدود الزراعة التي يقيسها.</div>
+  </section>
+
+  <section class="card wide">
+    <h2>3) القراءات</h2>
+    <label>💧 رطوبة التربة</label><div class="row"><input id="moisture" type="range" min="0" max="100" value="65"><span class="val" id="moistureV"></span></div>
+    <label>🌡️ درجة الحرارة</label><div class="row"><input id="temperature" type="range" min="-5" max="50" step="0.5" value="24"><span class="val" id="temperatureV"></span></div>
+    <label>💨 رطوبة الجو</label><div class="row"><input id="humidity" type="range" min="0" max="100" value="50"><span class="val" id="humidityV"></span></div>
+    <label>☀️ الإضاءة</label><div class="row"><input id="lux" type="range" min="0" max="20000" step="50" value="6000"><span class="val" id="luxV"></span></div>
+    <label>حالات جاهزة</label>
+    <div class="presets">
+      <button class="alt" data-p="65,24,50,6000">😊 كل شيء ممتاز</button>
+      <button class="alt" data-p="20,26,45,6000">😫 تربة جافة</button>
+      <button class="alt" data-p="95,24,60,6000">🥴 ري زائد</button>
+      <button class="alt" data-p="65,40,30,9000">🥵 حر شديد</button>
+      <button class="alt" data-p="65,5,70,4000">🥶 برد</button>
+      <button class="alt" data-p="65,24,50,100">😞 ظلام نهاراً</button>
+    </div>
+    <div class="row" style="margin-top:16px; flex-wrap:wrap">
+      <button id="sendBtn">📡 إرسال قراءة</button>
+      <button id="autoBtn" class="alt">▶ تشغيل تلقائي (كل 10 ثوانٍ)</button>
+    </div>
+    <div class="status" id="sendStatus">—</div>
+  </section>
+
+  <section class="card wide">
+    <h2>رد الخادم</h2>
+    <pre id="answer">—</pre>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const MOODS = {
+  happy: ["😊", "سعيدة", "I am happy, everything is perfect!"],
+  thirsty: ["😫", "عطشانة", "I am thirsty, please water me!"],
+  drowning: ["🥴", "غرقانة", "Too much water!"],
+  hot: ["🥵", "حرّانة", "It is too hot, I need shade!"],
+  cold: ["🥶", "بردانة", "I am cold!"],
+  need_light: ["😞", "تحتاج ضوء", "I need more light!"],
+  sleepy: ["😴", "نائمة", "Good night!"],
+};
+const MELODIES = ["", "عطشانة", "غرقانة", "حرّانة", "بردانة", "تحتاج ضوء", "سعيدة", "شكراً", "تصبحون على خير", "مرحباً"];
+// Same rules as firmware/Rayy/mood.cpp (evaluateMood), day = 06:00–18:00
+const HYST = { moisture: 5, temp: 1, lux: 50 };
+let config = null, serverHour = null, previous = "happy", timer = null;
+
+function evaluate(r) {
+  if (!config) return ["happy", "لا توجد حدود بعد: أول قراءة تجلب حدود الزراعة من الخادم."];
+  const c = config;
+  const dry = c.moisture_min + (previous === "thirsty" ? HYST.moisture : 0);
+  const wet = c.moisture_max - (previous === "drowning" ? HYST.moisture : 0);
+  const hot = c.temp_max - (previous === "hot" ? HYST.temp : 0);
+  const cold = c.temp_min + (previous === "cold" ? HYST.temp : 0);
+  const dark = c.lux_min + (previous === "need_light" ? HYST.lux : 0);
+  if (r.moisture < dry) return ["thirsty", `رطوبة التربة ${r.moisture}% أقل من ${dry}%`];
+  if (r.moisture > wet) return ["drowning", `رطوبة التربة ${r.moisture}% أعلى من ${wet}%`];
+  if (r.temperature > hot) return ["hot", `الحرارة ${r.temperature}° أعلى من ${hot}°`];
+  if (r.temperature < cold) return ["cold", `الحرارة ${r.temperature}° أقل من ${cold}°`];
+  const h = serverHour ?? new Date().getHours();
+  if (!(h >= 6 && h < 18)) return ["sleepy", `الساعة ${h}:00 ليلاً (النهار من 6 إلى 18)`];
+  if (r.lux < dark) return ["need_light", `الإضاءة ${r.lux} lux أقل من ${dark}`];
+  return ["happy", "كل القيم ضمن حدود الزراعة"];
+}
+
+function readings() {
+  return { moisture: +$("moisture").value, temperature: +$("temperature").value,
+           humidity: +$("humidity").value, lux: +$("lux").value };
+}
+function showValues() {
+  const r = readings();
+  $("moistureV").textContent = r.moisture + " %"; $("temperatureV").textContent = r.temperature + " °C";
+  $("humidityV").textContent = r.humidity + " %"; $("luxV").textContent = r.lux + " lux";
+  const [m, why] = evaluate(r);
+  $("moodEmoji").textContent = MOODS[m][0]; $("moodName").textContent = MOODS[m][1]; $("moodWhy").textContent = why;
+}
+
+async function send() {
+  const r = readings();
+  const [mood] = evaluate(r);
+  const body = { ...r, mood, rssi: -55, soil_raw: Math.round(3050 - r.moisture * 17.7), uptime_s: Math.round(performance.now() / 1000), history: true };
+  if (mood !== previous) body.event = { mood, message: MOODS[mood][2] };
+  const st = $("sendStatus");
+  try {
+    const res = await fetch("api/device.php?device=" + encodeURIComponent($("devId").value.trim()), {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Device-Key": $("devKey").value },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({ ok: false, error: "رد غير صالح من الخادم" }));
+    $("answer").textContent = JSON.stringify(data, null, 2);
+    if (!res.ok || !data.ok) throw new Error(data.error || ("HTTP " + res.status));
+    previous = mood;
+    if (data.crop) {
+      config = data.config; serverHour = data.hour;
+      $("cropInfo").className = "status";
+      $("cropInfo").innerHTML = `✅ متصل · يقيس الزراعة: <b>${data.crop.name}</b><br>الحدود: التربة ${config.moisture_min}–${config.moisture_max}% · الحرارة ${config.temp_min}–${config.temp_max}° · الإضاءة ≥ ${config.lux_min}`;
+    } else {
+      config = null;
+      $("cropInfo").className = "status err";
+      $("cropInfo").textContent = "الجهاز غير مرتبط بأي زراعة. من الموقع: الأجهزة ← نقل إلى زراعة.";
+    }
+    st.className = "status";
+    st.textContent = `أُرسلت القراءة الساعة ${new Date().toLocaleTimeString("ar-SA-u-nu-latn")} · الشعور: ${MOODS[mood][0]} ${MOODS[mood][1]}` +
+      (data.play ? ` · 🎵 الجهاز يعزف النغمة رقم ${data.play} (${MELODIES[data.play] || ""})` : "");
+    showValues();
+  } catch (e) {
+    st.className = "status err";
+    st.textContent = "تعذر الإرسال: " + e.message + " (تأكدي من تشغيل Apache وMySQL ومن معرّف الجهاز ومفتاحه)";
+  }
+}
+
+document.querySelectorAll("input[type=range]").forEach((i) => i.addEventListener("input", showValues));
+document.querySelectorAll("[data-p]").forEach((b) => b.addEventListener("click", () => {
+  const [m, t, h, l] = b.dataset.p.split(",");
+  $("moisture").value = m; $("temperature").value = t; $("humidity").value = h; $("lux").value = l;
+  showValues(); send();
+}));
+$("sendBtn").addEventListener("click", send);
+$("autoBtn").addEventListener("click", () => {
+  if (timer) { clearInterval(timer); timer = null; $("autoBtn").textContent = "▶ تشغيل تلقائي (كل 10 ثوانٍ)"; return; }
+  send(); timer = setInterval(send, 10000); $("autoBtn").textContent = "⏸ إيقاف التشغيل التلقائي";
+});
+showValues();
+</script>
+</body>
+</html>

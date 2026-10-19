@@ -18,6 +18,8 @@
 
 ## 1. Start here
 
+🧰 **[docs/دليل التثبيت - ري.pdf](docs/)**: full installation guide (Arabic, A–Z) for a new Windows computer: XAMPP, the website, importing **database/rayy-with-sample-data.sql**, the device simulator (`server/rayy/simulator.html`), the ESP32 and the Android app. Quick install: **tools/install-rayy.bat**.
+
 👉 **[docs/00-step-by-step-guide.md](docs/00-step-by-step-guide.md)**: the complete guide from buying the parts to the
 final demo, step by step.
 
