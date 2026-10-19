@@ -24,6 +24,18 @@ CLASS ZCL_SD_MASS_CHANGE DEFINITION
 
     TYPES TT_ERDAT_RANGE TYPE RANGE OF ERDAT.
 
+    TYPES: BEGIN OF TY_RESULT,
+             STATUS   TYPE ICON_D,
+             VBELN    TYPE VBELN_VA,
+             POSNR    TYPE POSNR_VA,
+             MATNR    TYPE MATNR,
+             MESSAGE  TYPE STRING,
+             BAPI_MSG TYPE STRING,
+           END OF TY_RESULT,
+           TT_RESULT TYPE STANDARD TABLE OF TY_RESULT WITH EMPTY KEY.
+
+    DATA MT_RESULT TYPE TT_RESULT.
+
     CONSTANTS GC_ERROR   TYPE STRING VALUE ': An error occured, no change done to the sales order.'.
     CONSTANTS GC_SUCCESS TYPE STRING VALUE ': Sales order changed successfully.'.
 
@@ -38,6 +50,8 @@ CLASS ZCL_SD_MASS_CHANGE DEFINITION
     METHODS CHANGE_ORDER
       IMPORTING IV_VBELN TYPE VBELN_VA
                 IT_ITEMS TYPE TT_OUTPUTDATA.
+
+    METHODS DISPLAY.
 
 ENDCLASS.
 
@@ -56,6 +70,8 @@ CLASS ZCL_SD_MASS_CHANGE IMPLEMENTATION.
       CHANGE_ORDER( IV_VBELN = LV_VBELN
                     IT_ITEMS = VALUE #( FOR LS_MEMBER IN GROUP LV_VBELN ( LS_MEMBER ) ) ).
     ENDLOOP.
+
+    DISPLAY( ).
 
   ENDMETHOD.
 
@@ -130,11 +146,62 @@ CLASS ZCL_SD_MASS_CHANGE IMPLEMENTATION.
           WAIT = ABAP_TRUE.
     ENDIF.
 
+    DATA(LV_BAPI_MSG) = REDUCE STRING( INIT LV_MSG = ``
+                                       FOR LS_RETURN IN LT_RETURN
+                                       WHERE ( TYPE = 'E' OR TYPE = 'A' )
+                                       NEXT LV_MSG = COND #( WHEN LV_MSG IS INITIAL
+                                                             THEN LS_RETURN-MESSAGE
+                                                             ELSE |{ LV_MSG } / { LS_RETURN-MESSAGE }| ) ).
+
     LOOP AT IT_ITEMS INTO DATA(LS_OUT).
-      WRITE / |{ LS_OUT-VBELN } { LS_OUT-POSNR } { COND STRING( WHEN LV_ERROR = ABAP_TRUE THEN GC_ERROR ELSE GC_SUCCESS ) }|.
+      APPEND VALUE #( STATUS   = COND #( WHEN LV_ERROR = ABAP_TRUE THEN ICON_LED_RED ELSE ICON_LED_GREEN )
+                      VBELN    = LS_OUT-VBELN
+                      POSNR    = LS_OUT-POSNR
+                      MATNR    = LS_OUT-MATNR
+                      MESSAGE  = COND #( WHEN LV_ERROR = ABAP_TRUE THEN GC_ERROR ELSE GC_SUCCESS )
+                      BAPI_MSG = LV_BAPI_MSG ) TO MT_RESULT.
     ENDLOOP.
 
-    WRITE SY-ULINE.
+  ENDMETHOD.
+
+  METHOD DISPLAY.
+
+    IF MT_RESULT IS INITIAL.
+      MESSAGE 'No sales order to change' TYPE 'S'.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        CL_SALV_TABLE=>FACTORY( IMPORTING R_SALV_TABLE = DATA(LO_ALV)
+                                CHANGING  T_TABLE      = MT_RESULT ).
+
+        DATA(LO_COLS) = LO_ALV->GET_COLUMNS( ).
+        LO_COLS->SET_OPTIMIZE( ABAP_TRUE ).
+
+        DATA(LO_STATUS) = CAST CL_SALV_COLUMN_TABLE( LO_COLS->GET_COLUMN( 'STATUS' ) ).
+        LO_STATUS->SET_ICON( IF_SALV_C_BOOL_SAP=>TRUE ).
+        LO_STATUS->SET_SHORT_TEXT( 'Status' ).
+        LO_STATUS->SET_MEDIUM_TEXT( 'Status' ).
+        LO_STATUS->SET_LONG_TEXT( 'Status' ).
+
+        LO_COLS->GET_COLUMN( 'MESSAGE' )->SET_SHORT_TEXT( 'Message' ).
+        LO_COLS->GET_COLUMN( 'MESSAGE' )->SET_MEDIUM_TEXT( 'Message' ).
+        LO_COLS->GET_COLUMN( 'MESSAGE' )->SET_LONG_TEXT( 'Message' ).
+
+        LO_COLS->GET_COLUMN( 'BAPI_MSG' )->SET_SHORT_TEXT( 'BAPI msg' ).
+        LO_COLS->GET_COLUMN( 'BAPI_MSG' )->SET_MEDIUM_TEXT( 'BAPI message' ).
+        LO_COLS->GET_COLUMN( 'BAPI_MSG' )->SET_LONG_TEXT( 'BAPI error message' ).
+
+        DATA(LO_SORTS) = LO_ALV->GET_SORTS( ).
+        LO_SORTS->ADD_SORT( COLUMNNAME = 'VBELN' SUBTOTAL = ABAP_FALSE ).
+
+        LO_ALV->GET_FUNCTIONS( )->SET_ALL( ABAP_TRUE ).
+        LO_ALV->GET_DISPLAY_SETTINGS( )->SET_STRIPED_PATTERN( ABAP_TRUE ).
+        LO_ALV->DISPLAY( ).
+
+      CATCH CX_SALV_MSG CX_SALV_NOT_FOUND CX_SALV_EXISTING CX_SALV_DATA_ERROR.
+        MESSAGE 'Result list could not be displayed' TYPE 'S' DISPLAY LIKE 'E'.
+    ENDTRY.
 
   ENDMETHOD.
 
