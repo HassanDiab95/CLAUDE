@@ -976,13 +976,16 @@ CLASS ZCL_SD_SO_RELEASE IMPLEMENTATION.
         INPUT_CONTAINER = LT_CONT
         MESSAGE_LINES   = LT_MSG.
 
-    DATA(LS_MSG) = VALUE SWR_MESSAG( LT_MSG[ 1 ] OPTIONAL ).
+    DATA(LV_MSG) = REDUCE STRING( INIT LV_TXT = ``
+                                  FOR LS_MSG IN LT_MSG
+                                  NEXT LV_TXT = COND #( WHEN LV_TXT IS INITIAL THEN CONV STRING( LS_MSG-LINE )
+                                                        ELSE |{ LV_TXT } / { LS_MSG-LINE }| ) ).
     SAVE( IS_HDR   = LS_HDR
           IT_ITEMS = READ_ITEMS( IV_VBELN )
           IV_EVENT = COND #( WHEN LV_RC = 0 THEN 'EVENT' ELSE 'EVENT_ERR' )
           IV_NOTE  = COND #( WHEN LV_RC = 0
                              THEN |WS99000010 started (work item { LV_WI_ID ALPHA = OUT }) by { SY-UNAME } ({ SY-TCODE })|
-                             ELSE |WS99000010 not started (rc { LV_RC }): { LS_MSG-LINE }| ) ).
+                             ELSE |WS99000010 not started (rc { LV_RC }): { LV_MSG }| ) ).
     COMMIT WORK.
 
   ENDMETHOD.
