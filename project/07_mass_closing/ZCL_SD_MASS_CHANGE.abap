@@ -36,8 +36,8 @@ CLASS ZCL_SD_MASS_CHANGE DEFINITION
 
     DATA MT_RESULT TYPE TT_RESULT.
 
-    CONSTANTS GC_ERROR   TYPE STRING VALUE ': An error occured, no change done to the sales order.'.
-    CONSTANTS GC_SUCCESS TYPE STRING VALUE ': Sales order changed successfully.'.
+    CONSTANTS GC_ERROR   TYPE STRING VALUE 'An error occured, no change done to the sales order.'.
+    CONSTANTS GC_SUCCESS TYPE STRING VALUE 'Sales order changed successfully.'.
 
     METHODS CALC_DATE
       RETURNING VALUE(RV_DATE) TYPE P0001-BEGDA.
