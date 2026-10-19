@@ -6,7 +6,7 @@ SELECT-OPTIONS s_vbeln FOR vbak-vbeln.
 PARAMETERS     p_90day AS CHECKBOX DEFAULT 'X'.
 
 AT SELECTION-SCREEN.
-  IF sy-ucomm = 'ONLI' AND p_90day = abap_false AND s_vbeln[] IS INITIAL.
+  IF p_90day = abap_false AND s_vbeln[] IS INITIAL.
     MESSAGE 'Enter sales orders when the 90 days condition is not used' TYPE 'E'.
   ENDIF.
 
