@@ -19,14 +19,14 @@
 *&---------------------------------------------------------------------*
 *& Created By     : Hassan Diab
 *& Created On     : 12.10.2026
-*& Request No.    : DS4K903222
+*& Request No.    : DS4K903322
 *& Version        : 1.0
 *&---------------------------------------------------------------------*
 *& Change History
 *&---------------------------------------------------------------------*
 *& Ver | Date       | Author        | Request No.  | Description
 *&-----|------------|---------------|--------------|--------------------
-*& 1.0 | 12.10.2026 | Hassan Diab   | DS4K903222   | Initial creation.
+*& 1.0 | 12.10.2026 | Hassan Diab   | DS4K903322   | Initial creation.
 *&---------------------------------------------------------------------*
 CLASS ZCL_PO_PR_PREIS_CHECK DEFINITION
   PUBLIC
@@ -35,7 +35,7 @@ CLASS ZCL_PO_PR_PREIS_CHECK DEFINITION
 
   PUBLIC SECTION.
     CONSTANTS CO_MSGID       TYPE SYMSGID VALUE 'ZMM_PO'.
-    CONSTANTS CO_MSGNO_PREIS TYPE SYMSGNO VALUE '003'.
+    CONSTANTS CO_MSGNO_PREIS TYPE SYMSGNO VALUE '004'.
 
     TYPES: BEGIN OF TY_PR,
              BANFN TYPE BANFN,
@@ -70,10 +70,10 @@ CLASS ZCL_PO_PR_PREIS_CHECK DEFINITION
 
     METHODS RESET.
 
+
+
   PRIVATE SECTION.
 
-*   PO items whose expected value was already defaulted from the PR,
-*   so a value the user typed in afterwards is not overwritten again
     TYPES: BEGIN OF TY_DONE,
              ITEM  TYPE REF TO IF_PURCHASE_ORDER_ITEM_MM,
              BANFN TYPE BANFN,
@@ -99,8 +99,8 @@ CLASS ZCL_PO_PR_PREIS_CHECK DEFINITION
       CHANGING  CS_ITEM TYPE MEPOITEM.
 
     METHODS GET_CONDITION_VALUE
-      IMPORTING IO_ITEM        TYPE REF TO IF_PURCHASE_ORDER_ITEM_MM
-                IS_ITEM        TYPE MEPOITEM
+      IMPORTING IO_ITEM         TYPE REF TO IF_PURCHASE_ORDER_ITEM_MM
+                IS_ITEM         TYPE MEPOITEM
       RETURNING VALUE(RV_VALUE) TYPE BAPICURR_D.
 
     METHODS CHECK_ITEM
@@ -140,13 +140,27 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
 * +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD CHECK_ITEM.
 
+*    CHECK IS_ITEM-EXPECTED_VALUE > IS_PR-PREIS.
+*
+*    RV_FAILED = ABAP_TRUE.
+*
+*    RAISE_MESSAGE( IV_MSGTY = 'E'
+*                   IV_MSGID = CO_MSGID
+*                   IV_MSGNO = CO_MSGNO_PREIS
+*                   IV_MSGV1 = |{ IS_ITEM-EBELP ALPHA = OUT }|
+*                   IV_MSGV2 = FORMAT_AMOUNT( IV_AMOUNT = CONV #( IS_ITEM-EXPECTED_VALUE )
+*                                             IV_WAERS  = IS_PR-WAERS )
+*                   IV_MSGV3 = |{ IS_PR-BANFN } / { IS_PR-BNFPO ALPHA = OUT }|
+*                   IV_MSGV4 = FORMAT_AMOUNT( IV_AMOUNT = CONV #( IS_PR-PREIS )
+*                                             IV_WAERS  = IS_PR-WAERS ) ).
+*
+*    IO_ITEM->INVALIDATE( ).
+
     DATA(LV_CONDITIONS) = GET_CONDITION_VALUE( IO_ITEM = IO_ITEM
-                                               IS_ITEM = IS_ITEM ).
+                                                   IS_ITEM = IS_ITEM ).
     CHECK LV_CONDITIONS > IS_PR-PREIS.
 
     RV_FAILED = ABAP_TRUE.
-
-*   Item &1: Conditions total &2 more than PR &3 valuation price &4
     RAISE_MESSAGE( IV_MSGTY = 'E'
                    IV_MSGID = CO_MSGID
                    IV_MSGNO = CO_MSGNO_PREIS
@@ -179,7 +193,6 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
                       BNFPO = CS_ITEM-BNFPO )
              INTO TABLE MT_DONE.
 
-*     item already saved (ME22N) -> keep its value, only check it
       SELECT SINGLE @ABAP_TRUE
         FROM EKPO
         WHERE EBELN = @CS_ITEM-EBELN
@@ -188,7 +201,6 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
       CHECK LV_SAVED = ABAP_FALSE.
 
     ELSE.
-*     already defaulted for this PR item -> the user's value stays
       CHECK <LS_DONE>-BANFN <> CS_ITEM-BANFN
          OR <LS_DONE>-BNFPO <> CS_ITEM-BNFPO.
       <LS_DONE>-BANFN = CS_ITEM-BANFN.
@@ -217,12 +229,10 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
                                      IS_ITEM = LS_ITEM ).
     CHECK LS_PR IS NOT INITIAL.
 
-*   1) EBAN-PREIS -> EKPO-EXPECTED_VALUE
     DEFAULT_EXPECTED_VALUE( EXPORTING IO_ITEM = IO_ITEM
                                       IS_PR   = LS_PR
                             CHANGING  CS_ITEM = LS_ITEM ).
 
-*   2) conditions (SUM KBETR) must not exceed the PR valuation price
     CHECK_ITEM( IO_ITEM = IO_ITEM
                 IS_ITEM = LS_ITEM
                 IS_PR   = LS_PR ).
@@ -287,8 +297,6 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
 
     LV_KPOSN = IS_ITEM-EBELP.
 
-*   1) conditions of KNUMV still in memory: current values, also for a
-*      new PO (ME21N) or a changed price (ME22N) not yet saved to the DB
     IO_ITEM->GET_CONDITIONS( IMPORTING EX_CONDITIONS = LT_KOMV ).
     IF LT_KOMV IS NOT INITIAL.
       LOOP AT LT_KOMV INTO DATA(LS_KOMV)
@@ -299,7 +307,6 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   2) EKKO-KNUMV -> PRCD_ELEMENTS (saved conditions)
     DATA(LV_KNUMV) = IO_ITEM->GET_HEADER( )->GET_DATA( )-KNUMV.
     CHECK LV_KNUMV IS NOT INITIAL.
 
@@ -311,6 +318,7 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
       INTO @RV_VALUE.
 
   ENDMETHOD.
+
 
 * <SIGNATURE>---------------------------------------------------------------------------------------+
 * | Static Public Method ZCL_PO_PR_PREIS_CHECK=>GET_INSTANCE
@@ -333,8 +341,6 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
 * | [<-()] RS_PR                          TYPE        TY_PR
 * +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD GET_PR_DATA.
-*   no EBAKZ filter: in ME22N the PR item is already closed by the
-*   first save, but the check must still apply
     SELECT SINGLE BANFN, BNFPO, BSART, PREIS, WAERS
       FROM EBAN
       WHERE BANFN = @IV_BANFN
@@ -366,7 +372,6 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
                                IV_BNFPO = IS_ITEM-BNFPO ).
     CHECK IS_PR_TYPE( LS_PR-BSART ) = ABAP_TRUE.
 
-*   PR price in another currency is not comparable with the PO
     IF LS_PR-WAERS IS INITIAL.
       LS_PR-WAERS = LS_HEADER-WAERS.
     ENDIF.
