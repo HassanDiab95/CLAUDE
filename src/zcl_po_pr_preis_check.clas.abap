@@ -11,9 +11,9 @@
 *& Purpose        : PR types Z306/Z307 -> PO types Z406/Z407:
 *&                  1) PO item created with reference to the PR item:
 *&                     EBAN-PREIS is copied to EKPO-EXPECTED_VALUE.
-*&                  2) Error ZMM_PO/003 if the sum of the PO item
-*&                     conditions (EKKO-KNUMV -> PRCD_ELEMENTS, KBETR)
-*&                     is more than EBAN-PREIS.
+*&                  2) Error ZMM_PO/004 if the sum of the conditions
+*&                     (EKKO-KNUMV -> PRCD_ELEMENTS, KBETR) of all PO
+*&                     lines of the same PR item is more than EBAN-PREIS.
 *&                  3) PR item closing on save is done by
 *&                     ZCL_PR_AUTO_CLOSE.
 *&---------------------------------------------------------------------*
@@ -103,6 +103,11 @@ CLASS ZCL_PO_PR_PREIS_CHECK DEFINITION
                 IS_ITEM         TYPE MEPOITEM
       RETURNING VALUE(RV_VALUE) TYPE BAPICURR_D.
 
+    METHODS GET_PR_CONDITION_TOTAL
+      IMPORTING IO_HEADER       TYPE REF TO IF_PURCHASE_ORDER_MM
+                IS_PR           TYPE TY_PR
+      RETURNING VALUE(RV_VALUE) TYPE BAPICURR_D.
+
     METHODS CHECK_ITEM
       IMPORTING IO_ITEM          TYPE REF TO IF_PURCHASE_ORDER_ITEM_MM
                 IS_ITEM          TYPE MEPOITEM
@@ -156,8 +161,10 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
 *
 *    IO_ITEM->INVALIDATE( ).
 
-    DATA(LV_CONDITIONS) = GET_CONDITION_VALUE( IO_ITEM = IO_ITEM
-                                                   IS_ITEM = IS_ITEM ).
+*   one PR item can be split over several PO lines (e.g. PR item 10 in
+*   PO lines 10 and 20) -> compare the total of all those lines
+    DATA(LV_CONDITIONS) = GET_PR_CONDITION_TOTAL( IO_HEADER = IO_ITEM->GET_HEADER( )
+                                                  IS_PR     = IS_PR ).
     CHECK LV_CONDITIONS > IS_PR-PREIS.
 
     RV_FAILED = ABAP_TRUE.
@@ -330,6 +337,30 @@ CLASS ZCL_PO_PR_PREIS_CHECK IMPLEMENTATION.
       CREATE OBJECT GO_INSTANCE.
     ENDIF.
     RO_INSTANCE = GO_INSTANCE.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PO_PR_PREIS_CHECK->GET_PR_CONDITION_TOTAL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_HEADER                      TYPE REF TO IF_PURCHASE_ORDER_MM
+* | [--->] IS_PR                          TYPE        TY_PR
+* | [<-()] RV_VALUE                       TYPE        BAPICURR_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_PR_CONDITION_TOTAL.
+
+*   sum of the conditions of all PO lines that refer to this PR item
+    CHECK IO_HEADER IS BOUND.
+
+    LOOP AT IO_HEADER->GET_ITEMS( ) INTO DATA(LS_ITEMS).
+      DATA(LS_ITEM) = LS_ITEMS-ITEM->GET_DATA( ).
+      CHECK LS_ITEM-BANFN = IS_PR-BANFN
+        AND LS_ITEM-BNFPO = IS_PR-BNFPO
+        AND LS_ITEM-LOEKZ IS INITIAL.
+      RV_VALUE += GET_CONDITION_VALUE( IO_ITEM = LS_ITEMS-ITEM
+                                       IS_ITEM = LS_ITEM ).
+    ENDLOOP.
+
   ENDMETHOD.
 
 
