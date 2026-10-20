@@ -43,6 +43,12 @@ CLASS ZCL_WF_SD_SO_REL_STEP DEFINITION
                 IV_ACTION    TYPE ZWF_ACTION
                 IV_NOTE      TYPE CSEQUENCE.
 
+    CLASS-METHODS SET_LOG_WORKITEM
+      IMPORTING IV_WI_ID     TYPE SWW_WIID
+                IV_LOG_ID    TYPE ZWF_LOG_ID
+                IV_LOG_ID_OD TYPE ZWF_LOG_ID
+                IV_LOG_AREA  TYPE CHAR2.
+
     CLASS-METHODS POSNR_LIST
       IMPORTING IT_PLAN        TYPE ZCL_SD_SO_RELEASE=>TT_PLAN
                 IV_PRODUCTION  TYPE ABAP_BOOL
@@ -53,6 +59,11 @@ ENDCLASS.
 CLASS ZCL_WF_SD_SO_REL_STEP IMPLEMENTATION.
 
   METHOD CREDIT_STARTED.
+
+    SET_LOG_WORKITEM( IV_WI_ID     = IV_WI_ID
+                      IV_LOG_ID    = IV_LOG_ID
+                      IV_LOG_ID_OD = IV_LOG_ID_OD
+                      IV_LOG_AREA  = IV_LOG_AREA ).
 
     DATA(LO_RELEASE) = NEW ZCL_SD_SO_RELEASE( ).
 
@@ -135,6 +146,23 @@ CLASS ZCL_WF_SD_SO_REL_STEP IMPLEMENTATION.
                                       IV_ACTION = IV_ACTION
                                       IV_AGENT  = SY-UNAME
                                       IV_NOTE   = LV_NOTE ).
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD SET_LOG_WORKITEM.
+
+    CHECK IV_WI_ID IS NOT INITIAL.
+
+    IF IV_LOG_ID IS NOT INITIAL AND IV_LOG_AREA <> 'OD'.
+      UPDATE ZWF_LOG_EX_H SET WI_ID = @IV_WI_ID WHERE LOG_ID = @IV_LOG_ID.
+    ENDIF.
+
+    DATA(LV_OD_LOG) = COND ZWF_LOG_ID( WHEN IV_LOG_AREA = 'OD' THEN IV_LOG_ID
+                                       ELSE IV_LOG_ID_OD ).
+
+    IF LV_OD_LOG IS NOT INITIAL.
+      UPDATE ZWF_LOG_OD_H SET WI_ID = @IV_WI_ID WHERE LOG_ID = @LV_OD_LOG.
     ENDIF.
 
   ENDMETHOD.
