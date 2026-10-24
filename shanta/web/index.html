@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shanta | شنطة</title>
+  <meta name="description" content="Connect with travelers who have spare luggage weight across the Middle East and the world.">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#search">🧳 <span data-i18n="brand">Shanta</span></a>
+    <nav>
+      <a href="#search" data-i18n="nav_search">Find a traveler</a>
+      <a href="#trip" data-i18n="nav_trip">I'm traveling</a>
+      <a href="#request" data-i18n="nav_request">Send something</a>
+      <a href="#bookings" data-i18n="nav_bookings">My bookings</a>
+      <a href="#safety" data-i18n="nav_safety">Rules</a>
+    </nav>
+    <div class="actions">
+      <button id="langBtn" class="ghost">العربية</button>
+      <button id="authBtn" data-i18n="login">Log in</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- SEARCH -->
+    <section id="search" class="view">
+      <div class="hero">
+        <h1 data-i18n="hero_title">Your item, in a traveler's spare kilos</h1>
+        <p data-i18n="hero_sub">Find someone flying your route who has spare luggage weight, on your dates.</p>
+        <form id="searchForm" class="search">
+          <label><span data-i18n="from">From</span><select name="from" class="country"></select></label>
+          <label><span data-i18n="to">To</span><select name="to" class="country"></select></label>
+          <label><span data-i18n="needed_by">Needed by</span><input type="date" name="by"></label>
+          <label><span data-i18n="weight">Weight (kg)</span><input type="number" name="min_kg" min="0" step="0.5" value="1"></label>
+          <button data-i18n="search">Search</button>
+        </form>
+      </div>
+      <div id="results" class="cards"></div>
+    </section>
+
+    <!-- POST TRIP -->
+    <section id="trip" class="view" hidden>
+      <h2 data-i18n="trip_title">Share your spare luggage weight</h2>
+      <form id="tripForm" class="grid">
+        <label><span data-i18n="from">From</span><select name="from_country" class="country" required></select></label>
+        <label><span data-i18n="city">City</span><input name="from_city" required></label>
+        <label><span data-i18n="to">To</span><select name="to_country" class="country" required></select></label>
+        <label><span data-i18n="city">City</span><input name="to_city" required></label>
+        <label><span data-i18n="depart">Departure</span><input type="date" name="depart_date" required></label>
+        <label><span data-i18n="arrive">Arrival</span><input type="date" name="arrive_date" required></label>
+        <label><span data-i18n="spare_kg">Spare kg</span><input type="number" name="available_kg" min="0.5" max="46" step="0.5" required></label>
+        <label><span data-i18n="price_kg">Price per kg</span><input type="number" name="price_per_kg" min="0" step="0.5" required></label>
+        <label><span data-i18n="currency">Currency</span><select name="currency"><option>USD</option><option>EGP</option><option>SAR</option><option>AED</option><option>KWD</option><option>QAR</option></select></label>
+        <label class="check"><input type="checkbox" name="accepts_buy_for_me" checked> <span data-i18n="accept_buy">I can buy items in shops for people (recommended)</span></label>
+        <label class="check"><input type="checkbox" name="accepts_handover"> <span data-i18n="accept_handover">I accept items handed to me (I will inspect them open)</span></label>
+        <label class="wide"><span data-i18n="notes">Notes</span><textarea name="notes" rows="2"></textarea></label>
+        <button class="wide" data-i18n="publish">Publish trip</button>
+      </form>
+    </section>
+
+    <!-- POST REQUEST -->
+    <section id="request" class="view" hidden>
+      <h2 data-i18n="req_title">What do you need brought?</h2>
+      <form id="requestForm" class="grid">
+        <label><span data-i18n="type">Type</span>
+          <select name="type">
+            <option value="buy_for_me" data-i18n="type_buy">Buy it for me (traveler buys new, with invoice)</option>
+            <option value="handover" data-i18n="type_handover">I'll hand it over (traveler inspects it)</option>
+          </select></label>
+        <label><span data-i18n="item">Item</span><input name="title" required></label>
+        <label><span data-i18n="category">Category</span><select name="category" id="categorySelect"></select></label>
+        <label><span data-i18n="weight">Weight (kg)</span><input type="number" name="weight_kg" min="0.1" max="23" step="0.1" required></label>
+        <label><span data-i18n="value">Declared value</span><input type="number" name="declared_value" min="0" step="1" required></label>
+        <label><span data-i18n="currency">Currency</span><select name="currency"><option>USD</option><option>EGP</option><option>SAR</option><option>AED</option><option>KWD</option><option>QAR</option></select></label>
+        <label><span data-i18n="from">From</span><select name="from_country" class="country" required></select></label>
+        <label><span data-i18n="city">City</span><input name="from_city" required></label>
+        <label><span data-i18n="to">To</span><select name="to_country" class="country" required></select></label>
+        <label><span data-i18n="city">City</span><input name="to_city" required></label>
+        <label><span data-i18n="needed_by">Needed by</span><input type="date" name="needed_by" required></label>
+        <label><span data-i18n="link">Shop link (optional)</span><input name="item_url" type="url"></label>
+        <label class="wide"><span data-i18n="description">Description</span><textarea name="description" rows="2"></textarea></label>
+        <div id="checkBox" class="wide notice" hidden></div>
+        <button class="wide" data-i18n="publish_req">Post request & find travelers</button>
+      </form>
+      <div id="matches" class="cards"></div>
+    </section>
+
+    <!-- BOOKINGS -->
+    <section id="bookings" class="view" hidden>
+      <h2 data-i18n="nav_bookings">My bookings</h2>
+      <div id="kycBox" class="notice" hidden>
+        <span data-i18n="kyc_needed">Verify your identity to book. We check your ID and a selfie.</span>
+        <button id="kycBtn" data-i18n="verify">Verify now</button>
+      </div>
+      <div id="bookingList" class="cards"></div>
+    </section>
+
+    <!-- SAFETY -->
+    <section id="safety" class="view" hidden>
+      <h2 data-i18n="rules_title">Safety & legal rules</h2>
+      <ol class="rules">
+        <li data-i18n="r1">Travelers never carry a closed package. Every item is opened and checked before it goes in the bag.</li>
+        <li data-i18n="r2">"Buy it for me" is the safest mode: the traveler buys a new item in a shop, keeps the invoice, and declares it as their purchase.</li>
+        <li data-i18n="r3">Payment is held by a licensed payment provider and released only when the recipient gives the 6-digit delivery code.</li>
+        <li data-i18n="r4">Everyone verifies their ID. Travelers and senders rate each other after delivery.</li>
+        <li data-i18n="r5">The traveler is legally responsible for what is in their bag at customs. Declare anything above the duty-free allowance.</li>
+      </ol>
+      <h3 data-i18n="prohibited">Never allowed</h3>
+      <ul id="prohibitedList" class="chips"></ul>
+      <h3 data-i18n="restricted">Allowed with conditions</h3>
+      <ul id="restrictedList"></ul>
+    </section>
+  </main>
+
+  <dialog id="authDialog">
+    <form id="authForm" method="dialog">
+      <h3 id="authTitle" data-i18n="login">Log in</h3>
+      <label class="reg"><span data-i18n="name">Full name</span><input name="name"></label>
+      <label><span data-i18n="email">Email</span><input name="email" type="email" required></label>
+      <label class="reg"><span data-i18n="phone">Phone</span><input name="phone" type="tel"></label>
+      <label class="reg"><span data-i18n="country">Country</span><select name="country" class="country"></select></label>
+      <label><span data-i18n="password">Password</span><input name="password" type="password" minlength="8" required></label>
+      <label class="reg check"><input type="checkbox" name="accept_terms"> <span data-i18n="terms">I accept the terms and the prohibited-items policy</span></label>
+      <p id="authError" class="error"></p>
+      <div class="row">
+        <button value="submit" data-i18n="continue">Continue</button>
+        <button type="button" id="authToggle" class="ghost" data-i18n="no_account">Create account</button>
+        <button type="button" id="authClose" class="ghost">✕</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
